@@ -1011,9 +1011,9 @@ Names and groups of current user, including
 C<unames> and C<ugroups>
 
 
-=item ugroups () -> [user groups]
+=item ugroups (?user name) -> [user groups]
 
-Groups current user belongs to.
+Groups current user belongs to. Default is current user.
 See also C<-ugroups>.
 
 
@@ -1140,6 +1140,99 @@ See also C<Error and Message processing>, L<CGI::Carp|CGI/Carp>
 =head1 VERSION
 
 =over
+
+=head2 15/03/2005
+
+Version 0.59, improvement release.
+
+
+=head2 19/01/2005
+
+C<tpath> usage replaced with C<dpath>
+in L<CGI::Bus::udata|CGI/Bus/udata> and L<CGI::Bus::upws|CGI/Bus/upws>;
+C<-tpath> is not used directly inside L<CGI::Bus|CGI/Bus> now,
+but only as C<-dpath> default value 
+and for L<CGI|CGI> $TempFile::TMPDIRECTORY.
+
+
+=head2 10/01/2005
+
+Some corrections in L<CGI::Bus::wg|CGI/Bus/wg> 'ddlb' 
+and L<CGI::Bus::tm|CGI/Bus/tm> behaviours.
+
+
+=head2 26/11/2004
+
+L<CGI::Bus::wg|CGI/Bus/wg> 'ddlb' 
+and L<CGI::Bus::tmsql|CGI/Bus/tmsql> 'htmlddlb'
+changed - optional 'field' parameter added.
+
+
+=head2 22/11/2004
+
+L<CGI::Bus::wg|CGI/Bus/wg> changed - 'ddlb'
+gives default value from the first field, 
+'ddlb' double clicking invokes the first field filling.
+
+
+=head2 19/11/2004
+
+C<ugroups> extended with new 'user name' parameter.
+
+
+=head2 16-17/11/2004
+
+Additional L<CGI::Bus::tm|CGI/Bus/tm> '-opflg' options.
+New L<CGI::Bus::tm|CGI/Bus/tm> 'cmdfe' method.
+New L<CGI::Bus::tmsql|CGI/Bus/tmsql> '-rowsel1a', '-rowsel2a', '-rowsel3a' slots.
+HTML style names changed, style usage extended in L<CGI::Bus::tm|CGI/Bus/tm>, 
+L<CGI::Bus::tmsql|CGI/Bus/tmsql>,
+L<CGI::Bus::upws|CGI/Bus/upws>.
+
+
+=head2 05/11/2004
+
+New L<CGI::Bus::tmsql|CGI/Bus/tmsql> 'f'etch flag in '-flg' for 'cmdlst'.
+
+
+=head2 03/11/2004
+
+L<CGI::Bus::tm|CGI/Bus/tm> changed implementing experimental '_tsw_LSO'
+interface for options embedded into views.
+
+L<CGI::Bus::uauth|CGI/Bus/uauth> fixed
+to return ['guest'] instead of empty list from 'ugroups'.
+
+L<CGI::Bus::lngbase|CGI/Bus/lngbase> strings corrected.
+
+
+=head2 25/10/2004
+
+L<CGI::Bus::tmsql|CGI/Bus/tmsql> 'cmdlst' changed to
+bind database columns to hash ref available from '-rowlst' and '-clst'.
+
+
+=head2 18-19/10/2004
+
+L<CGI::Bus::tm|CGI/Bus/tm> 'evaluate' changed to execute
+some L<CGI::Bus::upws|CGI/Bus/upws>
+'_run' commands as full-text 'SEARCH' or user 'SETUP'.
+
+L<CGI::Bus::tm|CGI/Bus/tm> 'qlst' changed to determine 
+default view via '_' sign not only at the end of
+the view name, but at the end of the view label too.
+
+
+
+=head2 12/10/2004
+
+New L<CGI::Bus::tmsql|CGI/Bus/tmsql> C<-listurm> slots
+
+
+=head2 11/10/2004
+
+L<locale|locale> used for sorting in some places.
+
 
 
 =head2 10/10/2004

@@ -15,8 +15,8 @@ $a ='';                  # root application directory
  $ENV{COMPUTERNAME} =eval{Win32::NodeName()} if $^O eq 'MSWin32' 
                                             and !$ENV{COMPUTERNAME};
 
- $s->set  (-tpath => "$a/tmp"                   # temporary files path
-          ,-iurl  => '/icons'                   # apache images
+ $s->set  (-iurl  => '/icons'                   # apache images
+	# ,-tpath => "$a/tmp"                   # temporary files path
           ,-dpath => $a);                       # data files path
  $s->udata(-path=>$s->dpath('udata'));          # users data path
 

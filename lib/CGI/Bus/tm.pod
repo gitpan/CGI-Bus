@@ -314,12 +314,11 @@ See also C<-tbarl>
 Operations allowed letters:
 '<' leftmost left navigation action bar from C<htmlbar>;
 'a'll:
-'c'reate/'i'nsert,
-'e'dit/'u'pdate,
-'d'elete record;
-'s'elect record (?), '!s'elect record button;
-'v'iew record, '!v'iew record mode;
-'l'ist records, 'q'uery condition
+'c'reate/'i'nsert, 'e'dit/'u'pdate, 'd'elete,
+'s'elect (?), 'v'iew record,
+'l'ist, 'q'uery records;
+!'c'reate/'i'nsert, !'e'dit/'u'pdate, !'d'elete record,
+!'s'elect record button, !'v'iew record mode, !'q'uery condition
 
 
 
@@ -396,6 +395,22 @@ C<-rowsav2> is used for each database command
 (new value fieldnames may be prefixed).
 
 
+
+=item -rowsel1a
+
+=item -rowsel2a
+
+Like C<-rowsel>, but immediatelly 'a'fter database (SQL SELECT) command
+generation and execution.
+Field values are available as L<CGI|CGI> params, 
+both previous (C<-pxpv>) and pending.
+C<-rowsel1a> is used while editing record only 
+(when previous field values selected).
+C<-rowsel2a> is used for each record selection
+(previous or current field values selected).
+
+
+
 =item -tbarl
 
 Left toolbar HTML or HTML strings array ref for C<-htm> operation
@@ -459,6 +474,11 @@ before insert, update, delete
 =item cmdcrt () -> params with default values
 
 Create L<CGI|CGI> params with C<-crt> default values for new record
+
+
+=item cmdfe () -> form editing?
+
+Check if there is form editing operation.
 
 
 =item cmdfrm () -> HTML form fields printed
@@ -597,6 +617,31 @@ C<qparam> call with C<-pxsw> prefixed param names.
 =head1 VERSION
 
 =over
+
+
+=head2 16-17/11/2004
+
+New !'c'reate/'i'nsert, !'d'elete, !'e'dit/'u'pdate, !'q'uery C<-opflg> options.
+New C<cmdfe> method.
+Changed C<htmlbar> considering C<-vsd> option.
+
+
+=head2 03/11/2004
+
+New experimantal C<_tsw_LSO> / C<qloval> / C<qlourl> / C<qlowgh> / C<qlowgl> / C<qloparse>
+interface to implement options embedded into views.
+
+
+=head2 18-19/10/2004
+
+=item Changed:
+
+C<evaluate> executes now some L<CGI::Bus::upws|CGI/Bus/upws>
+'_run' commands as full-text 'SEARCH' or user 'SETUP'.
+
+C<qlst> may determine default view via '_' sign not only at the end of
+the view name, but at the end of the view label too.
+
 
 =head2 26/06/2003
 

@@ -184,7 +184,7 @@ sub scrleft {   # left screen (urls)
  my $p =$s->parent;
  my $tf=$s->qparam('_target');
 
- $s->print()->htpgstart(undef, $p->hmerge($p->{-htpnstart},-target=>$tf||'RIGHT',-class=>'_PaneLeft'));
+ $s->print()->htpgstart(undef, $p->hmerge($p->{-htpnstart},-target=>$tf||'RIGHT',-class=>'PaneLeft'));
 
  { my $li=$s->{-logo};
    my $lt=$tf ? 1 : 0;
@@ -272,7 +272,7 @@ sub scrleft {   # left screen (urls)
 
 sub scrtopr  {  # top right screen (frame)
  my $s =shift;
- $s->print->htpgstart(undef, $s->parent->hmerge($s->parent->{-htpnstart}, -class=>'_PaneLeft'));
+ $s->print->htpgstart(undef, $s->parent->hmerge($s->parent->{-htpnstart}, -class=>'PaneLeft'));
  $s->print->startform(-action=>$s->qurl, -acceptcharset=>$s->parent->{-httpheader} ?$s->parent->{-httpheader}->{-charset} :undef);
  $s->print->htpfend();
 }
@@ -323,7 +323,7 @@ sub search {    # search screen
  my $s =shift;
  my $p =$s->parent;
  my $g =$p->cgi;
- $p->print->htpgstart(undef, {-class=>'_PaneList'});
+ $p->print->htpgstart(undef, {-class=>'PaneList'});
  $p->print->startform(-action=>$s->qurl);
  $p->print->hidden('_run'   =>'SEARCH');
  $s->print('<table width="100%"><tr><td>');
@@ -439,6 +439,7 @@ sub search {    # search screen
          if (!$vp) {
             $rct +=1;
             my $rp =$ol->{Path}->{Value};
+	       $rp ='' if !defined($rp);
                $rp =~s/\\/\//g;
             foreach my $e (@$qt) {
                next if !$e->[0] || lc(substr($rp, 0, length($e->[0]))) ne lc($e->[0]);
@@ -667,7 +668,7 @@ sub scrusites { # Users Sites Display
  my $lv =0;
  my $lr =2;
 
- $p->print->htpgstart(undef, {-class=>'_PaneList'});
+ $p->print->htpgstart(undef, {-class=>'PaneList'});
  $p->print->startform(-action=>$s->qurl);
 
  $p->print->hidden('_run'   =>'USITES');
@@ -677,7 +678,8 @@ sub scrusites { # Users Sites Display
     if $us;
  $p->print->text('<table width="100%"><tr><td>');
  $p->print->h1($p->htmlescape($s->lng(0, 'USites') .($us ? " - $us" :'')));
- my $tf =$p->fut->mkdir($p->tpath('upws')) ."/usites$us.pl";
+#my $tf =$p->fut->mkdir($p->tpath('upws')) ."/usites$us.pl";
+ my $tf =$p->fut->mkdir($p->dpath('upws')) ."/usites$us.pl";
  if (!-f $tf || $p->param('refresh')) {
     $s->uscollect;
     $p->fut->fdumpstore($tf, $s->{-ushref});
@@ -789,7 +791,7 @@ sub scrsetup {  # setup screen
      $d =$s->udata->param;
  }
 
- $s->print->htpgstart(undef, $s->parent->hmerge($s->parent->{-htpnstart}, -class=>'_PaneForm'));
+ $s->print->htpgstart(undef, $s->parent->hmerge($s->parent->{-htpnstart}, -class=>'PaneForm'));
  $s->print->startform(-action=>$s->qurl);
 
  $s->print->hidden('_run' =>'SETUP');

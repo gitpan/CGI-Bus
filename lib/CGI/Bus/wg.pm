@@ -22,31 +22,71 @@ use vars qw(@ISA $AUTOLOAD);
 
 
 sub ddlb {     # Drop-Down List Box - Input helper
- my ($s,$n,$ds) =(shift, shift, shift);
+ my ($s,$w,$n,$ds) =(shift
+	,$_[0] =~/^(?:<|\$_|\s)/ || $_[0] =~/(?:>|\$_|\s)$/ ? shift : undef
+	,shift, shift);
  my $g =$s->cgi;
  my $r ='';
  if ($g->param($n .'_B')) {
+    my $ff =(ref($_[0]) ? $_[0]->[0] : $_[0]);
+    my $fs =sub{
+	'{var k;'
+	."var l=window.document.forms[0].${n}_L;"
+	.(!$_[0]
+	? "k=window.document.forms[0].$ff.value +String.fromCharCode(window.event.keyCode);"
+	: $_[0] eq '1'
+	# ? "k=window.document.forms[0].$ff.value +=String.fromCharCode(window.event.keyCode);"
+	# ? "window.document.forms[0].$ff.fireEvent(\"onkeypress\"); k=window.document.forms[0].$ff.value;"
+	? "window.document.forms[0].$ff.focus(); k=window.document.forms[0].$ff.value =String.fromCharCode(window.event.keyCode); "
+	: $_[0] eq '2'
+	? "k=prompt('Enter search string',String.fromCharCode(window.event.keyCode));"
+	# $_[0] eq '3'
+	: "k=prompt('Enter search substring',''); ${n}_L.focus();"
+	)
+	.'if(!k){return(false)}; k=k.toLowerCase();'
+	.'for (var i=0; i <l.length; ++i) {'
+	.($g->user_agent('MSIE')
+	?'if (l.options.item(i).value.toLowerCase().indexOf(k)'
+		.($_[0] eq '3' ?'>=' :'==') .'0 || l.options.item(i).innerText.toLowerCase().indexOf(k)'
+		.($_[0] eq '3' ?'>=' :'==') .'0){'
+	:'if (l.options.item(i).value.toLowerCase().indexOf(k)'
+		.($_[0] eq '3' ?'>=' :'==') .'0){')
+	.'l.selectedIndex =i; break;}}'
+	.($_[0] ? 'return(false);' : '')
+	.'}'};
+    if ($ff !~/^\t/ && $w) {
+	$r .='<script for="' .$ff 
+	.'" event="onkeypress()" >' .&$fs(0) .'</script>';
+    }
+    $r .=$w if $w;
     $r .=$g->submit(-name=>($n .'_C'), -value=>$s->lng(0,'ddlbclose'), -title=>$s->lng(1,'ddlbclose'));
     $r .='<br />';
     $ds = &$ds($s) if ref($ds) eq 'CODE';
     my $dl;
     if (ref($ds) eq 'HASH') {
        $dl =$ds;
-       $ds =[sort {lc($ds->{$a}) cmp lc($ds->{$b})} keys %$ds];
+       $ds =do{use locale; [sort {lc($ds->{$a}) cmp lc($ds->{$b})} keys %$ds]};
        foreach my $k (keys %$dl) {$dl->{$k} =substr($dl->{$k},0,60) .'...' if length($dl->{$k}) >60}
     }
     $r .=$g->scrolling_list(-name=>($n .'_L')
-                           ,-values=>$ds
-                           ,-labels=>$dl
-                           ,-size=>(scalar(@$ds) <10 ? scalar(@$ds) : 10)
-                           );
+		,-values=>$ds
+		,-labels=>$dl
+		,-size=>(scalar(@$ds) <10 ? scalar(@$ds) : 10)
+		,-onDblClick=>"{${n}_L.nextSibling.nextSibling.click();"
+			.($ff !~/^\t/ && scalar(@_) >1 ? ' submit();' : '')
+			.' return(false)}'
+		,($ff !~/^\t/ && $w 
+		? (-onKeyPress=>&$fs(1))
+		: ())
+		,-default=> 0 ? '' : $ff !~/^\t/ ? $g->param($ff) : ''
+		);
     chomp($r);
     $r .='<br />';
-    if (scalar(@_) == 1 && (ref($_[0]) ? $_[0]->[0] : $_[0]) !~/^\t/) {
+    if (scalar(@_) == 1 && $ff !~/^\t/) {
        $r .=$g->submit(-name=>($n .'_S')
-                      ,-value=>'<' 
-                       .(ref($_[0]) ?($_[0]->[1] || $_[0]->[0]) :($_[0] || ''))
-                      ,-title=>$s->lng(1,'ddlbsetvalue'))
+		,-value=>'<' 
+		.(ref($_[0]) ?($_[0]->[1] || $_[0]->[0]) :($_[0] || ''))
+		,-title=>$s->lng(1,'ddlbsetvalue'));
     }
     else {
        foreach my $fn (@_) {
@@ -72,24 +112,25 @@ sub ddlb {     # Drop-Down List Box - Input helper
            ,-title=>$s->lng(1,'ddlbsetvalue'));
        }
     }
-    $r .=$g->button(-value=>$s->lng(0,'ddlbfind'), -title=>$s->lng(1,'ddlbfind')
-         ,-onClick=>
-           '{var k;'
-           ."var l=window.document.forms[0].${n}_L;"
-           ."k=prompt('Enter search string',''); if(!k){return(false)}"
-           .'k=k.toLowerCase();'
-           .'for (var i=0; i <l.length; ++i) {'
-	   .($g->user_agent('MSIE')
-	    ?'if (l.options.item(i).value.toLowerCase().indexOf(k)==0 || l.options.item(i).innerText.toLowerCase().indexOf(k)==0){'
-	    :'if (l.options.item(i).value.toLowerCase().indexOf(k)==0){')
-           .'l.selectedIndex =i; return(false); break;}}};'
-         );
+    $r .=$g->button(-value=>$s->lng(0,'ddlbfind')
+		,-title=>$s->lng(1,'ddlbfind')
+		,-onClick=>&$fs(3));
     $r .=$g->submit(-name=>($n .'_C'), -value=>$s->lng(0,'ddlbclose'), -title=>$s->lng(1,'ddlbclose'));
+    $r .='<script for="window" event="onload">{'
+	# .'window.scrollTo(window.document.forms[0].' .$n .'_L, window.screenTop);'
+	.(0 && $ff !~/^\t/ && $w && defined($g->param($ff)) && ($g->param($ff) ne '')
+	? "window.document.forms[0].${ff}.select(); window.document.forms[0].${ff}.focus();"
+	: "window.document.forms[0].${n}_L.focus();"
+	).'}</script>';
  }
  else {
     $g->param(ref($_[0]) ? $_[0]->[0] : $_[0], $g->param($n .'_L')) 
         if scalar(@_) == 1 && $g->param($n .'_S');
+    $r .=$w if $w;
     $r .=$g->submit(-name=>($n .'_B'), -value=>$s->lng(0,'ddlbopen'), -title=>$s->lng(1,'ddlbopen'));
+    $r .='<script for="window" event="onload">{'
+	.'window.document.forms[0].' .$n .'_B.focus();}</script>'
+	if ($g->param($n .'_S') ||$g->param($n .'_C'));
  }
  $r
 }
@@ -150,8 +191,8 @@ sub textarea { # Text Area with autorowing and hrefs
 		."onclick=\"{if(${n}__b.value=='R') {${n}__b.value='T'; $n.style.display='none'; "
 		."\n var r; r =document.createElement('<span contenteditable=true id=&quot;${n}__r&quot; title=&quot;MSHTML Editing Component&quot; ondeactivate=&quot;{$n.value=${n}__r.innerHTML}&quot;></span>'); ${n}__b.parentNode.insertBefore(r,$n);\n"
 		# r.execCommand('Font', 1)
-		."r.contentEditable='true'; r.style.borderStyle='inset'; r.style.borderWidth='thin'; r.normalize; r.innerHTML =$n.value ? $n.value : ' ';}\n"
-		."else {${n}__b.value='R'; $n.value=${n}__r.innerHTML ? ${n}__r.innerHTML : ''; ${n}__r.removeNode(true); $n.style.display='inline';};\n"
+		."r.contentEditable='true'; r.style.borderStyle='inset'; r.style.borderWidth='thin'; r.normalize; r.innerHTML =$n.value ? $n.value : ' '; r.focus();}\n"
+		."else {${n}__b.value='R'; $n.value=${n}__r.innerHTML ? ${n}__r.innerHTML : ''; ${n}__r.removeNode(true); $n.style.display='inline'; $n.focus();};\n"
 		." return(false)}\" />\n"
 		#MSHTML Edit Control for IE5.5
 		if $n && ($ENV{HTTP_USER_AGENT}||'') =~/MSIE/;
@@ -175,7 +216,7 @@ sub textarea { # Text Area with autorowing and hrefs
  if (defined($a{-hrefs})) {
     my $v =$v;
     my @h;
-    while ($v =~/\b(\w{3,5}:\/\/[^\s\t,()<>\[\]"']+[^\s\t.,;()<>\[\]"'])/) {
+    while ($v =~/\b([\w-]{3,7}:\/\/[^\s\t,()<>\[\]"']+[^\s\t.,;()<>\[\]"'])/) {
        my $t =$1;
        $v =$';
        $t =~s/^(host|urlh):\/\//\//;
@@ -258,7 +299,7 @@ sub fsdir {	# Filesystem dir field
         $fd =$p->fut->fload('-b',$fd);
         $fd =$' if $fd =~m/<body\b[^>]*>/i;
         $fd =$` if $fd =~m/<\/body\b/i;
-        $fd ='<base href="' .($fb) .'/" />' .$fd if $fd !~m/<base\b/i; # !!! May be a problem
+        $fd ='<base href="' .($fb =~/:\/\// ? $fb : $p->surl($fb)) .'/" />' .$fd if $fd !~m/<base\b/i; # !!! May be a problem
         $r .='<hr />' .$fd .'<br />';
     }
  }

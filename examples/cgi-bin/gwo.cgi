@@ -408,7 +408,7 @@ $s->tmsql->set(
 #
 # Filter Description
 #
-$s->tmsql->set(-fltlst =>sub{$_[0]->aclsel('-',qw(puser prole auser arole rrole),$_[0]->unames,qw(cuser uuser))});
+$s->tmsql->set(-fltlst =>sub{$_[0]->aclsel('-t',qw(puser prole auser arole rrole),$_[0]->unames,qw(cuser uuser))});
 $s->tmsql->set(-ftext  =>'MATCH (gwo.object, gwo.doctype, gwo.subject, gwo.comment) AGAINST ($_)');
 $s->tmsql->set(-ftext  =>'(' .join(' OR ', map {"gwo.$_ LIKE \%\$_"} qw(object doctype subject comment cuser uuser puser prole auser arole rrole)) .')');
 #

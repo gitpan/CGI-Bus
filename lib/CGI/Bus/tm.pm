@@ -231,6 +231,84 @@ sub qparampx { # Prefixed query parameters
  $r
 }
 
+sub qloval {	# query list option value compose
+		# (self, list name, param=>val,...)
+	join("\t", $_[1], map {defined($_) ? $_ : ''
+	} @_[2..(lc($_[$#_ -1]) eq lc(pxnme($_[0],-pxsw=>'listurm')) 
+		? $#_ -2 : $#_)])
+}
+
+sub qlourl {	# query list option url
+ $_[0]->qurl('' # (self, list name, param=>val,...)
+	,pxnme($_[0],-pxcb=>'cmd') =>'-lst'
+	,pxnme($_[0],-pxsw=>'LIST')=>$_[1]
+	,pxnme($_[0],-pxsw=>'LSO') =>qloval(@_)
+	,(map {	my ($n, $v) =($_,$_[0]->qparam($_));
+		!defined($v) || $v eq ''
+		|| substr($n,0,length($_[0]->{-pxcb})) eq $_[0]->{-pxcb}
+		|| substr($n,0,length($_[0]->{-pxpv})) eq $_[0]->{-pxpv}
+		|| $n eq '_login'
+		|| $n eq pxnme($_[0],-pxsw=>'FRMCOUNT')
+		|| $n eq pxnme($_[0],-pxsw=>'LIST')
+		|| $n eq pxnme($_[0],-pxsw=>'LSO')
+		|| $n eq pxnme($_[0],-pxsw=>'listurm')
+		? ()
+		: ($n=>$v)
+		} $_[0]->cgi->param)
+	,lc($_[$#_ -1]) eq lc(pxnme($_[0],-pxsw=>'listurm'))
+	? (@_[($#_ -1)..$#_])
+	: ())
+}
+
+sub qlowgh {	# query list option hidden widget
+		# (self, ?default value)
+ $_[0]->qparam(pxnme($_[0],-pxsw=>'LSO')) 
+? ''
+: ($_[0]->cgi->hidden(-name=>pxnme($_[0],-pxsw=>'LSO')
+	, $#_ >0 
+	? (-value=>$_[0]->qparam(pxnme($_[0],-pxsw=>'LSO'), qloval(@_))
+		, -override=>1)
+	: ()) ."\n")
+}
+
+sub qlowgl {	# query list option hyperlink widget
+ my $s =shift;	# (self, ?(options), label, list name, param=>val,...)
+ my $o =ref($_[0]) ? (shift @_) : undef;
+ my $v =qloval($s,@_[1..$#_]);
+ my $c =$v eq ($s->qparam(pxnme($s,-pxsw=>'LSO'))||'');
+ $s->cgi->a({$o ? %$o : ()
+	, -href=>qlourl($s,@_[1..$#_])
+	, $c ? (-style=>'{ text-decoration: none; font-weight: bolder; }') : ()
+			# font-style: italic;  font-weight: bolder;
+#	, -onClick=>'{' .pxnme($s,-pxsw=>'LSO') .'.value="' # !!! read marking?
+#		.do{	$v =~s/([\\"])/\\$1/g;
+#			$v =~s/([\x00-\x1f])/sprintf("\\x%02x",ord($1))/eg;
+# 			$v} .'"; ' 
+#		.pxnme($s,-pxsw=>'LIST') .'.value="' .$_[1] .'"; '
+#		.pxnme($s,-pxcb=>'cmdi') .'.value="-lst"; submit(); return(false)}'
+	}, $_[0])
+}
+
+sub qloparse {	# query list option parse
+ my $g =$_[0]->cgi;	# (self)
+ my $v =$g->param(pxnme($_[0],-pxsw=>'LSO'));
+ return(undef)	if !$v 
+		|| $v !~/^([^\t]+)\t+(.+)$/
+		|| lc($1) ne lc($g->param(pxnme($_[0],-pxsw=>'LIST')));
+ local $^W=undef;
+ my %p =(split /\t/, $2);
+ my $w =pxnme($_[0],-pxsw=>'WHERE');
+ foreach my $k (keys %p) {
+	next if !defined($p{$k}) || $p{$k} eq '';
+	$g->param($k
+		, $k ne $w
+		? $p{$k}
+		: $g->param($w) && index(lc($g->param($w)||''), lc($p{$k})) <0
+		? '(' .$g->param($w) .') AND (' .$p{$k} .')'
+		: $p{$k});
+ }
+ $_[0]
+}
 
 
 ###################################
@@ -245,8 +323,10 @@ sub qlst {         # Query List Name
  return(undef) if !$s->{-lists};
  my @a =sort keys %{$s->{-lists}};
  foreach my $v (@a) {
-   next if substr($v,length($v)-1) ne '_';
-   return($l =$v);
+	return($l =$v)
+	if	($v && substr($v,length($v)-1) eq '_')
+	||	&{sub{$_[0] && substr($_[0],length($_[0])-1) eq '_'}}
+		(ref($s->{-lists}->{$v}) eq 'HASH' && $s->{-lists}->{$v}->{-lbl})
  }
  $l =$a[0];
 }
@@ -261,7 +341,7 @@ sub qlstnmes {     # Lists Names
       push @$r, $e
     }
  }
- [sort {($l->{$a}->{-lbl}||$l->{$a}->{-lst}||$a) cmp ($l->{$b}->{-lbl}||$l->{$b}->{-lst}||$b)} @$r]
+ [sort {lc($l->{$a}->{-lbl}||$l->{$a}->{-lst}||$a) cmp lc($l->{$b}->{-lbl}||$l->{$b}->{-lst}||$b)} @$r]
 }
 
 
@@ -291,7 +371,8 @@ sub cmd {      # Transaction command schema
     if ($g->param($s->pxnme(-pxcb=>'-lgn'))) {
         $s->parent->userauth
     }
-    $s->{-opflg} =$s->parent->uguest ? 'qv' : 'a!v' if !defined($s->{-opflg});
+    $s->{-opflg} =$s->parent->uguest ? 'qv' : 'a' # a!v
+		if !defined($s->{-opflg});
     foreach my $p (qw(-lst -lsr -qry -crt -sel -edt -frm -ins -upd -del -hlp)) { # post
       next if !($g->param($s->pxnme(-pxcb=>$p)) 
               ||$g->param($s->pxnme(-pxcb=>$p .'.x')));
@@ -383,20 +464,28 @@ sub cmd {      # Transaction command schema
                    # form after create, select
   ||($q eq '-end') # end transaction; result message
  )&&($q eq '-sel' ? $f =~/[avcieud]/
-    :$q eq '-qry' ? $f =~/[aq]/
-    :$q eq '-ins' ? $f =~/[aci]/
-    :$q eq '-upd' ? $f =~/[aeu]/
-    :$q eq '-del' ? $f =~/[ad]/
+    :$q eq '-qry' ? $f =~/[aq]/		&& $f !~/![q]/
+    :$q eq '-ins' ? $f =~/[aci]/	&& $f !~/![ci]/
+    :$q eq '-upd' ? $f =~/[aeu]/	&& $f !~/![eu]/
+    :$q eq '-del' ? $f =~/[ad]/		&& $f !~/![d]/
     :$q
     );
  $r
 }
 
 
-sub cmdg {     # Transaction generic command
+sub cmdg {	# Transaction generic command
  my $c =$_[0]->{-cmdg} || ($_[0]->cmd, $_[0]->{-cmdg});
  return($c) if @_ <2;
  grep {$c eq $_} @_ 
+}
+
+
+sub cmdfe {	# Form edit operation
+ $_[0]->qparamsw('EDIT') 
+||($_[0]->cmdg('-sel') && (($_[0]->{-opflg}||'') !~/[av]/ || ($_[0]->{-opflg}||'')=~/!v/))
+|| $_[0]->cmdg('-crt') 
+|| $_[0]->cmdg('-qry')
 }
 
 
@@ -475,17 +564,21 @@ sub htmlbar {  # Transaction batton bar html
  my $p =$s->parent;
  my $g =$p->cgi;
  my $guest =$p->uguest;
-    $o =($s->{-opflg} ||($guest ? 'qv' : 'a!v')) if !defined($o);
+    $o =($s->{-opflg} ||($guest ? 'qv' : 'a')) # a!v
+			if !defined($o);
  my $r ='';
  $s->cmd() if !$s->{-cmd};
  if ($s->{-cmd} eq '-ins') {
   # $s->{-cmd}  ='-sel';
     $s->{-cmdg} ='-sel'
  }
- my $vm = !$s->{-cmde};
+ my $vv = $s->{-vsd} && 
+	(	$s->{-vsd}->{-npf} && $g->param($s->{-vsd}->{-npf})
+	||	$s->{-vsd}->{-sf}  && ($g->param($s->{-vsd}->{-sf})||'') eq ($s->{-vsd}->{-sd}||''));
+ my $vm = $vv || !$s->{-cmde};
  if ($s->{-logo}) {
-    $r .=$s->_htmlbare($s->{-logo} !~/<a /i 
-         ? '<a href="' .$p->surl .'">' .($s->{-logo} !~/</ ? '<img src="' .$s->{-logo} .'" alt="" border=0 title="' .$s->lng(1,'-nap') .'" />' : $s->{-logo}) .'</a>' 
+    $r .=$s->_htmlbare($s->{-logo} !~/<a /i
+         ? '<a href="' .$p->surl .'">' .($s->{-logo} !~/</ ? '<img src="' .$s->{-logo} .'" alt="" border=0 title="' .$s->lng(1,'-nap') .'" />' : $s->{-logo}) .'</a>'
          : $s->{-logo});
  }
 #if ((!$ENV{HTTP_REFERER}
@@ -501,29 +594,35 @@ sub htmlbar {  # Transaction batton bar html
        $nup =$s->burl .'/' if lc(substr($nup,0,length($nth))) eq lc($nth);
   # $r .=$s->_htmlbare(-nup, $nup);
     $r .=$s->_htmlbare(-nth, $nth);
+    $r .=$g->hidden(-name=>$s->pxnme(-pxsw=>'REFERER')
+		,-value=>$s->param($s->pxnme(-pxsw=>'REFERER')) ||$ENV{HTTP_REFERER} ||$s->burl
+		,-override=>1) ."\n";
  }
  if ($s->{-tbarl}) {
     $r .=$s->_htmlbare($s->{-tbarl});
  }
  if ($s->cmdg('-lst')) {
     $r .=$s->_htmlbare(-bck => $p->{-iurl} && $img{-bck} ? $p->qurl : 0
-                      ,-onClick=>'{window.history.back(); return(false)}') #window.event.returnValue=false;
-             if !$s->{-formtgf};
+			,-onClick=>'{window.history.back(); return(false)}') #window.event.returnValue=false;
+		if !$s->{-formtgf};
     $r .=$s->_htmlbare(-lgn => $s->uauth->authurl) 
-	     if $guest && $s->uauth->authurl;
+		if $guest && $s->uauth->authurl;
     $r .=$s->_htmlbare($g->popup_menu(-name=>$s->pxnme(-pxsw=>'LIST')
-                      ,-values=>$s->qlstnmes
-                      ,-labels=>$s->qlstlbls
-                      ,-default=>$s->qlst
-                      ,-onChange=> (!$p->{-iurl}
+			,-values=>$s->qlstnmes
+			,-labels=>$s->qlstlbls
+			,-default=>$s->qlst
+			,-onChange=> (!$p->{-iurl}
                           ? $s->pxnme(-pxcb=>'-lst') .'.click()'
                           : '{' .$s->pxnme(-pxcb=>'-cmdi') .'.value="-lst"; submit(); return(false);}')
-                      ))
-             if $s->{-lists} && scalar(keys %{$s->{-lists}}) >1;
+			,-class=>'MenuArea MenuButton'
+			))
+		if $s->{-lists} && scalar(keys %{$s->{-lists}}) >1;
     $r .=$s->_htmlbare($p->htmltextfield(-name =>$s->pxsw('FTEXT')
-                      ,-title=>$s->lng(1,'F-TEXT')
-                      ,-asize=>4)) 
-             if $s->{-ftext};
+			,-title=>$s->lng(1,'F-TEXT')
+			,-asize=>4
+			,-class=>'MenuArea MenuButton'
+			)) 
+		if $s->{-ftext};
     $r .=$s->_htmlbare('-lst');
     $r .=$s->_htmlbare('-qry') if $o =~/[aq]/;
  }
@@ -546,7 +645,8 @@ sub htmlbar {  # Transaction batton bar html
  if (!$s->cmdg('-lst','-qry')) {
   # $r .=$s->_htmlbare('-lsr') if !$s->{-formtgf};
     $r .=$s->_htmlbare(-qry =>$s->htmlurl($s->qurl,$s->pxcb('-cmd')=>'-qry'))
-			       if $o =~/[aq]/  && !$s->{-formtgf} && ($vm || $o =~/!v/);
+			if $o =~/[aq]/ && $o !~/![q]/
+			&& !$s->{-formtgf} && ($vm || $o =~/!v/);
 
     local $s->{-keyval} =$s->keyval	# !!! single field keys only
 			if $s->{-keyfld} && ($s->{-vsd} ||$s->{-fsd})
@@ -555,19 +655,19 @@ sub htmlbar {  # Transaction batton bar html
     $r .=$s->_htmlbare('-prn'=>$s->htmlurl($s->qurl,$s->pxcb('-cmd')=>'-sel'
 			,$s->keyfld=>$s->{-keyval},
 			,'_tsw_MIN'=>'bhpvr'
-			))	if $vm && $o =~/[aeu]/
+			))	if $vm && $o =~/[av]/
 				&& $s->{-keyval};
 				
-    $r .=$s->_htmlbare('-sel') if $o =~/[aev]/ && $s->cmdg eq '-sel' && $o !~/!s/ && !$guest;
-    $r .=$s->_htmlbare('-edt') if $o =~/[av]/  && $s->cmdg eq '-sel' && $o !~/!v/ && $vm && !$guest;
+    $r .=$s->_htmlbare('-sel') if $o =~/[aev]/ && $s->cmdg eq '-sel' && $o !~/![s]/ && !$vv && !$guest;
+    $r .=$s->_htmlbare('-edt') if $o =~/[av]/  && $s->cmdg eq '-sel' && $o !~/![veu]/ && $vm && !$vv && !$guest;
 
     delete $s->{-keyval};
     $r .=$s->_htmlbare('-frm') if $o =~/[aeu]/ && $s->cmdg ne '-del' && !$vm;
-    $r .=$s->_htmlbare('-upd') if $o =~/[aeu]/ && $s->cmdg eq '-sel' && !$vm;
-    $r .=$s->_htmlbare('-ins') if $o =~/[aci]/ && $s->cmdg ne '-del' && !$vm;
-    $r .=$s->_htmlbare('-del') if $o =~/[ad]/  && $s->cmdg eq '-sel';
+    $r .=$s->_htmlbare('-upd') if $o =~/[aeu]/ && $o !~/![eu]/ && $s->cmdg eq '-sel' && !$vm && !$vv;
+    $r .=$s->_htmlbare('-ins') if $o =~/[aci]/ && $o !~/![ci]/ && $s->cmdg ne '-del' && !$vm;
+    $r .=$s->_htmlbare('-del') if $o =~/[ad]/  && $o !~/![d]/  && $s->cmdg eq '-sel' && !$vv;
  }
- if ($o =~/[aci]/ && !$s->cmdg('-qry')) {
+ if ($o =~/[aci]/ && $o !~/![ci]/ && !$s->cmdg('-qry') && !$vv) {
     local $s->{-keyval} =$s->keyval	# !!! single field keys only
 			if $s->{-keyfld} && ($s->{-vsd} ||$s->{-fsd});
     if (!$s->{-formtgf}) {
@@ -575,8 +675,8 @@ sub htmlbar {  # Transaction batton bar html
     }
     else {
 	$r .=$s->_htmlbare('-crt'
-                      ,$s->htmlurl($s->qurl, $s->pxcb('-cmd')=>'-crt')
-                      ,-target=>$s->{-formtgf})
+			,$s->htmlurl($s->qurl, $s->pxcb('-cmd')=>'-crt')
+			,-target=>$s->{-formtgf})
     }
  }
  if ($s->{-tbarr}) {
@@ -584,17 +684,23 @@ sub htmlbar {  # Transaction batton bar html
  }
  if (1) {
     $r .=$s->_htmlbare('-hlp'
-                      ,$s->htmlurl($s->qurl,$s->pxcb('-cmd')=>'-hlp')
-                      ,-target=>$s->{-formtgf});
+			,$s->htmlurl($s->qurl,$s->pxcb('-cmd')=>'-hlp')
+			,-target=>$s->{-formtgf});
  }
  if (1) {
-    $r .='<td class="_MenuCell" valign="middle" align="right">';
+    $r .='<td class="MenuArea" valign="middle" align="right">';
     $r .='&nbsp;[' .$s->lng(0,$s->cmd) 
              .(!$s->cmdg ||$s->cmd eq $s->cmdg ?'' : ('/' .$s->lng(0,$s->cmdg)))
              .']&nbsp;';
     $r .="</td>\n"
  }
- $r  ="<table class=\"_MenuArea\" cellpadding=0><tr>\n" .$r ."</tr></table>\n";
+ $r  ="<table class=\"MenuArea\" cellpadding=0><tr>\n"
+	.$r ."</tr></table>\n"
+	.($s->cmd('-lst') && ($s->{-refresh} || $s->{-lists} && $s->qlst && $s->{-lists}->{$s->qlst}->{-refresh})
+	 ? ''
+	 :('<script for="window" event="onload">{'
+	  ."var w=window.document.getElementsByTagName('table')[0]||window.document.getElementsByTagName('table')[0];"
+	  ."if(w){w.focus()}}</script>\n"));
 #$r .='<hr />';
  $r
 }
@@ -606,31 +712,36 @@ sub _htmlbare { # Transaction batton bar element
  my $g =$p->cgi;
  my ($v, $t);
     ($v, $t) =($s->lng(0,$b), $s->lng(1,$b)) if !ref($b) && $s->lng($b);
- my $h = ref($b) ? join('</td><td valign="middle">', @$b)
-       : $u ? $g->a({-href=>$u,-title=>$t,%a
-                  # ,-style=>"border-color: buttonface; border-width: thin; border-style: outset; background-color: buttonface;"
-                  # ,-style=>"background-color: buttonface; border-style: outset; border-width: thin;"
-                  # ,-style=>"behavior: url(#default#behaviorName);"
-                  # ,-style=>"behavior: url(behaviorFile.htc);"
-                    }
+ my $j =$a{-onClick} ||'if (window.event.srcElement.children[0]) {window.event.srcElement.children[0].click()}';
+    delete $a{-onClick};
+	# $a{-onclick} ||$a{-onClick} || '{window.event.srcElement.children(0).click(); return(false)}';
+ my $h = ref($b) 
+            ? join('</td><td valign="middle" class="MenuArea MenuButton">', @$b)
+       : $u ? $g->a({-href=>$u,-title=>$t
+			,-style=>'color: black; font-weight:normal;'
+			,-class=>'MenuArea MenuButton'
+                    ,%a}
                    , $p->{-iurl} && $img{$b} 
                    ? '<font size=-1><img src="' .$p->{-iurl} .'/' .$img{$b} 
-			.'" border=0 align="bottom"'
+			.'" border=0 align="bottom" class="MenuArea MenuButton"'
 			.($b eq '-lgn' ? ' width=20 height=22 />' : ' />')
 			.$p->htmlescape($v) .'</font>'
                    : $p->htmlescape($v)) .' '
        : $v ? ( $p->{-iurl} && $img{$b}
               ? $g->image_button(-name=>$s->pxnme(-pxcb=>$b)
-                       ,-value=>$v
-                       ,-src=>$p->{-iurl} .'/' .$img{$b}
-                       ,-align=>'bottom'
-                       ,-accesskey=>substr($v,0,1)
-                       ,-title=>$v .'. ' .$t
-                       , %a) 
-                       .$g->a({href=>$s->qurl('',$s->pxnme(-pxcb=>'-cmd')=>$b, !$s->{-keyval} ? () : ($s->keyfld=>$s->{-keyval}))
-				,-title=>$t, -onClick=>'{' .$s->pxnme(-pxcb=>'-cmdi') .'.value="'.$b .'"; submit(); return(false)}'}, '<font size=-1>' .$p->htmlescape($v) .'</font>')
+				,-value=>$v
+				,-src=>$p->{-iurl} .'/' .$img{$b}
+				,-align=>'bottom'
+				,-accesskey=>substr($v,0,1)
+				,-title=>$v .'. ' .$t
+				,-class=>'MenuArea MenuButton'
+				,%a) 
+			.$g->a({href=>$s->qurl('',$s->pxnme(-pxcb=>'-cmd')=>$b, !$s->{-keyval} ? () : ($s->keyfld=>$s->{-keyval}))
+				,-title=>$t
+				,-style=>'color: black; font-weight:normal;'
+				,-class=>'MenuArea MenuButton'
+				,-onClick=>$j='{' .$s->pxnme(-pxcb=>'-cmdi') .'.value="'.$b .'"; submit(); return(false)}'}, '<font size=-1>' .$p->htmlescape($v) .'</font>')
                      # !!! variants below does not works, -cmdi hidden variable added for above !!!
-                     # .'<font size=-1>' .$g->a({href=>$s->qurl('',$s->pxnme(-pxcb=>'-cmd')=>$b), -onClick=>'{var o=new submit; o.name="' .$s->pxnme(-pxcb=>$b) .'"; o.value="1"; forms[0].submit(); return(false)}'}, $p->htmlescape($v)) .'</font>'
                      # .'<font size=-1>' .$g->a({href=>$s->qurl('',$s->pxnme(-pxcb=>'-cmd')=>$b), -onClick=>'{' .$s->pxnme(-pxcb=>$b).'.click(); return(false)}'}, $p->htmlescape($v)) .'</font>'
                      # .'<font size=-1>' .$g->a({href=>$s->qurl('',$s->pxnme(-pxcb=>'-cmd')=>$b), -onClick=>$s->pxnme(-pxcb=>$b).'.click()'}, $p->htmlescape($v)) .'</font>'
               : defined($u)
@@ -648,13 +759,19 @@ sub _htmlbare { # Transaction batton bar element
                        ,-title=>$t
                        ,%a)
               ) .' '
-            : $b;
+       : do{$j =''; $b};
  chomp($h);
- '<td class="_MenuButton" valign="middle"'
- .($p->{-iurl} ? ' style="border-width: thin; border-style: outset; background-color: buttonface;"' :'')
- .">\n<nobr>" .  # style="border-width: thin; border-style: groove; background-color: buttonface"
-                 # style="border-width: thin; border-style: outset; background-color: buttonface"
- $h # ($b eq $s->{-cmd} ? $g->strong(' ' .$h .' ') : $h)
+#$j ='';
+ '<td class="MenuArea MenuButton" valign="middle"'
+ .($p->{-iurl} 
+	? ' style="border-width: thin; border-style: outset; background-color: buttonface;"'
+		.($j
+		? ' onmousedown="if(window.event.button==1){this.style.borderStyle=&quot;inset&quot;}" onmouseout="this.style.borderStyle=&quot;outset&quot;" onclick="' .$p->htmlescape($j) .'" title="' .$p->htmlescape($v .'. ' .$t) .'"'
+			# onmouseup="this.style.borderStyle=&quot;outset&quot;" 
+		: '')
+	: '')
+ .">\n<nobr>"
+ .$h
  ."</nobr></td>\n"
 }
 
@@ -676,14 +793,8 @@ sub htmlhid {   # Transaction hidden html
                             # declare immediate or image transaction command
  $r .=$g->hidden(-name=>$s->pxnme(-pxcb=>'-cmdi')
                 ,-value=>''
-                ,-override=>1);
+                ,-override=>1) ."\n";
 
-                            # store/preserve up referer
- $r .=$g->hidden(-name=>$s->pxnme(-pxsw=>'REFERER'), -value=>
-       ( $s->param($s->pxnme(-pxsw=>'REFERER'))
-       ||$ENV{HTTP_REFERER}
-       ||$s->burl)
-      ,-override=>1) ."\n";
  if ($s->cmd(-sel)) {       # -sel: save previos values after record selection
     foreach my $p ($g->param) {
       next if substr($p, 0, $lp) eq $s->{-pxpv};
@@ -714,11 +825,12 @@ sub htmlhid {   # Transaction hidden html
 	&& $s->{-lists}->{$s->qlst} 
 	&& $s->{-lists}->{$s->qlst}->{-cmdhtm}) {
 	foreach my $p ($g->param) {
-		next if substr($p, 0, $lq) eq $s->{-pxqc};
-		next if substr($p, 0, $lb) eq $s->{-pxcb};
-		next if $p eq $s->pxnme(-pxsw=>'FRMCOUNT');
-		next if $p eq $s->pxnme(-pxsw=>'FTEXT');
-		next if $p eq $s->pxnme(-pxsw=>'EDIT');
+		next	if substr($p, 0, $lq) eq $s->{-pxqc};
+		next	if substr($p, 0, $lb) eq $s->{-pxcb};
+		next	if $p eq $s->pxnme(-pxsw=>'FRMCOUNT')
+			|| $p eq $s->pxnme(-pxsw=>'FTEXT')
+			|| $p eq $s->pxnme(-pxsw=>'EDIT')
+			|| $p eq $s->pxnme(-pxsw=>'LIST');
 		# $r .=$g->hidden(-name=>$s->pxnme(-pxqc=>$p)	# pxqc off
 		# 	,-value=>$g->param($p),-override=>1) ."\n";
 		$r .=$g->hidden(-name=>$p
@@ -733,6 +845,14 @@ sub htmlhid {   # Transaction hidden html
     #   $r .=$g->hidden(-name=>$p 
     #                  ,-value=>$g->param($p),-override=>1) ."\n"
     # }
+    #$r .=$g->hidden(-name=>'_run'			# cargo
+	#	   ,-value=>$g->param('_run')
+	#	   ,-override=>1) ."\n"
+	#	if $g->param('_run') && $s->cmd(-qry);
+    $r .=$g->hidden(-name=>$s->pxnme(-pxsw=>'LSO')	# list options
+		   ,-value=>$g->param($s->pxnme(-pxsw=>'LSO'))
+		   ,-override=>1) ."\n"
+		if $g->param($s->pxnme(-pxsw=>'LSO')) && $s->cmd(-qry);
     $r .=$g->hidden(-name=>$s->pxnme(-pxsw=>'FRMCOUNT')
                    ,-value=>($g->param($s->pxnme(-pxsw=>'FRMCOUNT'))||0) +1
                    ,-override=>1) ."\n"
@@ -767,15 +887,14 @@ sub htmlres {   # Transaction command result msg html
  if (!$c) {
     my $h=$s->lng(0,'Failure') ." '" .$s->lng(0,$s->{-cmd}) ."': ";
     my $e=$s->htmlescape($m);
-    $r	.='<span class="_FooterArea" onclick="{_tsw_FooterArea.style.display=(_tsw_FooterArea.style.display==\'none\' ? \'inline\' : \'none\')}" style="cursor: hand; ">';
-  # $r	.='<span class="_ErrorMessage">' .$g->hr ."<font color=red><strong>$h</strong></font>" .$e ."</span>\n";
-    $r	.='<span class="_ErrorMessage">' .$g->hr ."<h1>$h</h1>" .$e ."</span>\n";
-    $r	.=$g->hr;
+    $r	.='<span class="FooterArea" onclick="{_tsw_FooterArea.style.display=(_tsw_FooterArea.style.display==\'none\' ? \'inline\' : \'none\')}" style="cursor: hand; ">';
+    $r	.='<span class="FooterArea ErrorMessage">' .$g->hr ."<h1 class=\"FooterArea ErrorMessage\">$h</h1>" .$e ."</span>\n";
+    $r	.='<hr class="FooterArea" />';
  }
  elsif ((grep {$s->{-cmd} eq $_} qw(-sel -ins -upd -del)) ||$t) {
-    $r	.='<span class="_FooterArea" onclick="{_tsw_FooterArea.style.display=(_tsw_FooterArea.style.display==\'none\' ? \'inline\' : \'none\')}" style="cursor: hand; ">'
-	.$g->hr 
-	.'<strong>'
+    $r	.='<span class="FooterArea" onclick="{_tsw_FooterArea.style.display=(_tsw_FooterArea.style.display==\'none\' ? \'inline\' : \'none\')}" style="cursor: hand; ">'
+	.'<hr class="FooterArea" />'
+	.'<strong class="FooterArea">'
 	.($s->cmd('-lst') && $s->{-genlstm} 
 		? $s->{-genlstm}
 		: ($s->lng(0,'Success') ." '" .$s->lng(0,$s->{-cmd}) ."'"))
@@ -835,6 +954,18 @@ sub evaluate { # Execution of tm
  $s->pushmsg($p->{-cache}->{-RevertToSelf}) 
 	if $p->{-cache}->{-RevertToSelf}
 	&& $p->{-debug} && $p->{-debug} >2;
+ if (($p->qrun||'') =~/^(SEARCH|SETUP)$/) {
+	my $a =$p->{-upws};
+	my $w =$p->upws;
+	if ($p->qrun eq 'SEARCH') {
+		return(undef) if $p->{-cache}->{-RevertToSelf};
+		$w->{-searchms} =1
+			if !$a
+			&& $^O eq 'MSWin32' 
+			&& (($ENV{SERVER_SOFTWARE}||'') =~/IIS/);
+	}
+	return($w->evaluate())
+ }
  $s->cmd;
  $s->{-cmdhtm} =sub{$s->cmdhtm(sub{;
  my $rfr =!$s->cmd('-lst') ? 0 
@@ -842,10 +973,10 @@ sub evaluate { # Execution of tm
           ||$s->{-refresh});
  $p->print->htpgstart(undef
 	   ,{-class=>	  $s->cmd('-lst') 
-			? '_Form _List'
+			? 'Form List'
 			: $s->cmdg('-qry')
-			? '_Form _QBF'
-			: '_Form'
+			? 'Form QBF'
+			: 'Form'
 	   , $rfr
            ? ($p->{-htpgstart} ? %{$p->{-htpgstart}} :()
              ,-head=>(($p->{-htpgstart} && $p->{-htpgstart}->{-head}) 
@@ -862,7 +993,7 @@ sub evaluate { # Execution of tm
           ? $s->start_multipart_form(-method=>$rfr ? 'get' : 'post', -action=>$s->qurl, -acceptcharset=>$p->{-httpheader} ?$p->{-httpheader}->{-charset} :undef)
           : $s->startform(-method=>$rfr ? 'get' : 'post', -action=>$s->qurl, -acceptcharset=>$p->{-httpheader} ?$p->{-httpheader}->{-charset} :undef));
  })} if !$s->{-cmdhtm};
- $p->print->htpfstart(undef, {-class=>'_Help', %{$p->{-htpgstart}}}) 
+ $p->print->htpfstart(undef, {-class=>'Help', %{$p->{-htpgstart}}}) 
 		if $s->cmd('-hlp');
  $s->eval();
  $p->print->htpfend if $p->{-cache}->{-htmlstart} ||!$s->cmd('-lst');
@@ -969,14 +1100,15 @@ sub cmdfrm { # Record form for Query or Edit
  my $g =$p->cgi;
  my $c =$_[1] ||substr($s->cmdg||$s->cmd,1,1);
     $c ='e' if $c eq 's' || $c eq 'f';
- my $vm= !$s->{-cmde} && $c eq 'e';
+ my $vm= !$s->{-cmde} && $c eq 'e' && $s->{-opflg} !~/!v/;
  my $mp= $vm && ($s->qparamsw('MIN')||'') =~/bh/i;
  my $rskip =1;
+ my $tskip =0;
  if (($s->qparamsw('MIN')||'') !~/h/) {
-    $p->print->strong({-class=>'_MenuHeader'},$p->htmlescape($p->{-htmlstart}->{-title}||$p->{-htpgstart}->{-title}||''));
-    $p->print("<hr class=\"_MenuHeader\" />\n");
+    $p->print->strong({-class=>'MenuArea MenuHeader'},$p->htmlescape($p->{-htmlstart}->{-title}||$p->{-htpgstart}->{-title}||''));
+    $p->print("<hr class=\"MenuArea MenuHeader\" />\n");
  }
- $p->print($s->{-htmlts} ? $s->{-htmlts} : '<table>', "\n<tr>\n");
+ $p->print($s->{-htmlts} ? $s->{-htmlts} : '<table class="Form">', "\n<tr>\n");
  $p->print('<th colspan=20><nobr>' 
           ,('&nbsp;' x $s->{-width}) 
           ,"</nobr></th></tr>\n<tr>\n"
@@ -989,13 +1121,23 @@ sub cmdfrm { # Record form for Query or Edit
           $p->print->td(' ');
           next
    }
+   elsif ($f eq "\f") {
+	$tskip =1;
+	$p->print("\n</tr>\n", $s->{-htmlte} ? $s->{-htmlte} : "\n</table>\n");
+	next
+   }
+   elsif ($f eq "</table>") {
+	$tskip =2;
+	$p->print("\n</tr>\n", $s->{-htmlte} ? $s->{-htmlte} : "\n</table>\n");
+	next
+   }
    elsif (!ref($f))          {$p->print($f); next}
    elsif (ref($f) eq 'CODE') {$p->print(&$f($s)); next}
    elsif (!$f->{-flg}
          ||$f->{-flg} =~/^["'ls]*$/) {next}
    next if !$f->{-fld};
 
-   local $_ =$s->param($f->{-fld});
+   local $_ =$g->param($f->{-fld});
    my $excl =$f->{-flg} !~/[a$c]/ && !($c =~/[ce]/ && $f->{-flg} =~/[av$c]/);
    my $hide =$c ne 'q' 
            && ((ref($f->{-hide})  eq 'CODE' ? &{$f->{-hide}}($s)  : $f->{-hide})
@@ -1009,6 +1151,21 @@ sub cmdfrm { # Record form for Query or Edit
    my $lbl =$p->htmlescape($f->{-lbl}||$f->{-fld});
    my $cmt =($f->{-cmt}||$f->{-lbl}||$f->{-fld}) .' [' .$f->{-fld} .': ' .$f->{-flg} .']';
 
+   my $wgh;
+   if (!($hide||$excl) && defined($f->{-inphtml})) {
+	$wgh =$f->{-inphtml};
+	if (ref($wgh) eq 'CODE') {
+		$wgh	=&$wgh($s);
+		$_	=$g->param($f->{-fld});
+	}
+	$wgh =~s/< *input\b[^<>]*>//ig	if $vm;
+	$wgh =~s/<[\/\s]*a\b[^>]*>//ig	if $mp;
+   }
+
+   if ($f->{-frm} && !$vm && !$view && !$excl && !$hide) {
+      $s->param($f->{-fld}, $_ =&{$f->{-frm}}($s, $_ =$s->param($f->{-fld})))
+   }
+
    if    ($excl||$hide) {
       $lbl =' '
    }
@@ -1020,22 +1177,11 @@ sub cmdfrm { # Record form for Query or Edit
       $l =~s/\$_/$lbl/;
       $lbl =$l;
    }
-   $p->print($lbl =~/<t[dh]\b/i ? $lbl 
-                  : $p->th({-align=>'left',-valign=>'top'},$lbl))
-       if !($hide && $f->{-hidel});
-
-   if ($f->{-frm}) {
-      local $_ =$s->param($f->{-fld});
-      $s->param($f->{-fld}, &{$f->{-frm}}($s, $_))
-   }
-
-   my $wgh;
-   if (!($hide||$excl) && defined($f->{-inphtml})) {
-      $wgh =$f->{-inphtml};
-      $wgh =&$wgh($s) if ref($wgh) eq 'CODE';
-      $wgh =~s/< *input\b[^<>]*>//ig	if $vm;
-      $wgh =~s/<[\/\s]*a\b[^>]*>//ig	if $mp;
-   }
+   $p->print($tskip || $lbl =~/<t[dh]\b/i 
+			? $lbl 
+			: $p->th({-align=>'left',-valign=>'top',-title=>$cmt||'',-class=>'Form'}
+				,$lbl))
+       if ($tskip<2) && !($hide && $f->{-hidel});
 
    my $wgp ='';
    if    ($excl) {}
@@ -1060,8 +1206,8 @@ sub cmdfrm { # Record form for Query or Edit
             $wgp .=$v
          }
          elsif ($f->{-inp}->{-hrefs}) {
-            $wgp .='<code>' if $v =~/ {2,}/;
-            while ($v =~/\b(\w{3,5}:\/\/[^\s\t,()<>\[\]"']+[^\s\t.,;()<>\[\]"'])/) {
+            $wgp .='<code class="Form">' if $v =~/ {2,}/;
+            while ($v =~/\b([\w-]{3,7}:\/\/[^\s\t,()<>\[\]"']+[^\s\t.,;()<>\[\]"'])/) {
                my $r =$1;
                $v    =$';
                my $w =$p->htmlescape($`); $w =~s/( {2,})/'&nbsp;' x length($1)/ge; $w =~s/\n/<br \/>\n/g; $w =~s/\r//g;
@@ -1069,7 +1215,7 @@ sub cmdfrm { # Record form for Query or Edit
                $r    =~s/^(host|urlh):\/\//\//;
                $r    =~s/^(url|urlr):\/\//$s->url(-relative=>1)/e;
                $r    =~s/^(fsurl|urlf):\/\//($s->fsurl||$s->fsurf) .'\/'/e;
-               $wgp .=$g->a({-href=>$r, -target=>'_blank', -title=>$r}
+               $wgp .=$g->a({-href=>$r, -target=>'_blank', -title=>$r, -class=>'Form'}
 				, $p->htmlescape(length($r) >49 ? substr($r,0,47) .'...' : $r));
             }
             $v =$p->htmlescape($v); $v =~s/( {2,})/'&nbsp;' x length($1)/ge; $v =~s/\n/<br \/>\n/g; $v =~s/\r//g;
@@ -1078,7 +1224,7 @@ sub cmdfrm { # Record form for Query or Edit
          }
          elsif (exists($f->{-inp}->{-arows}) ||exists($f->{-inp}->{-rows}) ||exists($f->{-inp}->{-cols})) {
             $v =$p->htmlescape($v); $v =~s/( {2,})/'&nbsp;' x length($1)/ge; $v =~s/\n/<br \/>\n/g; $v =~s/\r//g;
-            $v ="<code>$v</code>" if $v =~/&nbsp;&nbsp/;
+            $v ="<code class=\"Form\">$v</code>" if $v =~/&nbsp;&nbsp/;
             $wgp .=$v;
          }
          elsif ($f->{-inp}->{-labels}) {
@@ -1096,19 +1242,19 @@ sub cmdfrm { # Record form for Query or Edit
    }
    elsif (!$f->{-inp}) {
        # $wgp .=$g->textfield(-name=>$f->{-fld},-title=>$cmt)
-         $wgp .=$p->htmltextfield(-name=>$f->{-fld},-asize=>20,-title=>$cmt)
+         $wgp .=$p->htmltextfield(-name=>$f->{-fld},-asize=>20,-title=>$cmt,-class=>'Form')
    }
    elsif (ref($f->{-inp}) eq 'HASH') {
          if    (exists $f->{-inp}->{-arows}) {
              $f->{-inp}->{-arows} =$f->{-inp}->{-arows} ||3;
-             $wgp .=$p->htmltextarea(-name=>$f->{-fld},%{$f->{-inp}},-title=>$cmt)
+             $wgp .=$p->htmltextarea(-name=>$f->{-fld},%{$f->{-inp}},-title=>$cmt,-class=>'Form')
          }
          elsif (exists ($f->{-inp}->{-rows}) ||exists($f->{-inp}->{-cols}) || $f->{-inp}->{-hrefs}) {
-             $wgp .=$p->htmltextarea(-name=>$f->{-fld},%{$f->{-inp}},-title=>$cmt)
+             $wgp .=$p->htmltextarea(-name=>$f->{-fld},%{$f->{-inp}},-title=>$cmt, -class=>'Form')
          }
          elsif (exists $f->{-inp}->{-asize}) {
              $f->{-inp}->{-asize} =$f->{-inp}->{-asize} ||20;
-             $wgp .=$p->htmltextfield(-name=>$f->{-fld},%{$f->{-inp}},-title=>$cmt)
+             $wgp .=$p->htmltextfield(-name=>$f->{-fld},%{$f->{-inp}},-title=>$cmt,-class=>'Form')
          }
          elsif ($f->{-inp}->{-values} ||$f->{-inp}->{-labels}) {            
              my $fi =$f->{-inp};
@@ -1116,10 +1262,10 @@ sub cmdfrm { # Record form for Query or Edit
              $fi->{-labels} =&{$fi->{-labels}}($s) if ref($fi->{-labels}) eq 'CODE';
              $fi->{-values} =[sort {lc($fi->{-labels}->{$a}) cmp lc($fi->{-labels}->{$b})} keys %{$fi->{-labels}}]
                             if !$fi->{-values};
-             $wgp .=$p->popup_menu(-name=>$f->{-fld},%{$f->{-inp}},-title=>$cmt)
+             $wgp .=$p->popup_menu(-name=>$f->{-fld},%{$f->{-inp}},-title=>$cmt,-class=>'Form')
          }
          else {
-             $wgp .=$p->htmltextfield(-name=>$f->{-fld},%{$f->{-inp}},-title=>$cmt)
+             $wgp .=$p->htmltextfield(-name=>$f->{-fld},%{$f->{-inp}},-title=>$cmt,-class=>'Form')
          }
    }
    elsif (ref($f->{-inp}) eq 'ARRAY') {
@@ -1139,15 +1285,17 @@ sub cmdfrm { # Record form for Query or Edit
       }
    }
 
-   $wgp ='<td valign="top" align="left" '
-        .($f->{-colspan} ? ' colspan=' .$f->{-colspan} :'')
-        .($f->{-width} && $f->{-width} =~/\D/ ? ' width='   .$f->{-width}   :'')
-        .'>' .$wgp .'</td>' 
-        if $wgp !~/<t[dh]\b/i && !($hide && $f->{-hidel});
+   $wgp ='<td valign="top" align="left" class="Form"'
+	.($f->{-colspan} ? ' colspan=' .$f->{-colspan} :'')
+	.($f->{-width} && $f->{-width} =~/\D/ ? ' width='   .$f->{-width}   :'')
+	.(!$vm ? ' title="' .$p->htmlescape($cmt||'') .'"' : '')
+	.'>' .$wgp .'</td>' 
+	if !$tskip && $wgp !~/<t[dh]\b/i && !($hide && $f->{-hidel});
    $p->print($wgp, "\n");
    $rskip =undef;
  }
- $p->print("\n</tr>\n", $s->{-htmlte} ? $s->{-htmlte} : "\n</table>\n");
+ $p->print("\n</tr>\n", $s->{-htmlte} ? $s->{-htmlte} : "\n</table>\n")
+	if !$tskip;
  $s
 }
 
@@ -1164,19 +1312,11 @@ sub cmdhlp { # Help Command
  if ($o =~/t/) {
     $sh ='Help';
     my $t =$s->parent->{-htmlstart}->{-title}||$s->parent->{-htpgstart}->{-title}||'';
-  # print $g->h1(
-  # ($s->{-formtgf} ? ''
-  # :$g->button(-value=>'<-',-onClick=>'window.history.back();',-title=>$s->lng(1,'-bck')))
-  # .' '
-  # .$s->htmlescape($s->lng(0, $sh) .($t ? " - $t" : '')))
-  # , "\n";
-    print '<table class="_MenuArea"><tr>'
-  # , $s->{-formtgf} ? '' :$g->button(-value=>'<-',-onClick=>'window.history.back();',-title=>$s->lng(1,'-bck'))
+    print '<table class="MenuArea"><tr>'
     , $s->{-formtgf} ? '' :$s->_htmlbare(-bck=> $p->{-iurl} && $img{-bck} ? $p->qurl : 0, -onClick=>'{window.history.back(); return(false)}')
-    , '</td><th valign="middle" class="_MenuHeader"><strong>'
-  # , $s->_img('-hlp')
+    , '</td><th valign="middle" class="MenuArea MenuHeader">'
     , $s->htmlescape(($t ? "$t - " : '') .$s->lng(0, $sh))
-    , "</strong></th></tr></table><hr />\n";
+    , "</th></tr></table><hr />\n";
  }
  if ($o =~/[fo]/ && $s->{-form}) {
     $sh ='Fields';
@@ -1204,7 +1344,7 @@ sub cmdhlp { # Help Command
     $sh =$s->lng(1, $sh);
     print $g->p($s->htmlescape($sh)),"\n" if $sh;
     my $l =$s->{-lists};
-    my @a =sort {($l->{$a}->{-lbl}||$l->{$a}->{-lst}||$a) cmp ($l->{$b}->{-lbl}||$l->{$b}->{-lst}||$b)} keys %$l;
+    my @a =sort {lc($l->{$a}->{-lbl}||$l->{$a}->{-lst}||$a) cmp lc($l->{$b}->{-lbl}||$l->{$b}->{-lst}||$b)} keys %$l;
     print "<table>\n";
     foreach my $e (@a) {
       next if !$l->{$e}->{-cmt};
@@ -1239,7 +1379,7 @@ sub cmdhlp { # Help Command
     print $g->p($s->htmlescape($sh)),"\n" if $sh;
     print "<table>\n"; # -nup
     foreach my $c (index($s->{-opflg}||'','<') >=0 ? qw(-nap -nth) : ()
-                  ,qw(-bck -lgn -lst -qry -crt -sel -frm -ins -upd -del -hlp)) {
+                  ,qw(-bck -lgn -lst -qry -crt -sel -prn -edt -frm -ins -upd -del -hlp)) {
        next if !$s->lng($c);
        print "<tr>";
        print $g->th($ta

@@ -56,7 +56,7 @@ sub keyname {    # dir name -> key value
 
 sub keypath {    # key filesystem path
  my ($s,$k,$f) =@_;
- $s->{-path} =$s->parent->tpath('udata') if !$s->{-path};
+ $s->{-path} =$s->parent->dpath('udata') if !$s->{-path};
  $s->{-path} .$s->keysplit($k,$f)
 }
 
@@ -171,7 +171,7 @@ sub uglist {     # users and groups list
  if (!defined($d)) {
     $l =[];
     $d ='';
-    $s->{-path} =$s->parent->tpath('udata') if !defined($s->{-path});
+    $s->{-path} =$s->parent->dpath('udata') if !defined($s->{-path});
  } 
  if (!$s->{-ksplit}) {
     $l =[eval{$s->parent->fut->globn($s->{-path} .'/*')}];

@@ -104,7 +104,9 @@ sub eval {     # Transaction DBI run
 
 
 sub htmlddlb {  # HTML Drop-Down List Box - Input Helper
- my ($s,$n,$ds) =(shift, shift, shift);
+ my ($s,$w,$n,$ds) =(shift
+	,$_[0] =~/^(?:<|\$_|\s)/ || $_[0] =~/(?:>|\$_|\s)$/ ? shift : undef
+	,shift, shift);
  my $dc =ref($_[0]) ? shift : [];              # data container
  my $df =ref($_[0]) eq 'CODE' ? shift : undef; # data feed sub
  my $g =$s->cgi;
@@ -133,11 +135,11 @@ sub htmlddlb {  # HTML Drop-Down List Box - Input Helper
         $s->pushmsg($rc <=$lr ? $s->lng(1,'rfetch',$rc) : $s->lng(1,'rfetchf',$lr));
         $c->finish;
     }
-    $s->parent->htmlddlb($n, $ds
+    $s->parent->htmlddlb(!$w ? () : $w, $n, $ds
         ,map {[$_=>$s->{-fields}->{$_=~/^\t/ ?substr($_,1) :$_}->{-lbl}||$_]} @_)
  }
  else {
-    $s->parent->htmlddlb($n, $ds, @_)
+    $s->parent->htmlddlb(!$w ? () : $w, $n, $ds, @_)
  }
 }
 
@@ -263,8 +265,8 @@ sub cmdsql { # Insert / Update / Delete Record
 
     if ($opt =~/[x]/) {                            # assure before SQL trigger
         $s->die($s->lng(1,'op!let',$s->lng(0,$cmd)) ."\n") 
-        if ($s->{-rowsav1} && !$pxcv && !&{$s->{-rowsav1}}($s,$cmd,$opt,$pxpv,$pxcv))
-        || ($s->{-rowsav2} &&           !&{$s->{-rowsav2}}($s,$cmd,$opt,$pxpv,$pxcv));
+	 if ($s->{-rowsav2} &&           !&{$s->{-rowsav2}}($s,$cmd,$opt,$pxpv,$pxcv))
+	 || ($s->{-rowsav1} && !$pxcv && !&{$s->{-rowsav1}}($s,$cmd,$opt,$pxpv,$pxcv));
     }
  }
  
@@ -363,9 +365,8 @@ sub cmdsql { # Insert / Update / Delete Record
          $s->param($pxcv .$f->{-fld}, &{$f->{'-cdb' .$op .'a'}}($s, $pxcv));
       }
     }
-
-    &{$s->{-rowsav1a}}($s,$cmd,$opt,$pxpv,$pxcv) if $s->{-rowsav1a} && !$pxcv;
     &{$s->{-rowsav2a}}($s,$cmd,$opt,$pxpv,$pxcv) if $s->{-rowsav2a};
+    &{$s->{-rowsav1a}}($s,$cmd,$opt,$pxpv,$pxcv) if $s->{-rowsav1a} && !$pxcv;
  }
 }
 
@@ -462,7 +463,8 @@ sub cmdins { # Insert Record
  $s->acltest('-ins','');
  $s->die($s->lng(1,'op!let',$s->lng(0,'-ins')) ."\n") 
         if ($s->{-rowins} && !&{$s->{-rowins}}($s)) 
-        || ($s->{-rowsav} && !&{$s->{-rowsav}}($s));
+        || ($s->{-rowsav} && !&{$s->{-rowsav}}($s))
+	|| ($s->{-opflg}  && ($s->{-opflg} !~/[aci]/ || $s->{-opflg} =~/![ci]/));
  $s->_vscmn('i',@_) if $s->{-vsd};
  $s->cmdsql('-ins',@_);
  $s->_fscmn('i',@_)  if $s->{-fsd};
@@ -475,7 +477,8 @@ sub cmdupd { # Update Record
  $s->acltest('-upd','-pxpv');
  $s->die($s->lng(1,'op!let',$s->lng(0,'-upd')) ."\n") 
         if ($s->{-rowupd} && !&{$s->{-rowupd}}($s)) 
-        || ($s->{-rowsav} && !&{$s->{-rowsav}}($s));
+        || ($s->{-rowsav} && !&{$s->{-rowsav}}($s))
+	|| ($s->{-opflg}  && ($s->{-opflg} !~/[aeu]/ || $s->{-opflg} =~/![eu]/));
  $s->_vscmn('u',@_) if $s->{-vsd};
  $s->cmdsql('-upd',@_);
  $s->_fscmn('u',@_)  if $s->{-fsd};
@@ -488,7 +491,8 @@ sub cmddel { # Delete Record
  $s->acltest('-del','-pxpv');
  $s->die($s->lng(1,'op!let',$s->lng(0,'-del')) ."\n") 
         if ($s->{-rowdel} && !&{$s->{-rowdel}}($s)) 
-        || ($s->{-rowsav} && !&{$s->{-rowsav}}($s));
+        || ($s->{-rowsav} && !&{$s->{-rowsav}}($s))
+	|| ($s->{-opflg}  && ($s->{-opflg} !~/[ad]/ || $s->{-opflg} =~/![d]/));
  if ($s->{-vsd}) {
     $s->_vscmn('d',@_);
     $s->cmdsql('-upd',@_);
@@ -598,6 +602,9 @@ sub cmdsel { # Select Record
       $g->param(-name=>($pxsv .$f->{-fld}),-value=>$_);
       $g->param(-name=>$s->pxpv($f->{-fld}),-value=>$_) if !$pxsv;
     }
+    &{$s->{-rowsel3a}}($s,$s->cmd,$opt,$pxsv) if $s->{-rowsel3a};
+    &{$s->{-rowsel2a}}($s,$s->cmd,$opt,$pxsv) if $s->{-rowsel2a};
+    &{$s->{-rowsel1a}}($s,$s->cmd,$opt,$pxsv) if $s->{-rowsel1a} && $pxsv;
  }
 }
 
@@ -669,45 +676,51 @@ sub cmdfrm { # Record form for Query or Edit
      $p->print('<table>');
     if ($s->{-lists}) {
      $p->print('<tr>');
-     $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'LIST'));
-     $p->print->td({-valign=>'top'}
-                  ,$p->popup_menu(-name=>$s->pxsw('LIST')
-                  ,-title =>$s->lng(1,'LIST')
-                  ,-values=>$s->qlstnmes
-                  ,-labels=>$s->qlstlbls
-                  ,-default=>$s->qlst)
+     $p->print->th({-align=>'left',-valign=>'top',-class=>'Form'},$s->lng(0,'LIST'));
+     $p->print->td({-valign=>'top',-class=>'Form'}
+			,$p->popup_menu(-name=>$s->pxsw('LIST')
+			,-title =>$s->lng(1,'LIST')
+			,-values=>$s->qlstnmes
+			,-labels=>$s->qlstlbls
+			,-default=>$s->qlst
+			,-class=>'Form')
                   . ($vwf ? "<font size=-1> ($vwf)</font>" :''));
      $p->print('</tr>');
     }
      $p->print('<tr>');
-     $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'WHERE'));
-     $p->print->td({-valign=>'top'}
+     $p->print->th({-align=>'left',-valign=>'top',-class=>'Form'},$s->lng(0,'WHERE'));
+     $p->print->td({-valign=>'top',-class=>'Form'}
                   ,$p->htmltextarea(-name =>$s->pxsw('WHERE')
-                                   ,-title=>$s->lng(1,'WHERE')
-                                   ,-arows=>2,-cols=>68)
+				,-title=>$s->lng(1,'WHERE')
+				,-class=>'Form'
+				,-arows=>2,-cols=>68)
                   .($vw && $vw->{-wherepar} && !$s->qparamsw('WHERE')
                     ? ('<font size=-1> [ AND (' .$p->htmlescape($vw->{-wherepar}) .') ]</font>') 
                     : '')
                   .($vww ? "<font size=-1> AND ($vww)</font>" :''));
      $p->print('</tr><tr>');
     if ($s->{-ftext}) {
-     $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'F-TEXT'));
-     $p->print->td({-valign=>'top'}
+     $p->print->th({-align=>'left',-valign=>'top',-class=>'Form'},$s->lng(0,'F-TEXT'));
+     $p->print->td({-valign=>'top',-class=>'Form'}
                   ,$p->textfield(-name =>$s->pxsw('FTEXT')
-                                ,-title=>$s->lng(1,'F-TEXT')
-                                ,-size =>88));
+				,-title=>$s->lng(1,'F-TEXT')
+				,-class=>'Form'
+				,-size =>88));
      $p->print('</tr><tr>');
     }
-     $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'ORDER BY'));
-     $p->print->td({-valign=>'top'}
+     $p->print->th({-align=>'left',-valign=>'top',-class=>'Form'},$s->lng(0,'ORDER BY'));
+     $p->print->td({-valign=>'top',-class=>'Form'}
                   ,$p->textfield(-name =>$s->pxsw('ORDER_BY')
-                                ,-title=>$s->lng(1,'ORDER BY')
-                                ,-size =>88) 
+				,-title=>$s->lng(1,'ORDER BY')
+				,-class=>'Form'
+				,-size =>88) 
                   .($vwo ? "<font size=-1> ($vwo)</font>" : ''));
      $p->print('</tr><tr>');
-     $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'LIMIT ROWS'));
-     $p->print->td({-valign=>'top'}
-                  ,$p->textfield(-name=>$s->pxsw('LIMIT'),-title=>$s->lng(1,'LIMIT ROWS')) 
+     $p->print->th({-align=>'left',-valign=>'top',-class=>'Form'},$s->lng(0,'LIMIT ROWS'));
+     $p->print->td({-valign=>'top',-class=>'Form'}
+                  ,$p->textfield(-name=>$s->pxsw('LIMIT')
+			,-class=>'Form'
+			,-title=>$s->lng(1,'LIMIT ROWS')) 
                   .'<font size=-1> (' .($s->{-listrnm}||'') .')</font>');
      $p->print('</tr>');
      $p->print('</table>');
@@ -719,7 +732,7 @@ sub cmdfrm { # Record form for Query or Edit
      .'</font>');
      $p->print->text('<br /><font size=-1>Self <code>URL</code> may be useful: ' 
 	# .$p->cgi->self_url 
-	.$p->burl() .'?' .join(';', map {$p->urlescape($_) .'=' .$p->urlescape($p->cgi->param($_))} grep {defined($p->cgi->param($_)) && $p->cgi->param($_) ne '' && $_ =~/^(_tsw|_tcb|[^_])/ && $_ !~/^(_tsw_REFERER|_tsw_FRMCOUNT|_tcb_frm)/} $p->cgi->param)
+	.$p->qurl() .'?' .join(';', map {$p->urlescape($_) .'=' .$p->urlescape($p->cgi->param($_))} grep {defined($p->cgi->param($_)) && $p->cgi->param($_) ne '' && $_ =~/^(_tsw|_tcb|[^_])/ && $_ !~/^(_tsw_REFERER|_tsw_FRMCOUNT|_tcb_frm)/} $p->cgi->param)
 	.'</font>');
 
      if ($s->{-acd} && eval{$s->acltest('-sys')}) { # System Actions
@@ -762,7 +775,7 @@ sub _cmdfrmv {# List Record's Versions
          .(!$lr ? '' : eval{$s->dbi->{Driver}->{Name} eq 'mysql'} ? (' LIMIT ' .($lr+1) .' ') : '')
          ;
  $s->htmllst($sql,[@vl],{$kl[0]=>$kf},undef
-            ,$s->cgi->hr .'<strong>' .$s->lng(0,'Versions') .'</strong><font size=-1><span class="_ListList">&nbsp;&nbsp; '
+            ,'<hr class="ListList" /><strong class="ListList">' .$s->lng(0,'Versions') .'</strong><font size=-1><span class="ListList">&nbsp;&nbsp; '
             ,';&nbsp;&nbsp; ','&nbsp; ','</span></font>');
 }
 
@@ -792,10 +805,18 @@ sub cmdlst { # List Data
  my $dsub =$vw ? $vw->{-dsub}   :undef;     # data feed sub, instead of SQL
  my $rsub =($vw && $vw->{-rowlst}) ||$s->{-rowlst}; # row processor sub
  my $vwfl =$vw ? $vw->{-fields} :undef;     # view fields list
+ my $vwff =$vw ? $vw->{-fetch}  :undef;     # view fields fetch
  my $vwfk =$vw ? $vw->{-key}    :undef;     # view fields key
+ my $vwfu =$vw	&& exists($vw->{-listurm})  # view fields unread marks
+	   	&& $vw->{-listurm}
+		||  $s->{-listurm};
  my $vwfa =$vwfl;                           # view fields all list
-           if ($vwfa && $vwfk) {$vwfa =[@$vwfa]; foreach my $f (@$vwfk) 
-              {push @$vwfa, $f if !grep {$_ eq $f} @$vwfa}}
+	   if ($vwfa && ($vwfk||$vwfu)) {
+		$vwfa =[@$vwfa];
+		foreach my $f ($vwfk ? @$vwfk : (), $vwfu ? @$vwfu : ()) {
+			push @$vwfa, $f if !grep {$_ eq $f} @$vwfa
+		}
+	   }
  my $st   =''; # select table
  my $sta  =''; #               alias
  my $sto  =''; #               oldname
@@ -803,7 +824,9 @@ sub cmdlst { # List Data
  my $sfdl =[]; #               definitions list
     $sfdl->[$#{$vwfa}] =undef if $vwfa;
  my $vfnl =[]; # view   fields numbers list
+ my $ffnl =[]; # fetch  fields numbers list
  my $ufnl =[]; # url    fields numbers list
+ my $mfnl =[]; # umark  fields numbers list
  my $sts  =''; # select tables string
  my $sws  =''; #        where  string
  my $swfs =''; #        where  find       string
@@ -833,7 +856,7 @@ sub cmdlst { # List Data
       my $tskip =1;     # skip table in 'from'
       my $findx =undef; # field index
    
-      if ($f->{-tbl}) {            # turn on table
+      if ($f->{-tbl}) {			# turn on table
          $st  =$f;
          $sta =$st->{-alias}||$st->{-tbl};
          next;
@@ -841,13 +864,13 @@ sub cmdlst { # List Data
 
       my $fn =$f->{-fld};
 
-      if ($vwfl) {                 # list or select fields defined for view
+      if ($vwfl) {			# list or select fields defined for view
          for (my $i =0; $i <=$#{$vwfl}; $i++) {
              next if $vwfl->[$i] ne $fn;
              $tskip =0;
              $sfdl->[$i] =$f;
              $findx =$i; 
-             $vfnl->[$findx] =$findx;                  # list field
+             $vfnl->[$findx] =$findx;	# list field
              last
          }
       }
@@ -858,18 +881,42 @@ sub cmdlst { # List Data
            push @$vfnl, $findx if $f->{-flg} =~/[la]/; # list field
       }
 
-      if ($vwfk) {                 # key fields defined for view
+      if ($vwff) {			# fetch fields defined for view
+         if (grep {$_ eq $fn} @$vwff) {
+            if (defined($findx)) { push @$ffnl, $findx}
+            else {push @$sfdl, $f; push @$ffnl, $#{$sfdl}}
+         }
+      }
+      elsif ($f->{-flg} =~/[f]/) {	# fetch field
+            if (defined($findx)) { push @$ffnl, $findx}
+            else {push @$sfdl, $f; push @$ffnl, $#{$sfdl}}
+      }
+
+      if ($vwfk) {			# key fields defined for view
          if (grep {$_ eq $fn} @$vwfk) {
             if (defined($findx)) { push @$ufnl, $findx}
             else {push @$sfdl, $f; push @$ufnl, $#{$sfdl}}
          }
       }
-      elsif ($f->{-flg} =~/[k]/) { # key  field
+      elsif ($f->{-flg} =~/[k]/) {	# key  field
             if (defined($findx)) { push @$ufnl, $findx}
             else {push @$sfdl, $f; push @$ufnl, $#{$sfdl}}
       }
 
-      if (!defined($findx)         # field in condition or sort order
+      if ($vwfu) {			# upd mark fields defined for view
+         if (grep {$_ eq $fn} @$vwfu) {
+            if (defined($findx)) { push @$mfnl, $findx}
+            else {push @$sfdl, $f; push @$mfnl, $#{$sfdl}}
+         }
+      }
+      elsif (!$dsub && !$vw->{-key}
+	&&   $f->{-flg} =~/[w]/
+	&&   $f->{-flg} !~/[k]/) {	# where key  field
+            if (defined($findx)) { push @$mfnl, $findx}
+            else {push @$sfdl, $f; push @$mfnl, $#{$sfdl}}
+      }
+
+      if (!defined($findx)		# field in condition or sort order
        &&(($swfs && $swfs =~/\b$fn\b/)               # condition check
         ||($sobs && (!ref($sobs) ? $sobs =~/\b$fn\b/ # order by check 
                     : grep {(ref($_) ? $_->[0] : $_) eq $fn} @$sobs
@@ -878,7 +925,7 @@ sub cmdlst { # List Data
          $tskip =0;
       }
 
-      if ($opt !~/!q/               # query condition by user
+      if ($opt !~/!q/			# query condition by user
        && !$dsub
        && $f->{-flg} =~/[qa]/) {
           my $p  =$s->param($fn);
@@ -1004,23 +1051,25 @@ sub cmdlst { # List Data
     my $g =$s->cgi;    
     if ($opt !~/m/) {
        my $t =$p->{-htmlstart}->{-title}||$p->{-htpgstart}->{-title}||'';
-       print '<strong class="_MenuHeader">'
+       print '<strong class="MenuArea MenuHeader">'
            , $p->htmlescape(($t ? "$t - " : '' ) .(ref($vw->{-cmt}) ? $vw->{-cmt}->[0] : $vw->{-cmt}))
            , "</strong><br />\n" 
            if $vw && $vw->{-cmt};
-       print '<span class="_MenuComment">'
+       print '<span class="MenuArea MenuComment">'
 	   , join("<br />\n"
            , map {$p->htmlescape($_)} @{$vw->{-cmt}}[1..$#{$vw->{-cmt}}])
            , "<br /></span>\n"
            if $vw && $vw->{-cmt} && ref($vw->{-cmt});
-       print '<span class="_MenuComment"><font size=-1>'
+       print '<span class="MenuArea MenuComment"><font size=-1>'
 	   , $p->htmlescape($s->{-genselt})
 	   , "</font></span>\n" 
            if $s->{-genselt};
-       print "<hr class=\"_MenuHeader\"/>\n"; # if ($vw && $vw->{-cmt}) ||$s->{-genselt};
+       print "<hr class=\"MenuArea MenuHeader\"/>\n"; # if ($vw && $vw->{-cmt}) ||$s->{-genselt};
     }
     my $c;
     my ($gt1, $gt2, $gm1, $gm2, $gi1, $gi2, $gv1, $gv2, $gs0);
+    my $r;
+    my $rh;
     if (!$dsub) {
        if ($s->{-genselg}) {
           eval('use POSIX');
@@ -1051,11 +1100,10 @@ sub cmdlst { # List Data
        $c->execute;
     }
     else {
-       $dsub =&$dsub($s);
+       $dsub =&$dsub($s,$vw,$cnd,$sfdl,$rh);
     }
     my $lr=$s->qparamsw('LIMIT') ||($vw && $vw->{-listrnm}) ||$s->{-listrnm};
     my $rc =0;
-    my $r;
     my @hr0=$vw && $vw->{-href} ? @{$vw->{-href}} :();
        $hr0[0] =$p->qurl if !$hr0[0];
        $hr0[1] =$s->pxcb('-cmd') if !$hr0[1];
@@ -1066,17 +1114,18 @@ sub cmdlst { # List Data
     local $_;
     print $vw && $vw->{-htmlts} ? $vw->{-htmlts}
         : $s->{-htmlts}         ? $s->{-htmlts}
-        : $gm2 ? "<font size=-1>\n<table class=\"_ListTable\" rules=all border=1 cellspacing=0 frame=void style=\"font-size: x-small;\">\n"
+        : $gm2 ? "<font size=-1>\n<table class=\"ListTable\" rules=all border=1 cellspacing=0 frame=void style=\"font-size: x-small;\">\n"
                                   # rules=rows|all frame=void
-      # : "<table class=\"_ListTable\">\n";
-        : "<table class=\"_ListTable\" cellpadding=\"3%\">\n";
-      # : "<table class=\"_ListTable\" cellpadding=3>\n";
-      # : "<table class=\"_ListTable\" rules=all border=1 cellspacing=0 frame=void>\n";
+      # : "<table class=\"ListTable\">\n";
+        : "<table class=\"ListTable\" cellpadding=\"3%\">\n";
+      # : "<table class=\"ListTable\" cellpadding=3>\n";
+      # : "<table class=\"ListTable\" rules=all border=1 cellspacing=0 frame=void>\n";
     if ($opt !~/m/) {
        print '<thead><tr>'
             ,map {
              my $v =$sfdl->[$_]->{-lbl}||''; # ||$sfdl->[$_]->{-fld}
-             ('<th align="left" valign="top"'
+             ('<th align="left" valign="top" class="ListTable" title="'
+	     ,$sfdl->[$_]->{-cmt} ||$sfdl->[$_]->{-lbl} ||'', '"'
              ,!$sfdl->[$_]->{-width}
               ? ('>', $p->htmlescape($v))
               : $sfdl->[$_]->{-width} =~/\D/
@@ -1088,17 +1137,18 @@ sub cmdlst { # List Data
            } @$vfnl;
        if ($gm2) {
         # print $g->td({-align=>'left',-valign=>'top',-colspan=>20}, $gt1 =~/^([^\s]+)/ ?$1 :$gt1);
-          my $r ='<th>&nbsp;</th><th>&nbsp;</th>';
+          my $r ='<th class="ListTable">&nbsp;</th>' x 2;
           my $gf='';
           for (my $gt=$gm1; $gt <=$gm2; $gt +=1) {
              my @gt =gmtime($gt*86400);
              $r .= $gt[3] ==1 
-                 ? $gf =$g->td({-align=>'left',-valign=>'bottom', -colspan=>25}, $p->strtime('|yyyy-mm-dd',@gt) .' (' .gmtime($gt*86400) .')') 
+                 ? $gf =$g->td({-align=>'left',-valign=>'bottom', -colspan=>25, -class=>'ListTable'}
+			, $p->strtime('|yyyy-mm-dd',@gt) .' (' .gmtime($gt*86400) .')') 
                  : $gt[3] <=25 && $gf
                  ? ''
-                 : '<td></td>';
+                 : '<td class="ListTable"></td>';
           }
-          $r .="</tr><tr>\n" .'<th colspan=' .($#{$vfnl}+3) .'><nobr>' 
+          $r .="</tr><tr>\n" .'<th colspan=' .($#{$vfnl}+3) .' class="ListTable"><nobr>'
               .('&nbsp;' x($vw && $vw->{-width} ? $vw->{-width} 
                          : $s->{-width}         ? $s->{-width}
                          : (29*($#{$vfnl}+3))))
@@ -1107,23 +1157,26 @@ sub cmdlst { # List Data
           for (my $gt=$gm1; $gt <=$gm2; $gt +=1) {
              my @gt =gmtime($gt*86400);
              $r .= $gt[6] ==0 ||$gt[6] ==6
-                 ? $g->td({-align=>'left',-valign=>'top'},'s')
+                 ? $g->td({-align=>'left',-valign=>'top', -class=>'ListTable'}
+				,'s')
                  : $gt[6] ==1
-                 ? $gf =$g->td({-align=>'left',-valign=>'top',-colspan=>3}, sprintf('%02d',$gt[3]))
+                 ? $gf =$g->td({-align=>'left',-valign=>'top',-colspan=>3, -class=>'ListTable'}
+			, sprintf('%02d',$gt[3]))
                  : $gt[6] <=3 && $gf
                  ? ''
-                 : '<td>&nbsp;</td>';
+                 : '<td class="ListTable">&nbsp;</td>';
           }
           print $r;
        }
        elsif ($s->{-width} || $vw && $vw->{-width}) {
-          print "</tr><tr>\n" .'<th colspan=' .($#{$vfnl}+1) .'><nobr>' 
+          print "</tr><tr>\n" .'<th colspan=' .($#{$vfnl}+1) .' class="ListTable"><nobr>' 
                 .('&nbsp;' x ($s->{-width} ||$vw->{-width})) .'</nobr></th>';
        }
        print "</tr></thead><tbody>\n";
     }
     if (!$dsub) {
        $r =[];
+       $rh={map {($_=>undef)} @{$c->{NAME}}};
        if ($s->{-genselg}) {
           @$r[0..($#{$sfdl}+ 2)] =();
           $gi1 =$#{$sfdl} +1;
@@ -1132,28 +1185,32 @@ sub cmdlst { # List Data
        else {
           @$r[0..$#{$sfdl}] =();
        }
-       $c->bind_columns(undef,\(@$r));
+     # $c->bind_columns(undef,\(@$r));
+       $c->bind_columns(undef, map {\($rh->{$_})} @{$c->{NAME}});
     }
-    while (!$dsub ? $c->fetch : ($r =shift @$dsub)) {  # !!! Optimize ???
-       next if $rsub && !(&$rsub($s,$sfdl,$r));
+    while (!$dsub ? ($r =$c->fetch) : ($r =shift @$dsub)) {  # !!! Optimize ???
+       next if $rsub && !(&$rsub($s,$sfdl,$r,$rh));
+       my $hurm =join(',',map {$r->[$_] ? ($r->[$_]) : ()} @$mfnl);
        my $href =$p->htmlurl(@hr0
-                            ,(map {($sfdl->[$_]->{-fld},$r->[$_])} @$ufnl));
+                            ,(map {($sfdl->[$_]->{-fld},$r->[$_])} @$ufnl)
+			    ,($hurm ? ('_tsw_listurm'=>$hurm) : ()));
        last if !print '<tr>'
         ,(map { my $c =$_; local $_ =$r->[$c];
-           $_ =$sfdl->[$c]->{-clst} ? &{$sfdl->[$c]->{-clst}}($s, $sfdl->[$c], $_)
+           $_ =$sfdl->[$c]->{-clst} ? &{$sfdl->[$c]->{-clst}}($s, $sfdl->[$c], $_, $rh)
               :$sfdl->[$c]->{-cstr} ? $g->escapeHTML(&{$sfdl->[$c]->{-cstr}}($s, $sfdl->[$c], $_))
               :$g->escapeHTML($_);
-           ('<td valign=top><nobr><a href="', $href, '"'
+           ('<td valign="top" class="ListTable"><nobr><a href="'
+					, $href, '" class="ListTable"'
            ,$s->{-formtgf} ? (' target="', $s->{-formtgf}, '"') : (), '>'
            ,!defined($_) ||$_ eq '' ? '&nbsp&nbsp' : $_
            ,'</a></nobr></td>'
            )
          } @$vfnl[0..$mh])
         ,(map { my $c =$_; local $_ =$r->[$c];
-           $_ =$sfdl->[$c]->{-clst} ? &{$sfdl->[$c]->{-clst}}($s, $sfdl->[$c], $_)
+           $_ =$sfdl->[$c]->{-clst} ? &{$sfdl->[$c]->{-clst}}($s, $sfdl->[$c], $_, $rh)
               :$sfdl->[$c]->{-cstr} ? $g->escapeHTML(&{$sfdl->[$c]->{-cstr}}($s, $sfdl->[$c], $_))
               :$g->escapeHTML($_);
-           ('<td valign=top>', (!defined($_) ? '&nbsp;' : $_), '</td>');
+           ('<td valign="top" class="ListTable">', (!defined($_) ? '&nbsp;' : $_), '</td>');
          } @$vfnl[$mh+1..$mr])
         ,($gm2
          && ($gv1 =int($r->[$gi1] =~/(\d+)-(\d+)-(\d+)\s*(\d*):(\d*):(\d*)/ && (POSIX::mktime($6, $5, $4, $3, $2-1, $1 -1900)/86400))+1)
@@ -1591,6 +1648,8 @@ sub fsscan {    # File Store Scan
  if ($opt =~/t/) {
  print $s->h1('Table/FileStore Scan'),"\n";
  my $v =$s->{-vsd};
+ local $s->{-rowsel1a} =undef;
+ local $s->{-rowsel2a} =undef;
  $s->cmdscan(@_, sub{
     $s->cmdsel;
     my $fsa =!$v ? 'w'

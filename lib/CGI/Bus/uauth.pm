@@ -89,8 +89,9 @@ sub guest {	# Guest name
 
 
 sub ugroups {	# User groups
- my $s =shift;
+ my $s =$_[0];
  my $p =$s->parent;
+ my($un,$ul) =$_[1] ? ($_[1],$_[1]) : ($s->user(), $s->useron());
  my $u =[]; return($u) if !$p->user;
  my $c =$p->{-ugflt};
  my $f =undef;
@@ -105,24 +106,24 @@ sub ugroups {	# User groups
 	local *FG; 
 	open(FG, "<$f")	&& flock(FG, 1)	# LOCK_SH
 	||$s->die($s->lng(0, 'ugroups') .": open('$f')->$!");
-	my $un=$s->user();
-	my $ul=$s->useron();
 	while(my $r =readline *FG) {
 		next if $r !~/[:\s](?:\Q$un\E|\Q$ul\E)(?:\s|\Z)/i;
 		next if $r !~/^([^:]+)\s*:/;
 		push @$u, $1
 	}
 	flock(FG,8); close(FG);	# LOCK_UN
+	$u =$s->w32adug($ul ||$un)
+		if 0 && !@$u && $^O eq 'MSWin32' && $w32afl <1 && $w32ver >=5;
  }
  elsif ($^O eq 'MSWin32') {
     if (0) {}
     elsif ($w32afl <1 && $w32ver >=5) {
 	# $s->pushmsg("ugroups via adsi");
-	$u =$s->w32adug($p->useron ||$p->user);
+	$u =$s->w32adug($ul ||$un);
     }
     elsif ($w32afl <2
 	&& do{	my $d =$s->parent->usdomain;
-		my $n =$s->parent->useron ||$s->parent->user;
+		my $n =$ul ||$un;
 		   $n ="$d\\$n" if index($n,'\\') <0;
 		my $h =$ENV{COMPUTERNAME} || eval{Win32::NodeName()};
 		   $h =$h ? "\\\\$h" : $d;
@@ -153,7 +154,7 @@ sub ugroups {	# User groups
 	# !!! failure Win32API::Net::UserGetGroups
 	# $s->pushmsg("ugroups via Win32API::Net");
 	$w32afl =2;
-	my $n =$s->parent->useron ||$s->parent->user;
+	my $n =$ul ||$un;
 	my $d =$s->parent->usdomain;
 	my $h =$ENV{COMPUTERNAME} || eval{Win32::NodeName()};
 	my $gd=($n !~/^$d\\/i && $n =~/^([^\\]+)/ ? $1 : '');
@@ -180,6 +181,7 @@ sub ugroups {	# User groups
  $u =[map {&$c($p) ? ($_) : ()
 		} @$u
 	] if $c;
+ @$u =($guest) if !@$u;
  $u
 }
 
@@ -354,7 +356,7 @@ sub uglist {	# User & Group List
  }
  else {
  }
- $r =[sort {lc($a) cmp lc($b)} @$r] if ref($r) eq 'ARRAY';
+ $r =do{use locale; [sort {lc($a) cmp lc($b)} @$r]} if ref($r) eq 'ARRAY';
  $r
 }
 
@@ -524,7 +526,7 @@ sub w32adaf {	# Win32 AD Auth Files write/refresh
 }
 
 
-sub w32adug() {	# Win32 AD retrieve user groups
+sub w32adug {	# Win32 AD retrieve user groups
  my $uif =$_[1];		# user input full name
  my $uid ='';			# user input domain name
  my $uin ='';			# user input name shorten
@@ -606,6 +608,28 @@ sub w32adud {	# Win32 user display
 	: $o->{Class} eq 'Group'
 	? $o->{Description} ||$_[1]
 	: $_[1]
+}
+
+
+sub w32adum {	# E-mail address of user
+ my($s, $u) =@_[0,1];	# self, ?user, ?ad fields
+	$u  =$s->parent()->user() if !$u;
+ join(', '
+	, map {	my $v =$_;
+		my $o =eval{$s->w32aduo($v)};
+		if ($o) {
+			foreach my $f ($#_ >1 ? @_[2..$#_] : ('EmailAddress','Description')) {
+			# !!! 'EmailAddress' not supported via WinNT://
+			# LDAP://servername/<GUID=XXXXX>
+			# GetObject("LDAP://<GUID=63560110f7e1d111a6bfaaaf842b9cfa>")
+				if ((eval{$o->{$f}}||'') =~/\b([\w\d_+-]+\@[\w\d.]+)\b/) {
+					$v =$1; last
+				}
+			}
+		}
+		# $v =~/\\([^\\]+)/ ? $1 : $v;
+		$v
+		} split /\s*[,;]\s*/, $u)
 }
 
 

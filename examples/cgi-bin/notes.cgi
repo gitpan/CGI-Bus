@@ -213,7 +213,7 @@ $s->tmsql->set(
 #
 # Filter Description
 #
-$s->tmsql->set(-fltlst =>sub{$_[0]->aclsel('-',qw(prole rrole),$_[0]->unames,qw(cuser uuser))});
+$s->tmsql->set(-fltlst =>sub{$_[0]->aclsel('-t',qw(prole rrole),$_[0]->unames,qw(cuser uuser))});
 $s->tmsql->set(-ftext  =>'(' .join(' OR ', map {"notes.$_ LIKE \%\$_"} qw(subject comment cuser uuser prole rrole)) .')');
 #
 #

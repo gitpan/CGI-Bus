@@ -13,7 +13,7 @@ use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
 
 
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $AUTOLOAD);
-$VERSION = '0.58';
+$VERSION = '0.59';
 
 use vars qw($SELF);
 
@@ -214,8 +214,9 @@ sub set {
 	$SIG{__WARN__} =sub{return if $^S;
 	eval{$s->pushmsg('WARN: ' .($_[0] =~/(.+)[\n\r]+$/ ? $1 : $_[0]))}};
  }
- $TempFile::TMPDIRECTORY =$opt{-tpath} if $opt{-tpath}; # use CGI
-
+ $TempFile::TMPDIRECTORY =$opt{-tpath} # use CGI
+		if $opt{-tpath}
+		&& ((-d $opt{-tpath}) ||$s->fut->mkdir($opt{-tpath}));
  $s
 }
 
@@ -984,25 +985,33 @@ sub userver { # User names Server
 }
 
 
-sub ugroups { # User groups
- if (!defined($_[0]->{-cache}->{-ugroups})) {
-    my $s =$_[0];
-    return([]) if !defined($s->user);
-    $s->{-cache}->{-ugroups} = 
-      ref($s->{-ugroups}) eq 'CODE' ? &{$s->{-ugroups}}(@_)
-                                    : $_[0]->uauth->ugroups(@_[1..$#_]);
-    if ($_[0]->{-ugrpcnv}) {
-       my $ga =[];
-       local $_;
-       foreach $_ (@{$s->{-cache}->{-ugroups}}) {
-           $_ =&{$_[0]->{-ugrpcnv}}(@_);
-           push(@$ga, $_) if defined($_) && $_ ne '';
-       }
-       $s->{-cache}->{-ugroups} =[sort {lc($a) cmp lc($b)} @$ga];
-    }
-    else {
-       $s->{-cache}->{-ugroups} =[sort {lc($a) cmp lc($b)} @{$s->{-cache}->{-ugroups}}];
-    }
+sub ugroups { # User groups [user name]
+ if (!defined($_[0]->{-cache}->{-ugroups}) 
+ || ($_[1]	&& (lc($_[0]->useron	||'') ne lc($_[1]))
+		&& (lc($_[0]->user	||'') ne lc($_[1])))) {
+	my $s =$_[0];
+	my $r =[];
+	return($r) if !defined($s->user) && !$_[1];
+	$r = ref($s->{-ugroups}) eq 'CODE' 
+		? &{$s->{-ugroups}}(@_)
+		: $_[0]->uauth->ugroups(@_[1..$#_]);
+	if ($_[0]->{-ugrpcnv}) {
+		my $ga =[];
+		local $_;
+		foreach $_ (@$r) {
+			$_ =&{$_[0]->{-ugrpcnv}}(@_);
+			push(@$ga, $_) if defined($_) && $_ ne '';
+		}
+		$r =$ga;
+	}
+	use locale;
+	$r =[sort {lc($a) cmp lc($b)} @$r];
+	no locale;
+	$s->{-cache}->{-ugroups} =$r 
+		if !$_[1]
+		|| (lc($_[0]->useron)	eq lc($_[1]))
+		|| (lc($_[0]->user)	eq lc($_[1]));
+	return($r)
  }
  $_[0]->{-cache}->{-ugroups}
 }
@@ -1295,7 +1304,8 @@ sub htmlfsdir {     # HTML Filesystem dir field
 
 sub print {    # print and CGI::BusCgiPrint object
  my $s =shift;
- return(undef) if scalar(@_) && !CORE::print @_;
+#return(undef) if scalar(@_) && !CORE::print @_;
+ CORE::print @_;
  CGI::BusCgiPrint->new($s);
 }
 

@@ -186,9 +186,10 @@ Form with hash ref may be used to get names and labels of them.
 Labels begin with user name, comma, and blank sign.
 
 
-=item ugroups () -> [groups of user] 
+=item ugroups (?user name) -> [groups of user] 
 
-Groups array ref user belongs to
+Groups array ref user belongs to.
+Default is current user.
 
 
 =item usdomain () -> User names Server's Domain name
@@ -216,6 +217,17 @@ See also C<usdomain>.
 =head1 VERSION
 
 =over
+
+
+=head2 19/11/2004
+
+C<ugroups> extended with new 'user name' parameter.
+
+
+=head2 03/11/2004
+
+C<ugroups> fixed to return [C<guest>] instead of empty list.
+
 
 =head2 14/09/2004
 
