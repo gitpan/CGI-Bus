@@ -127,7 +127,8 @@ C<tpath>, C<-tpath>,
 C<ppath>, C<-ppath>, C<purl>, C<-purl>,
 C<fpath>, C<-fpath>, C<furf>, C<-furf>, C<furl>, C<-furl>,
 C<hpath>, C<-hpath>, C<hurf>, C<-hurf>, C<hurl>, C<-hurl>,
-C<urfcnd>, C<-urfcnd>
+C<urfcnd>, C<-urfcnd>,
+C<-iurl>
 
 
 
@@ -220,7 +221,11 @@ L<DBI|DBI> predefined object
 
 =item -debug
 
-Debug Mode
+Debug Mode: add
+1 - verbose operation messages at the bottom of HTML pages, 
+2 - some debug values as HTML comment,
+3 - debug values at the bottom of HTML pages,
+4 - results of some methods calls.
 
 
 =item -dpath
@@ -307,6 +312,12 @@ see also C<-htpgstart>, C<-htpfstart>
 =item -httpheader
 
 HTTP header hash ref, for C<httpheader>
+
+
+=item -iurl
+
+Apache images URL to use instead of text only behaviour.
+Default is undef, standard is '/icons'.
 
 
 =item -import
@@ -1072,6 +1083,23 @@ See also C<Error and Message processing>, L<CGI::Carp|CGI/Carp>
 =head1 VERSION
 
 =over
+
+=head2 05/04/2002 - 06/05/2002
+
+=item New & Changed
+
+ - tmsql.pm - MySQL 'LIMIT rows' clause generation
+ - uauth.pm - attempting to use a Windows2000 ADSI, see issues in source code
+ - uauth.pm, wg.pm - case insensitive sorting
+ - notes.cgi - update for indexes
+ - gwo.cgi   - update for indexes, may be not useful
+ - Bus.pm -debug slot levels
+ - Bus.pm -iurl  slot added
+ - upws.pm  - using icons based on -iurl slot value
+ - all printed HTML tags and attributes are lowercase as from CGI module
+ - tm.pm - image toolbar using -iurl slot, uncomment at the beginning of the source to disable
+
+
 
 =head2 15/10/2001 - 23/03/2002
 

@@ -3,7 +3,6 @@
 # CGI::Bus::Base - Base CGI::Bus SubObject Class
 #
 # admiral 
-# 19/10/2001
 #
 # 
 

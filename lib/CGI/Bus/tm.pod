@@ -551,6 +551,16 @@ C<qparam> call with C<-pxsw> prefixed param names.
 
 =over
 
+=head2 05/04/2002 - 06/05/2002
+
+=item New
+
+ - imagebuttons toolbar using -iurl slot;
+   uncomment at the beginning of the source to disable;
+   see issue in the source code
+
+
+
 =head2 19/01/2002 - 23/03/2002
 
 =item New:

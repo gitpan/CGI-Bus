@@ -3,7 +3,6 @@
 # CGI::Bus::wg - HTML Widgets
 #
 # admiral 
-# 30/01/2002
 #
 # 
 
@@ -28,12 +27,12 @@ sub ddlb {     # Drop-Down List Box - Input helper
  my $r ='';
  if ($g->param($n .'_B')) {
     $r .=$g->submit(-name=>($n .'_C'), -value=>$s->lng(0,'ddlbclose'), -title=>$s->lng(1,'ddlbclose'));
-    $r .='<BR />';
+    $r .='<br />';
     $ds = &$ds($s) if ref($ds) eq 'CODE';
     my $dl;
     if (ref($ds) eq 'HASH') {
        $dl =$ds;
-       $ds =[sort {$ds->{$a} cmp $ds->{$b}} keys %$ds];
+       $ds =[sort {lc($ds->{$a}) cmp lc($ds->{$b})} keys %$ds];
        foreach my $k (keys %$dl) {$dl->{$k} =substr($dl->{$k},0,60)}
     }
     $r .=$g->scrolling_list(-name=>($n .'_L')
@@ -41,7 +40,8 @@ sub ddlb {     # Drop-Down List Box - Input helper
                            ,-labels=>$dl
                            ,-size=>(scalar(@$ds) <10 ? scalar(@$ds) : 10)
                            );
-    $r .='<BR />';
+    chomp($r);
+    $r .='<br />';
     if (scalar(@_) == 1 && (ref($_[0]) ? $_[0]->[0] : $_[0]) !~/^\t/) {
        $r .=$g->submit(-name=>($n .'_S')
                       ,-value=>'<' 
@@ -136,7 +136,7 @@ sub textarea { # Text Area with autorowing and hrefs
        $v =$';
     }
     $r .=join(';&nbsp;', map {$s->a({-href=>$_},$s->htmlescape($_))} @h);
-    $r .='<BR />' if $r;
+    $r .='<br />' if $r;
     delete $a{-hrefs};
  }
  $r .$s->cgi->textarea(%a)
@@ -145,6 +145,7 @@ sub textarea { # Text Area with autorowing and hrefs
 
 sub fsdir {    # Filesystem dir field
  my ($s, $nm, $ed, $ea, $fp, $fu, $fr, $sr, $sc) =@_;
+ my ($nml, $nma, $nmu) =("${nm}_l", "${nm}_d", "${nm}_u");
  my $r ='';            #path#URL #URF #rows#cols
  if ($s->parent->urfcnd && $ed && $fr) {
     my $fs ='';
@@ -153,18 +154,21 @@ sub fsdir {    # Filesystem dir field
         $fs =~s/\//\\/g;
     }
     $r .=$s->cgi->a({-href=>$fr,-target=>'_blank',-title=>$s->htmlescape($s->lng(1,'Files'))}
-                   ,'<STRONG>' .$s->htmlescape($s->lng(0,'Files')) .'&nbsp;&nbsp;&nbsp;</STRONG>');
-    $r .='<FONT SIZE="-1"> ( ' .$s->htmlescape($fs) .' )</FONT><BR />' if $fs;
-    $r .='<IFRAME SCROLLING="AUTO" SRC="' .$s->htmlescape($fr) .'"';
-    $r .=' HEIGHT="' .$sr .'"' if $sr;
-    $r .=' WIDTH="'  .$sc .'"' if $sc;
-    $r .='></IFRAME>';
+                   ,'<strong>' .$s->htmlescape($s->lng(0,'Files')) .'&nbsp;&nbsp;&nbsp;</strong>');
+    $r .='<font size=-1> ( ' .$s->htmlescape($fs) .' )</font><br />' if $fs;
+    $r .='<iframe scrolling="auto" src="' .$s->htmlescape($fr) .'"';
+    $r .=' height="' .$sr .'"' if $sr;
+    $r .=' width="'  .$sc .'"' if $sc;
+    $r .='> </iframe>';
+  # !!! filefield may be useful to attach files, but file creation time will not be saved !!!
+  # $r .=$s->cgi->filefield(-name=>$nmu);
+  # $s->_fsdirupload($nmu, $fp) if $ea && $s->cgi->param($nmu);
     return $r;
  }
  my $fb =$s->parent->urfcnd ? ($fr ||$fu) : ($fu ||$fr);
  $r =$s->cgi->a({-href=>$fb
                 ,-target=>'_blank', -title=>$s->lng(1,'Files')}
-               ,'<STRONG>' .$s->lng(0,'Files') .'&nbsp;&nbsp;</STRONG>') 
+               ,'<strong>' .$s->lng(0,'Files') .'&nbsp;&nbsp;</strong>') 
                .'&nbsp;&nbsp;';
  if (!$ed) {
     my $fl =join(', '
@@ -175,33 +179,17 @@ sub fsdir {    # Filesystem dir field
     my  $fd;
     if ($fd =$s->parent->orarg('-f',"$fp/index.html","$fp/index.htm")) {
      my $fn =($fd =~/([^\\\/]+)$/ ? $1 : $fd);
-     #  $fd ='<EMBED SCR="' ."$fb/$fn" .'" HEIGHT=100% WIDTH=100% />';
-     #  $fd ='<IFRAME SCROLLING="AUTO" SRC="' .$s->htmlescape("$fb/$fn") .'" WIDTH=100% HEIGHT=100%></IFRAME>';
+     #  $fd ='<embed scr="' ."$fb/$fn" .'" height=100% width=100% />';
+     #  $fd ='<iframe scroling="auto" src="' .$s->htmlescape("$fb/$fn") .'" width=100% height=100%></iframe>';
         $fd =$s->parent->fut->fload('-b',$fd);
         $fd =$' if $fd =~m/<body\b[^>]*>/i;
         $fd =$` if $fd =~m/<\/body\b/i;
-        $fd ='<BASE HREF="' .($fb) .'/" />' .$fd if $fd !~/<base\b/i; # !!! May be a problem
-        $r .='<HR />' .$fd .'<BR />';
+        $fd ='<base href="' .($fb) .'/" />' .$fd if $fd !~/<base\b/i; # !!! May be a problem
+        $r .='<hr />' .$fd .'<br />';
     }
  }
  elsif ($ed) {
-    my ($nml, $nma, $nmu) =("${nm}_l", "${nm}_d", "${nm}_u");
-    my $fa =$s->cgi->param($nmu);
-    if ($ea && $fa && $s->cgi->param($nma)) {
-       my $fn =$fa =~/[\\\/]([^\\\/]+)$/ ? $1 : $fa;
-       my $fh =$s->cgi->upload($nmu);
-       if ($fh) {
-          $s->pushmsg("upload '$fn' from '$fa'");
-          binmode($fh);
-          eval('use File::Copy');
-          File::Copy::copy($fh, "$fp/$fn")
-        ||$s->die("Upload '$fn' from '$fa': $!\n");
-          close($fh);
-       }
-       else {
-         $s->die("Empty filehandle '$fn' from '$fa': " .($!||$@||'') ."\n");
-       }
-    }
+    $s->_fsdirupload($nmu, $fp) if $ea && $s->cgi->param($nmu);
     if ($ea && $s->cgi->param($nma)) {
        foreach my $fn ($s->cgi->param($nml)) {
          $s->fut->delete('-r',"$fp/$fn");
@@ -217,4 +205,25 @@ sub fsdir {    # Filesystem dir field
     }
  }
  $r
+}
+
+
+sub _fsdirupload { # Filesystem dir field file upload
+ my ($s, $nmu, $fp) =@_;
+ my $fa =$s->cgi->param($nmu);
+ if ($fa) {
+    my $fn =$fa =~/[\\\/]([^\\\/]+)$/ ? $1 : $fa;
+    my $fh =$s->cgi->upload($nmu);
+    if ($fh) {
+       $s->pushmsg("upload '$fn' from '$fa'");
+       binmode($fh);
+       eval('use File::Copy');
+       File::Copy::copy($fh, "$fp/$fn")
+       ||$s->die("Upload '$fn' from '$fa': $!\n");
+       close($fh);
+    }
+    else {
+      $s->die("Empty filehandle '$fn' from '$fa': " .($!||$@||'') ."\n");
+    }
+ }
 }

@@ -35,8 +35,10 @@ in L<CGI::Bus|CGI/Bus> with '-import'.
 It implements a three user authentication methods:
 
 Web server user authentication on Win32 IIS or Apache with 'NTLM' module.
-Win32 operation use L<Win32API::Net|Win32API/Net> module 
-and/or 'findgrp.exe' Resource Kit utility.
+Win32 operation use 
+'findgrp.exe' Windows NT Resource Kit utility
+and/or Windows 2000 ADSI via L<Win32::OLE|Win32/OLE> module
+and/or L<Win32API::Net|Win32API/Net> module.
 
 Apache user authentication with 'AuthUserFile' and 'AuthGroupFile'.
 
@@ -57,10 +59,11 @@ See L<CGI::Bus::Base|CGI/Bus/Base> for inherited slots and methods.
 
 =over
 
-=item -digest
 
-L<Digest|Digest> submodule to use with C<signchk> and C<signset>.
-Default used is 'MD5'
+=item -adsi
+
+Use Windows2000 ADSI via L<Win32::OLE|Win32/OLE> module if C<-adsi>.
+Use '1' or '0' or undef value, other values are reserved.
 
 
 =item -AuthUserFile
@@ -71,6 +74,12 @@ Pointer to Apache's 'AuthUserFile'
 =item -AuthGroupFile
 
 Pointer to Apache's 'AuthGroupFile'
+
+
+=item -digest
+
+L<Digest|Digest> submodule to use with C<signchk> and C<signset>.
+Default used is 'MD5'
 
 
 =item -login
@@ -208,11 +217,20 @@ See also C<usdomain>.
 
 =over
 
+
+=head2 28/04/2002
+
+=item New:
+
+C<-adsi> switch, attempting to use a Windows 2000 ADSI, see issues in the source code
+
+
+
 =head2 15/10/2001 - 23/03/2002
 
 =item New:
 
-Implemented and Documented.
+Implemented and Documented
 
 
 =item ToDo:

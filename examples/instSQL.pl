@@ -10,6 +10,8 @@ run("${MySQLbin}mysqladmin -v -u $MySQLupw create cgibus");
 run("${MySQLbin}mysql -v $MySQLupw cgibus <adduser.sql");
 run("${MySQLbin}mysql -v $MySQLupw cgibus <gwo.sql");
 run("${MySQLbin}mysql -v $MySQLupw cgibus <notes.sql");
+run("${MySQLbin}mysql -v $MySQLupw cgibus <notes-u01.sql");
+run("${MySQLbin}mysql -v $MySQLupw cgibus <gwo-u01.sql");
 
 
 sub run {

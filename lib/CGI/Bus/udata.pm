@@ -3,7 +3,6 @@
 # CGI::Bus::udata - User Data Store
 #
 # admiral 
-# 31/12/2001
 #
 # 
 

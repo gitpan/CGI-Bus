@@ -3,7 +3,6 @@
 # CGI::Bus::uauth - User Authentication Base Class
 #
 # admiral 
-# 01/12/2001
 #
 # 
 
@@ -18,6 +17,9 @@ use vars qw(@ISA);
 
 my $cooknme ='_cgi_bus_uauth';
 my $guest   ='guest';
+my $w32afg  =0; # 0 - findgrp, 1 - adsi, 2 - win32api::net
+my $w32afl  =0; # 0 - findgrp, 1 - adsi, 2 - win32api::net
+
 
 if ($ENV{MOD_PERL}) {
    eval('use Apache qw(exit);');
@@ -29,6 +31,12 @@ if ($ENV{MOD_PERL}) {
 
 
 #######################
+
+sub adsi {    # Win2000 ADSI object
+ my $s =shift;
+ eval('use Win32::OLE');
+ Win32::OLE->GetObject(@_)
+}
 
 
 sub usdomain {# User names Server Domain
@@ -84,20 +92,34 @@ sub ugroups { # User groups
  elsif ($s->{-udata}) {
     $u =$s->parent->udata->param('uauth_groups') ||[]
  }
- elsif ($^O eq 'MSWin32') { # $ENV{AUTH_TYPE} eq 'NTLM'
-    my $n =$s->parent->useron ||$s->parent->user; # $s->user || $s->useron
-    my $d =$s->parent->usdomain;
-       $n ="$d\\$n" if index($n,'\\') <0;
-    my @g =`findgrp.exe $d $n /q`; # `showgrps /a $n` || `findgrp $n /q /g`
-    if (scalar(@g)) { # Command above is from Windows Resource Kit!!!
+ elsif ($^O eq 'MSWin32') {
+    my ($n, $d, $a, $ad, $au, @g);
+    $n =$s->parent->useron ||$s->parent->user;
+    $d =$s->parent->usdomain;
+    $n ="$d\\$n" if index($n,'\\') <0;
+    if ($n =~/([^\\]+)\\([^\\]+)/) {$ad =$1, $au =$2} else {$ad =$d; $au =$n}
+    if (0) {}
+    elsif (!$s->{-adsi} && $w32afg <1 && scalar((@g =`findgrp.exe $d $n /q`))) { 
+     # !!! Command above is from Windows Resource Kit !!!
+     # $s->pushmsg('ugroups via findgrp.exe');
        foreach my $v (@g) {
           next if !$v || $v =~/^\s*(User|Findgrp)[:]*\s/i;
           $v =$1 if $v =~/^\s*([^\n]+)/;
           push @$u,$v
        }
     }
+    elsif ($s->{-adsi} && $w32afg <2 && [Win32::GetOSVersion()]->[1]>=5
+     &&($a =$s->adsi("WinNT://$ad/$au,user"))) {
+     # !!! non recursive group membership !!!
+     # !!! local groups for user from trusted domain !!!
+     # $s->pushmsg('ugroups via adsi');
+       $w32afg =1;
+       foreach my $e (Win32::OLE::in($a->Groups)) {push @$u, $e->{Name}}
+    }
     else {
+     # !!! failure Win32API::Net::UserGetGroups
      # $s->pushmsg('ugroups via Win32API::Net');
+       $w32afg =2;
        my %g;
        my $srv =$s->parent->userver;
        eval('use Win32API::Net');
@@ -113,7 +135,7 @@ sub ugroups { # User groups
          grep {$g{$_} && ($g{$gm} =1)} @g 
        }
        delete $g{'None'};
-       $u =[sort(keys(%g))];
+       $u =[sort {lc($a) cmp lc($b)} keys(%g)];
     }
  }
  else {
@@ -126,6 +148,7 @@ sub uglist {  # User & Group List
  my $s =shift;
  my $o =defined($_[0]) && substr($_[0],0,1) eq '-' ? shift : '-ug';
  my $r =shift ||[];
+ my $a;
  if ($s->{-AuthUserFile} ||$s->{-AuthGroupFile}) {
     my @r;
     map {push @r, $1 if /^([^:]+):/}
@@ -144,7 +167,28 @@ sub uglist {  # User & Group List
        ? {map {($_ => $_)} @$l}
        : $l
  }
+ elsif ($^O eq 'MSWin32' && $s->{-adsi}
+     && $w32afl <2 && [Win32::GetOSVersion()]->[1]>=5 
+     &&($a =$s->adsi('WinNT://' .$s->parent->usdomain .',domain'))) {
+    $a->{Filter} =['User','Group'];
+    if (ref($r) eq 'ARRAY') {
+       foreach my $e (Win32::OLE::in($a)) {
+         next if $e->{Class} eq 'User' ? $o !~/u/ : $e->{Class} eq 'Group' ? $o !~/g/ : 1;
+         push(@$r, $e->{Name});
+       }
+    }
+    else {
+       my $l;
+       foreach my $e (Win32::OLE::in($a)) {
+         if    ($e->{Class} eq 'User')  {next if $o !~/u/; $l =$e->{FullName} ||$e->{Description} ||''}
+         elsif ($e->{Class} eq 'Group') {next if $o !~/g/; $l =$e->{Description} ||''}
+         else  {next}
+         $r->{$e->{Name}} =$e->{Name} .($l ? ', ' .$l :'');
+       }
+    }
+ }
  elsif ($^O eq 'MSWin32') {
+    $w32afl =2;
     eval("use Win32API::Net");
     return $r if $@;
     my $srv =$s->parent->userver;
@@ -190,7 +234,7 @@ sub uglist {  # User & Group List
  }
  else {
  }
- $r =[sort(@$r)] if ref($r) eq 'ARRAY';
+ $r =[sort {lc($a) cmp lc($b)} @$r] if ref($r) eq 'ARRAY';
  $r
 }
 
@@ -368,12 +412,12 @@ sub authscr {   # User authentication screen
  my $back =$s->cgi->param($cooknme) ||$ENV{HTTP_REFERER};
  $s->print->htpgstart(undef,$s->parent->{-htpnstart});
  $s->print->h1($s->lng(0,'Authentication'));
- $s->print('<TABLE><TR>');
- $s->print->th($ha,$s->lng(0,'UserName'))    ->td($ha,$s->htmlescape($s->parent->user))->text('</TR><TR>');
- $s->print->th($ha,$s->lng(0,'OriginalName'))->td($ha,$s->htmlescape($s->parent->useron))->text('</TR><TR>');
- $s->print->th($ha,$s->lng(0,'Cookie'))      ->td($ha,$s->htmlescape(join(', ',$s->cookie($cooknme))))->text('</TR><TR>');
- $s->print->th($ha,$s->lng(0,'Return'))      ->td($ha,$g->a({href=>$back}, $s->htmlescape($back)))->text('</TR><TR>');
- $s->print('</TR></TABLE>');
+ $s->print('<table><tr>');
+ $s->print->th($ha,$s->lng(0,'UserName'))    ->td($ha,$s->htmlescape($s->parent->user))->text('</tr><tr>');
+ $s->print->th($ha,$s->lng(0,'OriginalName'))->td($ha,$s->htmlescape($s->parent->useron))->text('</tr><tr>');
+ $s->print->th($ha,$s->lng(0,'Cookie'))      ->td($ha,$s->htmlescape(join(', ',$s->cookie($cooknme))))->text('</tr><tr>');
+ $s->print->th($ha,$s->lng(0,'Return'))      ->td($ha,$g->a({href=>$back}, $s->htmlescape($back)))->text('</tr><tr>');
+ $s->print('</tr></table>');
  $s->print->htpgend;
 }
 
@@ -469,18 +513,18 @@ sub loginscr {  # login via cgi screen
     $s->print->h1('Authentication required');
     $s->print->hidden($cooknme, $rdr);
     my $ha={-align=>'left',-valign=>'top'};
-    $s->print('<TABLE><TR>')
+    $s->print('<table><tr>')
       ->th($ha, 'UserName')
       ->td($ha, $g->textfield('user'))
-      ->text('</TR><TR>')
+      ->text('</tr><tr>')
       ->th($ha, 'Password')
       ->td($ha, $g->password_field('passwd'))
-      ->text('</TR><TR>')
+      ->text('</tr><tr>')
       ->th($ha, '&nbsp;')
       ->td($ha, $g->submit('Login','Login')
               .($o =~/i/ ? $g->submit('UserInfo',$s->lng(0, 'UserInfo')) :'') 
               .($o =~/r/ ? $g->submit('Register',$s->lng(0, 'Register')) : ''))
-      ->text('</TR></TABLE>');
+      ->text('</tr></table>');
     $s->print->htpfend;
     eval{$s->parent->reset}; # for mod_perl
     exit;

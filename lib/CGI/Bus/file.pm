@@ -3,7 +3,6 @@
 # CGI::Bus::file - File object
 #
 # admiral 
-# 23/10/2001
 #
 # 
 

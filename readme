@@ -25,7 +25,6 @@ HOW TO BUILD AND INSTALL
 	
 	perl Makefile.PL
 	make
-	make test	# you may run ./examples also
 	make install
     Or:
 	copy ./lib/CGI/* into perl/site/lib/CGI

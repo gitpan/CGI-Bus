@@ -45,7 +45,7 @@ $s->tmsql->set(
         ,-lbl=>'Updator', -cmt=>'Who was updated Record'
         ,-crt=>'', -sav=>sub{$_[0]->user}}
  ,''
- ,{-flg=>'avqiuw"',-fld=>'utime'
+ ,{-flg=>'avqiu"',-fld=>'utime'
         ,-lbl=>'Updated', -cmt=>'When was updated Record'
         ,-crt=>'', -sav=>sub{$_[0]->strtime}
         ,-lblhtml=>'', -inphtml=>'<nobr>$_</nobr>'

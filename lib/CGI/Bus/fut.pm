@@ -3,7 +3,6 @@
 # CGI::Bus::fut - File Utils Library
 #
 # admiral 
-# 19/10/2001
 #
 # 
 

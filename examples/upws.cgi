@@ -10,7 +10,8 @@ use vars qw($s);
 $s = do("config.pl");
 $s->set('-htmlstart')->{-title}  =$s->server_name() .' - WorkSpace';
 
-$s->upws->set(-index  =>'/index.html'    # site index
+$s->upws->set(-logo   =>undef            # logotype
+             ,-index  =>'/index.html'    # site index
              ,-uspath =>$s->hpath        # users sites base path, autodetect
              ,-usurl  =>$s->hurl         # users sites base URL
              ,-uspurf =>$s->hurf         # users sites publish filesystem URL
@@ -18,7 +19,9 @@ $s->upws->set(-index  =>'/index.html'    # site index
              );
 
 $s->upws->set(-indexes=>[                # most common URLs
-  'FAQ|' .$s->burl('notes.cgi','_tcb_cmd'=>'-lst','_tsw_LIST'=>'AllHier')
+ #'FAQ|' .$s->burl('notes.cgi','_tcb_cmd'=>'-lst','_tsw_LIST'=>'AllHier')
+  $s->a({-href=>$s->burl('notes.cgi','_tcb_cmd'=>'-lst','_tsw_LIST'=>'AllHier'), -title=>'Frequently Asked Questions'}
+       ,'<img src="/icons/small/unknown.gif" border=0 />FAQ')
   ]);
  
 $s->upws->set(-urlst=>[                  # most common URLs

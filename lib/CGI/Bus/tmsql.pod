@@ -1345,6 +1345,15 @@ C<qparam> call with C<-pxsw> prefixed param names.
 
 =over
 
+
+=head2 05/04/2002 - 06/05/2002
+
+=item New
+
+MySQL 'LIMIT rows' clause generation
+
+
+
 =head2 15/10/2001 - 23/03/2002
 
 =item New:

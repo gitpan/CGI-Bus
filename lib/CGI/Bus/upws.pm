@@ -3,7 +3,6 @@
 # CGI::Bus::upws - User Personal WorkSpace
 #
 # admiral 
-# 01/01/2002
 #
 # 
 
@@ -15,11 +14,38 @@ use CGI::Bus::Base;
 use vars qw(@ISA);
 @ISA =qw(CGI::Bus::Base);
 
+my %img =(-logo     =>'portal.gif'        # portal  world1
+         ,'Home'    =>'small/burst.gif'
+         ,'Overview'=>'small/movie.gif'
+         ,'Index'   =>'small/comp1.gif'
+         ,'USites'  =>'small/image2.gif'
+         ,-usite    =>'small/image2.gif'
+         ,-udir     =>'small/blank.gif'   # dir2 blank
+         ,'USFHomes'=>'small/dir.gif'
+         ,'USFHome' =>'small/dir.gif'
+         ,'Setup'   =>'small/patch.gif'
+         ,_blank    =>'small/dir.gif'     # generic dir
+         ,_top      =>'small/back.gif'    # back    transfer
+         ,-href     =>'small/text.gif'    # doc     text     generic forward blank
+         ,-hgen     =>'small/generic.gif'
+         ,-host     =>'small/comp2.gif'   # comp2 comp1
+         ,-hcgi     =>'small/doc.gif'
+         ,'Logout'  =>'small/key.gif'
+         ,'Login'   =>'small/key.gif'
+   );
 
 1;
 
 
 #######################
+
+
+sub _img {
+ $_[0]->parent->{-iurl} && $img{$_[1]} 
+ ? ('<img src="' .$_[0]->parent->{-iurl} .'/' .$img{$_[1]} .'" alt="" border=0 />')
+ : ''
+}
+
 
 
 sub urls {      # urls array
@@ -30,15 +56,15 @@ sub urls {      # urls array
     $hf=scalar(@$hf) if $hf;
  my $ht;
  push @$l, $s->cgi->a({-href=>$hu, -title=>$s->lng(1, 'Home')}
-           ,$s->lng(0, 'Home'))
+           ,$s->_img('Home') .$s->lng(0, 'Home'))
            if $hu;
  push @$l, $s->cgi->a({-href=>$s->qurl('', '_run'=>'RIGHT')
            ,-title=>$s->lng(1, 'Overview')}
-           ,$s->lng(0, 'Overview'))
+           ,$s->_img('Overview') .$s->lng(0, 'Overview'))
            if $hf;
  push @$l, $s->cgi->a({-href=>$s->{-index}
            ,-title=>$s->lng(1, 'Index')}
-           ,$s->lng(0, 'Index'))
+           ,$s->_img('Index') .$s->lng(0, 'Index'))
            if $s->{-index} && !ref($s->{-index});
  push @$l, @{$s->{-index}}
            if $s->{-index} &&  ref($s->{-index});
@@ -46,7 +72,7 @@ sub urls {      # urls array
            if $s->{-indexes};
  push @$l, $s->cgi->a({-href=>$s->qurl('', '_run'=>'USITES')
            ,-title=>$s->lng(1, 'USites', $s->{-uspfile} ? join(', ', @{$s->{-uspfile}}) : '')}
-           ,$s->lng(0, 'USites'))
+           ,$s->_img('USites') .$s->lng(0, 'USites'))
            if $s->{-usurl};
  if ($s->parent->urfcnd && $s->{-uspurf}) {
     $s->_usdflt if !$s->{-uspath};
@@ -55,12 +81,12 @@ sub urls {      # urls array
  push @$l, $s->cgi->a({-href=> $ho =~/^\w{3,5}:\/\// ? $ho : (($s->{-uspurf} ||$s->{-usurl}) ."/$ho")
            ,-target=>'_blank'
            ,-title =>$s->lng(1, 'USFHomes')}
-           ,$s->lng(0, 'USFHomes') .'&nbsp;&nbsp;&nbsp;')
+           ,$s->_img('USFHomes') .$s->lng(0, 'USFHomes') .'&nbsp;&nbsp;&nbsp;')
            if $hu;
  push @$l, $s->cgi->a({-href=> $hu =~/^\w{3,5}:\/\// ? $hu : (($s->{-uspurf} ||$s->{-usurl}) ."/$hu")
            ,-target=>'_blank'
            ,-title =>$s->lng(1, 'USFHome')}
-           ,$s->lng(0, 'USFHome') .'&nbsp;&nbsp;&nbsp;')
+           ,$s->_img('USFHome') .$s->lng(0, 'USFHome') .'&nbsp;&nbsp;&nbsp;')
            if $hu;
  }
  push @$l, @{ref($s->{-urlst}) eq 'CODE' ? &{$s->{-urlst}}($s) : $s->{-urlst}}
@@ -89,7 +115,7 @@ sub scrbot {    # print bottom of the screen
  my $s =shift;
  my $p =$s->parent;
  my $r =join(';' .$p->cgi->br, map {$p->htmlescape($_)} @{$p->pushmsg});
- $r  ='<HR /><FONT SIZE="-1">' .$r .'</FONT>' if $r;
+ $r  ='<hr /><font size=-1>' .$r .'</font>' if $r;
  $s->print->text($r);
 }
 
@@ -99,21 +125,21 @@ sub scrtop {    # top screen (top frameset)
  my $s =shift;
  my $ft=0; # top frame
  $s->print->httpheader({-target=>'_parent', -expires=>undef});
- $s->print('<HTML><HEAD><TITLE>' 
+ $s->print('<html><head><title>' 
           .$s->server_name() 
           .' - '
           .$s->lng(0,'WorkSpace')
-          .'</TITLE></HEAD>');
- $s->print("<FRAMESET cols=\"15%,*\">\n");
- $s->print("<FRAME name=\"LEFT\" src=\""
+          .'</title></head>');
+ $s->print("<frameset cols=\"15%,*\">\n");
+ $s->print("<frame name=\"LEFT\" src=\""
           .$s->qurl('', '_run'=>'LEFT') .'"'
           .' onfocus="{var e; try {self.document.title = self.LEFT.document.title;} catch(e){}};"'
           ." target=\"RIGHT\" />\n");
- $s->print("<FRAMESET rows=\"0%,*\">\n") if $ft; # 5%
- $s->print("<FRAME name=\"TOPR\" src=\""
+ $s->print("<frameset rows=\"0%,*\">\n") if $ft; # 5%
+ $s->print("<frame name=\"TOPR\" src=\""
           .$s->qurl('', '_run'=>'TOPR') .'"'
           ." target=\"RIGHT\" />\n") if $ft;
- $s->print('<FRAME name="RIGHT" src="'
+ $s->print('<frame name="RIGHT" src="'
           .$s->urltop .'"'
           .' onfocus ="{var e; try {self.document.title = (self.RIGHT.document && self.RIGHT.document.title) || &quot;'
             .$s->parent->htmlescape($s->parent->set('-htmlstart')->{-title} || '') 
@@ -125,20 +151,26 @@ sub scrtop {    # top screen (top frameset)
 # onfocus ="self.parent.status = self.RIGHT.document.title;"
 # onfocus ="self.status = self.RIGHT.document.title;"
 # self.RIGHT.contentWindow.location.href
- $s->print("</FRAMESET>\n") if $ft;
- $s->print("</FRAMESET>\n");
- $s->print("</HTML>\n");
+ $s->print("</frameset>\n") if $ft;
+ $s->print("</frameset>\n");
+ $s->print("</html>\n");
 }
-
 
 
 sub scrleft {   # left screen (urls)
  my $s =shift;
- $s->print->htpgstart(undef, $s->parent->hmerge($s->parent->{-htpnstart},-target=>'RIGHT',-style=>"{margin-top:0px}"));
- $s->{-logo} ='<img SRC="/icons/portal.gif" ALT="" >' 
+ my $p =$s->parent;
+#$s->print->htpgstart(undef, $p->hmerge($p->{-htpnstart},-target=>'RIGHT',-style=>"{margin-top:0px}"));
+ $s->print->htpgstart(undef, $p->hmerge($p->{-htpnstart},-target=>'RIGHT'));
+ $s->{-logo} =$s->a({-href=>$s->qurl('', '_run'=>'LEFT'), -target=>'_blank'}
+                   #{-href=>$s->surl, -target=>'_parent'}
+                   ,$s->{-logo} ? '<img src="' .$s->{-logo} .'" alt="" border=0 />' : $s->_img('-logo'))
+            if (!defined($s->{-logo}) && $img{-logo} && $p->{-iurl})
+            || ($s->{-logo} && $s->{-logo} !~/</);
+ $s->{-logo} ='<img src="/icons/portal.gif" alt="" border=0 />' 
             if !defined($s->{-logo}) && $ENV{SERVER_SOFTWARE} =~/Apache/i;
             # /icons/apache_pb.gif; world1.gif
- $s->{-logo} ='<img SRC="/web.gif" ALT="" >' 
+ $s->{-logo} ='<img src="/web.gif" alt="" border=0 />' 
             if !defined($s->{-logo}) && $ENV{SERVER_SOFTWARE} =~/IIS/;
  $s->print($s->{-logo}) if $s->{-logo};
  $s->print->strong($s->user)->br;
@@ -149,30 +181,32 @@ sub scrleft {   # left screen (urls)
                         || $s->qurl('','_run'=>'LOGIN')
                  ,-target=>'_parent'   #'_top' # _parent
                  ,-title =>$s->lng(1,'Login')}
-                ,$s->lng(0,'Login') .'...')->br->br;
+                ,$s->_img('Login') .$s->lng(0,'Login') .'...')->br->br;
  }
 
  my $l =$s->urls;
  foreach my $e (@$l) {
    if ($e =~/<\w/i || $e eq '') {
-      $s->print($e .$s->cgi->br ."\n");
+      $s->print((!$e ||$e =~/<img\s|<hr|<br/i ? '' : $s->_img('-hgen')) .$e .$s->cgi->br ."\n");
    }
    elsif ($e =~/^([^|]+)\|(_blank)\|(.+)$/i) {
       my ($c,$t,$u) =($1, $2, $3);
-      $s->print->a({-href=>$u, -target=>$t}
-                  ,$s->htmlescape($c) .'&nbsp;&nbsp;&nbsp;')->br;
+      $s->print->a({-href=>$u, -target=>$t,-title=>$e}
+                  , $s->_img('_blank') .$s->htmlescape($c) .'&nbsp;&nbsp;&nbsp;')->br;
    }
    elsif ($e =~/^([^|]+)\|(_top|_parent)\|(.+)$/i) {
       my ($c,$t,$u) =($1, $2, $3);
-      $s->print->a({-href=>$u, -target=>$t}
-                  ,$s->htmlescape($c) .'&nbsp;')->br;
+      $s->print->a({-href=>$u, -target=>$t,-title=>$e}
+                  ,$s->_img('_top') .$s->htmlescape($c) .'&nbsp;')->br;
    }
    elsif ($e =~/^([^|]+)\|+(.+)$/) {
       my ($c,$u) =($1, $2);
-      $s->print->a({-href=>$u},$s->htmlescape($c))->br;
+      $s->print->a({-href=>$u,-title=>$c}
+      , $s->_img($u !~m{\w/\w}i ? '-host' : $u =~m{\.(cgi|pl|php|asp)\b}i ? '-hcgi' : '-href') 
+      . $s->htmlescape($c))->br;
    }
    else {
-      $s->print->a({-href=>$e},$s->htmlescape($e))->br;
+      $s->print->a({-href=>$e,-title=>$e}, $s->_img('-href') .$s->htmlescape($e))->br;
    }
  }
 
@@ -180,11 +214,11 @@ sub scrleft {   # left screen (urls)
     $s->print->br;
     $s->print->a({-href=> $s->qurl('','_run'=>'SETUP')
                  ,-title=>$s->lng(1,'Setup')}
-                ,$s->lng(0,'Setup'))->br;
+                ,$s->_img('Setup') .$s->lng(0,'Setup'))->br;
     $s->print->a({-href  =>$s->qurl('','_run'=>'LOGOUT')
                  ,-target=>'_parent' #'_top' # _parent
                  ,-title =>$s->lng(1,'Logout')}
-                ,$s->lng(0,'Logout') .'!')->br
+                ,$s->_img('Logout') .$s->lng(0,'Logout') .'!')->br
         if $s->parent->uauth->signget;
  }
  $s->print('</NOBR>');
@@ -197,7 +231,8 @@ sub scrleft {   # left screen (urls)
 sub scrtopr  {  # top right screen (frame)
  my $s =shift;
 #$s->print->htpgstart();
- $s->print->htpgstart(undef, $s->parent->hmerge($s->parent->{-htpnstart}, -style=>"{margin-top:0px}"));
+#$s->print->htpgstart(undef, $s->parent->hmerge($s->parent->{-htpnstart}, -style=>"{margin-top:0px}"));
+ $s->print->htpgstart(undef, $s->parent->{-htpnstart});
  $s->print->startform(-action=>$s->qurl);
  $s->print->htpfend();
 }
@@ -224,19 +259,19 @@ sub scrright {  # right screen (frameset)
  }
 
  $s->print->httpheader;
- $s->print("<FRAMESET" 
-          .($d->{upws_frmrows} ? (' ROWS="' .$d->{upws_frmrows} .'"') :'')
-          .($d->{upws_frmcols} ? (' COLS="' .$d->{upws_frmcols} .'"') :'')
+ $s->print("<frameset" 
+          .($d->{upws_frmrows} ? (' rows="' .$d->{upws_frmrows} .'"') :'')
+          .($d->{upws_frmcols} ? (' cols="' .$d->{upws_frmcols} .'"') :'')
           .">\n");
  if ($d->{upws_frmurls}) {
     foreach my $e (@{$d->{upws_frmurls}}) {
-      $s->print("<FRAME SRC=\""
+      $s->print("<frame src=\""
                .$e
                ."\">\n");
     }
  }
- $s->print("</FRAMESET>\n");
- $s->print("</HTML>\n");
+ $s->print("</frameset>\n");
+ $s->print("</html>\n");
 
 }
 
@@ -295,7 +330,7 @@ sub _usdirscn { # Users Sites Collect Dirs
        foreach my $f (@{$s->{-uspfile}}) {
           my $n =_usjt($s->{-uspath},$d,$e,$f);
           next if !-f $n;
-        # $s->print('f: ' .$n .'<BR />');
+        # $s->print('f: ' .$n .'<br />');
           $j =1;
           my $u =($n =~/\.url$/ ? [$s->fut->fload(-a=>$n)]->[0]
                                 : _usjt($d,$e,$f));
@@ -311,7 +346,7 @@ sub _usdirscn { # Users Sites Collect Dirs
        $j =1;
        foreach my $u (eval {sort $s->fut->globn(_usjt($s->{-uspath},$d,$e,'*'))}) {
           my $n =_usjt($s->{-uspath},$d,$e,$u);
-        # $s->print('u: ' .$n .'<BR />');
+        # $s->print('u: ' .$n .'<br />');
           next if !-d $n;
         # print ', ';
           $s->_usdirscn($o .'u',_usjt($d,$e,$u));
@@ -335,7 +370,7 @@ sub _usdirscn { # Users Sites Collect Dirs
        $_ =$e;
        next if $a ==0 ? ($sub && !&$sub($_)) : (!$sub ||&$sub($_));
        my $n =_usjt($s->{-uspath},$d,$e);
-     # $s->print('l: ' .$n .'<BR />');
+     # $s->print('l: ' .$n .'<br />');
        next if !-d $n;
      # print '. ';
        $s->_usdirscn($o,_usjt($d,$e));
@@ -423,12 +458,13 @@ sub scrusites { # Users Sites Display
  my $lr =2;
 
 #$p->print->htpgstart;
- $p->print->htpgstart(undef, {-style=>"{margin-top:0px}"});
+#$p->print->htpgstart(undef, {-style=>"{margin-top:0px}"});
+ $p->print->htpgstart;
  $p->print->startform(-action=>$s->qurl);
 
  $p->print->hidden('_run' =>'USITES');
  $s->_usdflt;
- $p->print->text('<TABLE WIDTH="100%"><TR><TD>')
+ $p->print->text('<table width="100%"><tr><td>')
    ->h1($p->htmlescape($s->lng(0, 'USites')));
  my $tf =$p->fut->mkdir($p->tpath('upws')) .'/usites.pl';
  if (!-f $tf || $p->param('refresh')) {
@@ -440,7 +476,7 @@ sub scrusites { # Users Sites Display
     $s->{-ushref} =$p->fut->fdumpload($tf);
     $s->{-ushome}=$p->udata->param('upws_usphome');
  }
- $p->print->text('</TD>');
+ $p->print->text('</td>');
  $p->print->td({-valign=>'top',-align=>'right'}
        ,$p->uguest ? '' :
        ($p->submit(-name=>'refresh'
@@ -451,28 +487,28 @@ sub scrusites { # Users Sites Display
                                        .'/' .$s->{-ushome}
                                ,-target => '_blank'
                                }
-                              ,$s->{-ushome}))
+                              ,$s->_img('USFHome') .$s->{-ushome}))
         : ''))
        )
-   ->text('</TR><TR>')
+   ->text('</tr><tr>')
    ->td($hl,$p->htmlescape($s->lng(1, 'USites', join(', ',@{$s->{-uspfile}}))))
-   ->text('</TR></TABLE>');
+   ->text('</tr></table>');
 
  $p->print->endform;
- $p->print->text("<TABLE>\n");
+ $p->print->text("<table>\n");
  foreach my $r (@{$s->{-ushref}}) {
-   $p->print('<TR>');
-   $p->print('<TD>&nbsp;&nbsp;&nbsp;</TD>' x $r->[0]);
+   $p->print('<tr>');
+   $p->print('<td>&nbsp;&nbsp;&nbsp;</td>' x $r->[0]);
    if ($r->[3]) {
-      $p->print->td($hl, '<NOBR>' .$p->a({-href=> $r->[3]}, $p->htmlescape($r->[2])) .'</NOBR>');
+      $p->print->td($hl, '<nobr>' .$p->a({-href=> $r->[3]}, $s->_img('-usite') .$p->htmlescape($r->[2])) .'</nobr>');
    }
    else {
-      $p->print->th($hl, '<NOBR>' .$p->htmlescape($r->[2]) .'</NOBR>');
+      $p->print->th($hl, '<nobr>' .$s->_img('-udir') .$p->htmlescape($r->[2]) .'</nobr>');
    }
-   $p->print('</TR>');
+   $p->print('</tr>');
    $lv =$r->[0];
  }
- $p->print->text("</TABLE>\n");
+ $p->print->text("</table>\n");
  $s->scrbot;
  $p->print->htpgend;
 }
@@ -532,21 +568,22 @@ sub scrsetup {  # setup screen
      $d =$s->udata->param;
  }
 
- $s->print->htpgstart(undef, $s->parent->hmerge($s->parent->{-htpnstart}, -style=>"{margin-top:0px}"));
+#$s->print->htpgstart(undef, $s->parent->hmerge($s->parent->{-htpnstart}, -style=>"{margin-top:0px}"));
+ $s->print->htpgstart(undef, $s->parent->{-htpnstart});
  $s->print->startform(-action=>$s->qurl);
 
  $s->print->hidden('_run' =>'SETUP');
  $s->print->hidden('_run1'=>'SETUP');
- $s->print('<TABLE WIDTH="100%"><TR><TD>');
+ $s->print('<table width="100%"><tr><td>');
  $s->print->h1($s->lng(0, 'Setup') .' - ' .$s->parent->user)
           ->text($s->lng(1, 'Setup') .$g->br);
- $s->print('</TD>');
+ $s->print('</td>');
  $s->print->td({-valign=>'top',-align=>'right'}
               ,$g->submit(-name =>'save'
                          ,-value=>$s->lng(0, 'Save')
                          ,-title=>$s->lng(1, 'Save')))
      if !$aa && !scalar(@$ua);
- $s->print('</TR></TABLE>');
+ $s->print('</tr></table>');
 
  foreach my $p (qw(upws_urlh upws_frmrows upws_frmcols upws_usfhome urole)) {
     if    ($wr) {$d->{$p} =$g->param($p)}
@@ -577,8 +614,8 @@ sub scrsetup {  # setup screen
     $s->pushmsg('Data Loaded')
  }
 
- $s->print("<TABLE>\n");
- $s->print("<TR>");
+ $s->print("<table>\n");
+ $s->print('<tr>');
  if (scalar(@$ua)) {
  unshift @$ua, $u0;
  $s->print->th($ha, $s->lng(0, 'User'));
@@ -592,7 +629,7 @@ sub scrsetup {  # setup screen
                   . $g->submit(-name=>'save'
                               ,-value=>$s->lng(0, 'Save')
                               ,-title=>$s->lng(1, 'Save')));
- $s->print("</TR>\n<TR>");
+ $s->print("</tr>\n<tr>");
  }
  if ($aa) {
  $s->print->th($ha, $s->lng(0, 'Managed'));
@@ -600,39 +637,39 @@ sub scrsetup {  # setup screen
                   . $s->htmlddlb('uauth_managed_',sub{$_[0]->uglist({})}, ["\tuauth_managed"=>' '])
                   . $s->_ssfcmt('Managed')
               );
- $s->print("</TR>\n<TR>");
+ $s->print("</tr>\n<tr>");
  if ($s->parent->uauth->set('-udata')) {
  $s->print->th($ha, $s->lng(0, 'Groups'));
  $s->print->td($hd, $s->htmltextfield(-name=>'uauth_groups', -asize=>70)
                   . $s->htmlddlb('uauth_groups_',sub{$_[0]->uglist({})}, ["\tuauth_groups"=>' '])
                   . $s->_ssfcmt('Groups')
               );
- $s->print("</TR>\n<TR>");
+ $s->print("</tr>\n<tr>");
  }
  }
  $s->print->th($ha, $s->lng(0, 'FavoriteURLs'));
  $s->print->td($hd, $s->htmltextarea(-name=>'upws_urls', -cols=>58, -arows=>4, -wrap=>'off')
               .$s->_ssfcmt('FavoriteURLs'));
- $s->print("</TR>\n<TR>");
+ $s->print("</tr>\n<tr>");
  $s->print->th($ha, $s->lng(0, 'HomeURL'));
  $s->print->td($hd, $s->htmltextfield(-name=>'upws_urlh', -asize=>70)
               .$s->_ssfcmt('HomeURL'));
- $s->print("</TR>\n<TR>");
+ $s->print("</tr>\n<tr>");
  $s->print->th($ha, $s->lng(0, 'FramesetURLs'));
  $s->print->td($hd, $s->htmltextarea(-name=>'upws_frmurls', -cols=>58, -arows=>4, -wrap=>'off')
               .$s->_ssfcmt('FramesetURLs'));
- $s->print("</TR>\n<TR>");
+ $s->print("</tr>\n<tr>");
  $s->print->th($ha, '..' .$s->lng(0, 'FramesetRows'));
  $s->print->td($ha, $s->htmltextfield(-name=>'upws_frmrows')
               .$s->_ssfcmt('FramesetRows'));
-#$s->print("</TR>\n<TR>"); # -asize=>70
+#$s->print("</tr>\n<tr>"); # -asize=>70
  $s->print->th($ha, '..' .$s->lng(0, 'FramesetCols'));
  $s->print->td($ha, $s->htmltextfield(-name=>'upws_frmcols')
               .$s->_ssfcmt('FramesetCols'));
- $s->print("</TR>\n<TR>");
+ $s->print("</tr>\n<tr>");
 
  if ($s->{-uspurf}) {
- $s->print("</TR>\n<TR>");
+ $s->print("</tr>\n<tr>");
  $s->print->th($ha, $s->lng(0, 'USFHome'));
  $s->param('upws_usfhome',$s->usfhome(1)) if $s->param('upws_usfhome_');
  $s->print->td($hd, $s->htmltextfield(-name=>'upws_usfhome', -asize=>70)
@@ -640,18 +677,18 @@ sub scrsetup {  # setup screen
               .$s->_ssfcmt('USFHome'));
  }
 
- $s->print("</TR>\n<TR>");
+ $s->print("</tr>\n<tr>");
  $s->print->th($ha, $s->lng(0, 'PrimaryRole'));
  $s->print->td($hd, $s->popup_menu(-name=>'urole', -values=>['',@{$s->ugroups}])
               .$s->_ssfcmt('PrimaryRole'));
 
- $s->print("</TR>\n<TR>");
+ $s->print("</tr>\n<tr>");
  $s->print->th($ha, '');
  $s->print->td($hd, $g->submit(-name=>'save'
                               ,-value=>$s->lng(0, 'Save')
                               ,-title=>$s->lng(1, 'Save')));
- $s->print("</TR>\n");
- $s->print("</TABLE>\n");
+ $s->print("</tr>\n");
+ $s->print("</table>\n");
  $s->scrbot;
  $s->print->htpfend;
 }

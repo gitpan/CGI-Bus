@@ -3,7 +3,6 @@
 # CGI::Bus::smtp - SMTP Sender
 #
 # admiral 
-# 19/10/2001
 #
 # 
 

@@ -45,7 +45,7 @@ $s->tmsql->set(
         ,-lbl=>'Updator', -cmt=>'Who was updated the Note'
         ,-crt=>'', -sav=>sub{$_[0]->user}}
  ,''
- ,{-flg=>'avqiuw"',-fld=>'utime'
+ ,{-flg=>'avqiu"',-fld=>'utime'
         ,-lbl=>'Updated', -cmt=>'When was updated the Note'
         ,-crt=>'', -sav=>sub{$_[0]->strtime}
         ,-clst=>sub{"<FONT SIZE=-1>$_</FONT>"}

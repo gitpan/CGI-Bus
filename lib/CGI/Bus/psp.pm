@@ -3,7 +3,6 @@
 # CGI::Bus::psp - Perl Script Processor
 #
 # admiral 
-# 19/10/2001
 #
 # 
 
@@ -76,7 +75,7 @@ sub parse {           # PerlScript Parse Source
  if ($_[1] && $i =~m{(<body[^>]*>)}i) {
      my ($i0,$i1) =($` .$1 ,$');
      $i =$i0
-        .('<BASE HREF="'. $s->htmlescape($s->_furl($s->_fdir($_[1]))).'/" />')
+        .('<base href="'. $s->htmlescape($s->_furl($s->_fdir($_[1]))).'/" />')
         .$i1
  }
  if ($opt =~/e/i && $i =~m{<body[^>]*>}i) {

@@ -3,7 +3,6 @@
 # CGI::Bus - CGI Application Object Model
 #
 # admiral 
-# 15-20/10/2001
 #
 
 
@@ -14,7 +13,7 @@ use CGI::Carp qw(fatalsToBrowser);
 
 
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $AUTOLOAD);
-$VERSION = '0.50';
+$VERSION = '0.51';
 
 use vars qw($SELF);
 
@@ -109,6 +108,7 @@ sub initialize {
   #,-hurf       =>undef           # Homes Store file URL
   #,-hurl       =>undef           # Homes Store URL
   #,-urfcnd     =>undef           # URFs condition sub{}
+  #,-iurl       =>undef           # Apaceh Images URL '/images'
 
   #,-user       =>undef           # User name get optional sub
   #,-usdomain   =>undef           # Server's User Domain optional sub
@@ -325,8 +325,8 @@ sub _selfload{# Self SubObject Loader
 sub microtest{# Microtest of the Object
  my $s =shift;
  $s->{-debug} ? $s->print->hr : $s->print->htpgstart;
- local $s->{-debug} =0;
- if (($s->{-debug}||0) >1) {
+#local $s->{-debug} =0;
+ if (($s->{-debug}||0) >3) {
  $s->print->h2('Methods');
  foreach my $k (qw(class request qpath qurl qrun spath surl bpath burl dpath ppath purl furl user usdomain useron usersn usercn userfn userds unames ugroups ugnames)) {
    $s->print->text("$k = " ._stringify($s->$k()))->br;
@@ -457,8 +457,8 @@ sub warn {      # warning
     if (!$_[0] ||!$_[0]->{-cache} ||!$_[0]->{-cache}->{-httpheader}) {
       print STDOUT "Content-type: text/html\n\n";
     }
-    print STDOUT '<HR/><H1>' .$_[0]->lng(0,'Warning') ."</H1>\n";
-    print STDOUT "$m<HR/>\n";
+    print STDOUT '<hr /><h1>' .$_[0]->lng(0,'Warning') ."</h1>\n";
+    print STDOUT "$m<hr />\n";
  }
 }
 
@@ -475,12 +475,12 @@ sub die {       # stop error
     if (!$_[0] ||!$_[0]->{-cache} ||!$_[0]->{-cache}->{-httpheader}) {
       print STDOUT "Content-type: text/html\n\n";
     }
-    print STDOUT '<HR/><H1>' .$_[0]->lng(0,'Error') ."</H1>\n";
-    print STDOUT "$m<BR/>\n";
-    print STDOUT '<FONT SIZE="2">'
-               , join(';<BR/>', map {$_[0]->htmlescape($_)} @{$_[0]->pushmsg})
-               , '</FONT>';
-    print STDOUT "<HR/>\n";
+    print STDOUT '<hr /><h1>' .$_[0]->lng(0,'Error') ."</h1>\n";
+    print STDOUT "$m<br />\n";
+    print STDOUT '<font size="2">'
+               , join(';<br />', map {$_[0]->htmlescape($_)} @{$_[0]->pushmsg})
+               , '</font>';
+    print STDOUT "<hr />\n";
     eval{$_[0]->reset};  # for mod_perl
     exit;
  }
@@ -969,7 +969,7 @@ sub ugroups { # User groups
            $_ =&{$_[0]->{-ugrpcnv}}(@_);
            push(@$ga, $_) if defined($_) && $_ ne '';
        }
-       $s->{-cache}->{-ugroups} =[sort(@$ga)];
+       $s->{-cache}->{-ugroups} =[sort {lc($a) cmp lc($b)} @$ga];
     }
  }
  $_[0]->{-cache}->{-ugroups}
@@ -1002,7 +1002,7 @@ sub uglist {  # User & Group List
           $_ =&{$s->{-ugrpcnv}}($s,$o);
           push(@g, $_) if defined($_) && $_ ne '';
        }
-       $r =[sort(@g)];
+       $r =[sort {lc($a) cmp lc($b)} @g];
     }
     else {
        my $w =$_[1]; # width of label
@@ -1126,13 +1126,15 @@ sub htmlstart {
       if (!exists($p{$k})) {$p{$k} =$s->{-htmlstart}->{$k}}
     }
  }
- $s->{-cgi}->start_html(%p) 
- .("\n<!-- " .$s->{-cgi}->escapeHTML($s->microenv) ." -->\n");
+ $s->{-debug} && $s->{-debug} >1
+ ? $s->{-cgi}->start_html(%p)
+  .("\n<!-- " .$s->{-cgi}->escapeHTML($s->microenv) ." -->\n")
+ : $s->{-cgi}->start_html(%p) 
 }
 
 
 sub htmlend {
- $_[0]->microtest if $_[0]->{-debug};
+ $_[0]->microtest if $_[0]->{-debug} && $_[0]->{-debug} >2;
  $_[0]->{-cgi}->end_html
 }
 

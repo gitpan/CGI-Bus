@@ -35,7 +35,8 @@ $s =CGI::Bus->new($s);
  $s->set  (-import=>                            # DBI connect code
                      {-dbi => sub{$s->dbi("DBI:mysql:cgibus","cgibus","d95nfmJR971Yv3gVI40")}});
 
-#$s->set(-debug=>1);                            # debug switch
+ $s->set(-iurl   =>'/icons');                   # apache images
+ $s->set(-debug  =>1);                          # debug switch
 #$s->set(-pushlog=>$s->tpath('pushlog.txt'));   # log file
 
 $s->set(-httpheader=>{                          # common http header

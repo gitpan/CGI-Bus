@@ -3,7 +3,6 @@
 # CGI::Bus::tmsql - SQL Transaction Manager
 #
 # admiral 
-# 21/10/2001; 19/01/2002
 #
 # 
 
@@ -111,6 +110,7 @@ sub htmlddlb {  # HTML Drop-Down List Box - Input Helper
     if (!ref($ds)) {
         my $sel =$ds;
         if ($s->{-lists}->{$ds}) {
+            local $s->{-listrnm} =$s->{-lboxrnm};
             $s->cmdlst('-g!q', $ds);
             $sel =$s->{-gensel};
         }
@@ -622,14 +622,14 @@ sub cmdfrm { # Record form for Query or Edit
  my $ed=$s->{-cmde} && $s->cmdg(qw(-sel -crt -frm));
 
  if (!$s->cmdg('-qry') && $s->{-fsd} && -d $s->fspath) {
-  # $p->print->text('<BR />');
+  # $p->print->text('<br />');
     my $ed = $ed && (!$s->{-vsd} 
                  || ($s->{-vsd}->{-cvd} ? (&{$s->{-vsd}->{-cvd}}($s))
                     :$s->{-vsd}->{-svd} ? $s->{-vsd}->{-svd} eq $s->qparampv($s->{-vsd}->{-sf})
                     :0));
     $p->print->htmlfsdir($s->pxsw('files'), $ed, $ed && $s->cmd('-frm')
         , $s->fspath, $s->fsurl, $s->fsurf, '20%','100%');
-  # $p->print->text('<HR />')
+  # $p->print->text('<hr />')
   #   if $s->cmd('-sel') && $s->{-vsd} && $s->{-vsd}->{-npf};
  }
 
@@ -646,10 +646,10 @@ sub cmdfrm { # Record form for Query or Edit
         $vwo=$s->htmlescape(ref($vwo) 
                   ? join(',', map {ref($_) ? join(' ',@$_): $_} @$vwo)
                   : $vwo);
-     $p->print('<HR />');
-     $p->print('<TABLE>');
+     $p->print('<hr />');
+     $p->print('<table>');
     if ($s->{-lists}) {
-     $p->print('<TR>');
+     $p->print('<tr>');
      $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'LIST'));
      $p->print->td({-valign=>'top'}
                   ,$p->popup_menu(-name=>$s->pxsw('LIST')
@@ -657,47 +657,47 @@ sub cmdfrm { # Record form for Query or Edit
                   ,-values=>$s->qlstnmes
                   ,-labels=>$s->qlstlbls
                   ,-default=>$s->qlst)
-                  . ($vwf ? "<FONT SIZE=\"-1\"> ($vwf)</FONT>" :''));
-     $p->print('</TR>');
+                  . ($vwf ? "<font size=-1> ($vwf)</font>" :''));
+     $p->print('</tr>');
     }
-     $p->print('<TR>');
+     $p->print('<tr>');
      $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'WHERE'));
      $p->print->td({-valign=>'top'}
                   ,$p->htmltextarea(-name =>$s->pxsw('WHERE')
                                    ,-title=>$s->lng(1,'WHERE')
                                    ,-arows=>2,-cols=>68)
-                  .($vww ? "<FONT SIZE=\"-1\"> AND ($vww) </FONT>" :''));
-     $p->print('</TR><TR>');
+                  .($vww ? "<font size=-1> AND ($vww) </font>" :''));
+     $p->print('</tr><tr>');
     if ($s->{-ftext}) {
      $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'F-TEXT'));
      $p->print->td({-valign=>'top'}
                   ,$p->textfield(-name =>$s->pxsw('FTEXT')
                                 ,-title=>$s->lng(1,'F-TEXT')
                                 ,-size =>88));
-     $p->print('</TR><TR>');
+     $p->print('</tr><tr>');
     }
      $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'ORDER BY'));
      $p->print->td({-valign=>'top'}
                   ,$p->textfield(-name =>$s->pxsw('ORDER_BY')
                                 ,-title=>$s->lng(1,'ORDER BY')
                                 ,-size =>88) 
-                  .($vwo ? "<FONT SIZE=\"-1\"> ($vwo)</FONT>" : ''));
-     $p->print('</TR><TR>');
+                  .($vwo ? "<font size=-1> ($vwo)</font>" : ''));
+     $p->print('</tr><tr>');
      $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'LIMIT ROWS'));
      $p->print->td({-valign=>'top'}
                   ,$p->textfield(-name=>$s->pxsw('LIMIT'),-title=>$s->lng(1,'LIMIT ROWS')) 
-                  .'<FONT SIZE="-1"> (' .($s->{-listrnm}||'') .')</FONT>');
-     $p->print('</TR>');
-     $p->print('</TABLE>');
-     $p->print->text('<FONT SIZE="-1">'
-     ."Use <CODE>expr LIKE 'pattern'</CODE> for simple match comparison, where "
+                  .'<font size=-1> (' .($s->{-listrnm}||'') .')</font>');
+     $p->print('</tr>');
+     $p->print('</table>');
+     $p->print->text('<font size=-1>'
+     ."Use <code>expr LIKE 'pattern'</code> for simple match comparison, where "
      ."'%' matches any number of characters (even zero), "
      ."'_'  matches exactly one character, "
      ."'\\' is escape char."
-     .'</FONT>');
+     .'</font>');
 
      if ($s->{-acd} && eval{$s->acltest('-sys')}) { # System Actions
-        print "<HR />\n<STRONG>System Actions:</STRONG> ";
+        print "<hr />\n<strong>System Actions:</strong> ";
         if ($s->{-fsd}) { # FS Scan
            $p->print->submit(-name=>$s->pxcb('fsscan')
                      , -value=>'Check/Correct File Store'
@@ -724,6 +724,7 @@ sub _cmdfrmv {# List Record's Versions
  if ($uuf) {push @sl, $uuf; push @vl, $#sl};
  if ($kf)  {push @sl, $kf;  push @kl, $#sl};
  if (scalar(@vl) <2)       {push @vl, $#sl};
+ my $lr  =!$s->dbi ? undef : ($s->qparamsw('LIMIT') ||$s->{-listrnm});
  my $sql ="SELECT " 
          .join(',',map {$tbl .'.' .($fl->{$_}->{-col}||$_)} @sl)
          ." FROM  $tbl"
@@ -731,10 +732,12 @@ sub _cmdfrmv {# List Record's Versions
          .($fl->{$kf}->{-flg} =~/["']/ ? $s->dbi->quote($kv) : $kv)
          ." ORDER BY $tbl." 
          .($utf ? ($fl->{$utf}->{-col}||$utf) : ($fl->{$kf}->{-col}||$kf))
-         .' DESC';
+         .' DESC'
+         .(!$lr ? '' : eval{$s->dbi->{Driver}->{Name} eq 'mysql'} ? (' LIMIT ' .($lr+1) .' ') : '')
+         ;
  $s->htmllst($sql,[@vl],{$kl[0]=>$kf},undef
-            ,$s->cgi->hr .'<STRONG>' .$s->lng(0,'Versions') .'</STRONG><FONT SIZE=-1>&nbsp;&nbsp;'
-            ,';&nbsp;&nbsp;','&nbsp;','</FONT>');
+            ,$s->cgi->hr .'<strong>' .$s->lng(0,'Versions') .'</strong><font size=-1>&nbsp;&nbsp;'
+            ,';&nbsp;&nbsp;','&nbsp;','</font>');
 }
 
 
@@ -917,8 +920,8 @@ sub cmdlst { # List Data
        my $v =$s->qparamsw('FTEXT');
        $c =~s/%\$_/$s->dbi->quote('%' .$v .'%')/ge;
        $c =~s/\$_/$s->dbi->quote($v)/ge;
-       $sws  .=(!$sws  ? '' : ' AND ') .$c;
-       $swts .=(!$swts ? '' : ' AND ') .$c
+       $sws  .=(!$sws  ? '' : ' AND ') ."($c)";
+       $swts .=(!$swts ? '' : ' AND ') ."($c)"
     }
     $s->{-genwhr}  =$sws;
     $s->{-genfrom} =$sts;
@@ -927,11 +930,15 @@ sub cmdlst { # List Data
     $sobs =join(',', map {ref($_) ? join(' ',@$_): $_} @$sobs) if ref($sobs);
 
     # Assembly SQL Select Statement
+    my $lr =!$s->dbi ? undef : ($s->qparamsw('LIMIT') ||$s->{-listrnm});
     $s->{-gensel} =
-           'SELECT ' .$sfs .' FROM ' .$sts
+           'SELECT ' 
+          .$sfs .' FROM ' .$sts
           .($sws ? " WHERE $sws " : '')
           .($vw && $vw->{-groupby} ? ' GROUP BY ' .$vw->{-groupby} .' ' :'')
-          .($sobs ? " ORDER BY $sobs " :'');
+          .($sobs ? " ORDER BY $sobs " :'')
+          .(!$lr ? '' : eval{$s->dbi->{Driver}->{Name} eq 'mysql'} ? (' LIMIT ' .($lr+1) .' ') : '')
+          ;
     $s->{-genselt} =$swts;
  }
 
@@ -940,17 +947,17 @@ sub cmdlst { # List Data
     my $g =$s->cgi;    
     if ($opt !~/m/) {
        my $t =$p->{-htmlstart}->{-title}||$p->{-htpgstart}->{-title}||'';
-       print '<STRONG>'
+       print '<strong>'
            , $p->htmlescape(($t ? "$t - " : '' ) .(ref($vw->{-cmt}) ? $vw->{-cmt}->[0] : $vw->{-cmt}))
-           , "</STRONG><BR />\n" 
+           , "</strong><br />\n" 
            if $vw && $vw->{-cmt};
-       print join("<BR />\n"
+       print join("<br />\n"
            , map {$p->htmlescape($_)} @{$vw->{-cmt}}[1..$#{$vw->{-cmt}}])
-           , "<BR />\n"
+           , "<br />\n"
            if $vw && $vw->{-cmt} && ref($vw->{-cmt});
-       print '<FONT SIZE="-1">', $p->htmlescape($s->{-genselt}), '</FONT>' 
+       print '<font size=-1>', $p->htmlescape($s->{-genselt}), '</font>' 
            if $s->{-genselt};
-       print "<HR />\n"; # if ($vw && $vw->{-cmt}) ||$s->{-genselt};
+       print "<hr />\n"; # if ($vw && $vw->{-cmt}) ||$s->{-genselt};
     }
     my $c;
     if (!$dsub) {
@@ -972,16 +979,16 @@ sub cmdlst { # List Data
     my $mr =$#{$vfnl};
        $mh =$mr if $mh <0;
     local $_;
-    print "<TABLE>\n";
+    print "<table>\n";
     if ($opt !~/m/) {
-       print '<TR>';
+       print '<tr>';
        foreach my $i (@$vfnl) {
          print $g->th({-align=>'left',-valign=>'top'}
                      # ,-style=>"{border-bottom-style:groove;border-width:thin}"
                      # ;border-color:buttonshadow
            , $p->htmlescape($sfdl->[$i]->{-lbl}||$sfdl->[$i]->{-fld}||'(0)'));
        }
-       print "</TR><TR></TR>\n";
+       print "</tr><tr></tr>\n";
     }
     if (!$dsub) {
        $r =[];
@@ -992,29 +999,29 @@ sub cmdlst { # List Data
        next if $rsub && !(&$rsub($s,$sfdl,$r));
        my $href =$p->htmlurl(@hr0
                             ,(map {($sfdl->[$_]->{-fld},$r->[$_])} @$ufnl));
-       last if !print '<TR>'
+       last if !print '<tr>'
         ,(map { my $c =$_; local $_ =$r->[$c];
            $_ =$sfdl->[$c]->{-clst} ? &{$sfdl->[$c]->{-clst}}($s, $sfdl->[$c], $_)
               :$sfdl->[$c]->{-cstr} ? $g->escapeHTML(&{$sfdl->[$c]->{-cstr}}($s, $sfdl->[$c], $_))
               :$g->escapeHTML($_);
-           ('<TD VALIGN="top"><NOBR><A HREF="', $href, '"'
-           ,$s->{-formtgf} ? (' TARGET="', $s->{-formtgf}, '"') : (), '>'
+           ('<td valign=top><nobr><a href="', $href, '"'
+           ,$s->{-formtgf} ? (' target="', $s->{-formtgf}, '"') : (), '>'
            ,!defined($_) ||$_ eq '' ? '&nbsp&nbsp' : $_
-           ,'</A></NOBR></TD>'
+           ,'</a></nobr></td>'
            )
          } @$vfnl[0..$mh])
         ,(map { my $c =$_; local $_ =$r->[$c];
            $_ =$sfdl->[$c]->{-clst} ? &{$sfdl->[$c]->{-clst}}($s, $sfdl->[$c], $_)
               :$sfdl->[$c]->{-cstr} ? $g->escapeHTML(&{$sfdl->[$c]->{-cstr}}($s, $sfdl->[$c], $_))
               :$g->escapeHTML($_);
-           ('<TD VALIGN="top">', (!defined($_) ? '&nbsp;' : $_), '</TD>');
+           ('<td valign=top>', (!defined($_) ? '&nbsp;' : $_), '</td>');
          } @$vfnl[$mh+1..$mr])
-        ,"</TR>\n";
+        ,"</tr>\n";
        if (++$rc >=$lr) {
           last
        }
     }
-    print "</TABLE>\n";
+    print "</table>\n";
     $s->pushmsg($s->{-genlstm} =$rc <=$lr ? $s->lng(1,'rfetch',$rc) : $s->lng(1,'rfetchf',$lr));
     $c->finish if $c;
  }
@@ -1046,7 +1053,7 @@ sub cmdscan {# Scan data like cmdlst and eval code
 
  local $_ =undef;                       # Iterate Sub{} given
  my    $g =$s->cgi;
- print join(";<BR />\n", map {$s->htmlescape($_)} @{$s->pushmsg});
+ print join(";<br />\n", map {$s->htmlescape($_)} @{$s->pushmsg});
  $s->parent->set('-cache')->{-pushmsg} =undef;
  while ($_ =$c->fetchrow_hashref) {
     foreach my $f (@{$s->{-form}}) {    # set pk, reset fields
@@ -1088,46 +1095,46 @@ sub cmdhlp {    # Help Command
     print $g->h2($s->htmlescape($s->lng(0, $sh))),"\n";
     $sh =$s->lng(1, $sh);
     print $g->p($s->htmlescape($sh)),"\n" if $sh;
-    print "<TABLE>\n";
+    print "<table>\n";
     foreach my $n (qw(-npf -uuf -utf -cof -sf)) {
        next if !$s->{-vsd}->{$n} || !$s->{-fields}->{$s->{-vsd}->{$n}};
        my $f =$s->{-fields}->{$s->{-vsd}->{$n}};
        next if !$f || ref($f) ne 'HASH' || !$f->{-fld} || !$f->{-cmt};
-       print '<TR>';
+       print '<tr>';
        print $g->td($ta, $s->htmlescape('[' .$f->{-flg} .']'));
        print $g->th($ta, $s->htmlescape($f->{-lbl}||$f->{-fld}));
        print $g->td($ta, $s->htmlescape($f->{-fld}));
        print $g->td($ta, $s->htmlescape($f->{-cmt}));
-       print "</TR>\n";
+       print "</tr>\n";
     }
-    print '<TR>', $g->td(), $g->th($ta, $s->htmlescape("'" .$s->{-vsd}->{-svd} ."'")), $g->td()
-        , $g->td($ta, $s->htmlescape($s->lng(1,'-vsd-svd'))), '</TR>' if $s->{-vsd}->{-svd};
-    print '<TR>', $g->td(), $g->th($ta, $s->htmlescape("'" .$s->{-vsd}->{-sd} ."'")), $g->td()
-        , $g->td($ta, $s->htmlescape($s->lng(1,'-vsd-sd'))),  '</TR>'            if $s->{-vsd}->{-sd};
-    print "</TABLE>\n";
+    print '<tr>', $g->td(), $g->th($ta, $s->htmlescape("'" .$s->{-vsd}->{-svd} ."'")), $g->td()
+        , $g->td($ta, $s->htmlescape($s->lng(1,'-vsd-svd'))), '</tr>' if $s->{-vsd}->{-svd};
+    print '<tr>', $g->td(), $g->th($ta, $s->htmlescape("'" .$s->{-vsd}->{-sd} ."'")), $g->td()
+        , $g->td($ta, $s->htmlescape($s->lng(1,'-vsd-sd'))),  '</tr>'            if $s->{-vsd}->{-sd};
+    print "</table>\n";
  }
  if ($o =~/[so]/ && $s->{-fsd}) {
     $sh ='File Store';
     print $g->h2($s->htmlescape($s->lng(0, $sh))),"\n";
     $sh =$s->lng(1, $sh);
     print $g->p($s->htmlescape($sh)),"\n" if $sh;
-    print "<TABLE>\n";
-    print '<TR>', $g->th($ta, $s->htmlescape("'" .($s->{-fsd}->{-urf} ||$s->{-fsd}->{-url}) ."'"))
-        , $g->td($ta, $s->htmlescape($s->lng(1,'-fsd-url'))),   '</TR>' if $s->{-fsd}->{-url};
-    print '<TR>', $g->th($ta, $s->htmlescape("'" .($s->{-fsd}->{-vsurf} ||$s->{-fsd}->{-vsurl}) ."'"))
-        , $g->td($ta, $s->htmlescape($s->lng(1,'-fsd-vsurl'))), '</TR>' if $s->{-fsd}->{-vsurl};
+    print "<table>\n";
+    print '<tr>', $g->th($ta, $s->htmlescape("'" .($s->{-fsd}->{-urf} ||$s->{-fsd}->{-url}) ."'"))
+        , $g->td($ta, $s->htmlescape($s->lng(1,'-fsd-url'))),   '</tr>' if $s->{-fsd}->{-url};
+    print '<tr>', $g->th($ta, $s->htmlescape("'" .($s->{-fsd}->{-vsurf} ||$s->{-fsd}->{-vsurl}) ."'"))
+        , $g->td($ta, $s->htmlescape($s->lng(1,'-fsd-vsurl'))), '</tr>' if $s->{-fsd}->{-vsurl};
     my $sf =$s->{-vsd} ? $s->{-vsd}->{-sf} : ''; 
     if ($sf) {
        $sf =$s->{-fields}->{$sf}->{-lbl} ||$sf;
        $sf ='(' .$sf .($s->{-vsd}->{-svd} ? (' = ' .$s->{-vsd}->{-svd}) :'') .')';
     }
-    print '<TR>', $g->th($ta, $s->lng(0,'-fsd-vsd-e'))
+    print '<tr>', $g->th($ta, $s->lng(0,'-fsd-vsd-e'))
         , $g->td($s->htmlescape($s->lng(1,'-fsd-vsd-e', $sf)))
-        , '</TR>' if $s->{-vsd};
-    print '<TR>', $g->th($ta, $s->lng(0,'-fsd-vsd-ei'))
+        , '</tr>' if $s->{-vsd};
+    print '<tr>', $g->th($ta, $s->lng(0,'-fsd-vsd-ei'))
         , $g->td($s->htmlescape($s->lng(1,'-fsd-vsd-ei',$sf)))
-        , '</TR>' if $s->{-vsd};
-    print "</TABLE>\n";
+        , '</tr>' if $s->{-vsd};
+    print "</table>\n";
  }
  $s
 }
@@ -1391,18 +1398,18 @@ sub fsscan {    # File Store Scan
        if    (0 && (eval{$s->fut->delete('-',"$src/.htaccess")} ||1)
                 && $s->fut->rmpath($src)) {}
        elsif (!scalar(@r)) {
-          print $s->htmlescape("$kp --0> $kv"),"<BR />\n";
+          print $s->htmlescape("$kp --0> $kv"),"<br />\n";
         # $s->fut->delete('-r', $src) && $s->fut->rmpath($src);
           $s->fut->rmpath($src);
        }
        elsif ($src ne $dst) {
-        # print $s->htmlescape("$src --> $dst"),"<BR />\n";
+        # print $s->htmlescape("$src --> $dst"),"<br />\n";
           $s->fut->copy('-rd',$src,$dst) 
           && $s->fut->delete('-r',$src)
           && $s->fut->rmpath($src);                    
        }
        if (@{$s->pushmsg}) {
-          print join(";<BR />\n", map {$s->htmlescape($_)} @{$s->pushmsg}), "<BR />\n";
+          print join(";<br />\n", map {$s->htmlescape($_)} @{$s->pushmsg}), "<br />\n";
           $s->parent->set('-cache')->{-pushmsg} =undef;
        }
     }
@@ -1420,7 +1427,7 @@ sub fsscan {    # File Store Scan
             :$v->{-svd} ? (($v->{-svd} eq $s->qparam($v->{-sf})) ? 'w' : 'r')
             :'';
     $s->fsacl($fsa) if $fsa && -d $s->fspath; 
-    print join(";<BR />\n", map {$s->htmlescape($_)} @{$s->pushmsg}), "<BR />\n";
+    print join(";<br />\n", map {$s->htmlescape($_)} @{$s->pushmsg}), "<br />\n";
  });
  }
 }
