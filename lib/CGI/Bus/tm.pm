@@ -461,9 +461,10 @@ sub cnd    {   # Transaction command SQL condition string
 
 sub htmlbar {  # Transaction batton bar html
  my ($s, $o) =@_;
-    $o =($s->{-opflg} ||($s->parent->uguest ? 'qv' : 'a!v')) if !defined($o);
  my $p =$s->parent;
  my $g =$p->cgi;
+ my $guest =$p->uguest;
+    $o =($s->{-opflg} ||($guest ? 'qv' : 'a!v')) if !defined($o);
  my $r ='';
  $s->cmd() if !$s->{-cmd};
  if ($s->{-cmd} eq '-ins') {
@@ -476,13 +477,12 @@ sub htmlbar {  # Transaction batton bar html
          ? '<a href="' .$p->surl .'">' .($s->{-logo} !~/</ ? '<img src="' .$s->{-logo} .'" alt="" border=0 title="' .$s->lng(1,'-nap') .'" />' : $s->{-logo}) .'</a>' 
          : $s->{-logo});
  }
- if ((!$ENV{HTTP_REFERER}
-     ||eval {my $rfr =lc(($ENV{HTTP_REFERER}||'') =~/^(.+?)\/([^\/]+)$/ ? $1 : $ENV{HTTP_REFERER}) ||'';
-       lc(substr($s->parent->url, 0, length($rfr))) ne $rfr}) 
- && $s->parent->uguest) {
-
-    $r .=$s->_htmlbare(-lgn => $s->uauth->authurl);
- }
+#if ((!$ENV{HTTP_REFERER}
+#    ||eval {my $rfr =lc(($ENV{HTTP_REFERER}||'') =~/^(.+?)\/([^\/]+)$/ ? $1 : $ENV{HTTP_REFERER}) ||'';
+#            lc(substr($s->parent->url, 0, length($rfr))) ne $rfr}) 
+#&& $guest) {
+#   $r .=$s->_htmlbare(-lgn => $s->uauth->authurl);
+#}
  if (index($o,'<') >=0) {
     $r .=$s->_htmlbare(-nap, $p->surl) if !$s->{-logo};
     my $nth =$s->qurl;
@@ -498,6 +498,8 @@ sub htmlbar {  # Transaction batton bar html
     $r .=$s->_htmlbare(-bck => $p->{-iurl} && $img{-bck} ? $p->qurl : 0
                       ,-onClick=>'{window.history.back(); return(false)}') #window.event.returnValue=false;
              if !$s->{-formtgf};
+    $r .=$s->_htmlbare(-lgn => $s->uauth->authurl) 
+	     if $guest && $s->uauth->authurl;
     $r .=$s->_htmlbare($g->popup_menu(-name=>$s->pxnme(-pxsw=>'LIST')
                       ,-values=>$s->qlstnmes
                       ,-labels=>$s->qlstlbls
@@ -520,17 +522,21 @@ sub htmlbar {  # Transaction batton bar html
                       ,-onClick=>'{window.history.go('
                       .-($g->param($s->pxnme(-pxsw=>'FRMCOUNT'))||1) .'); return(false)}')
              if !$s->{-formtgf};
+    $r .=$s->_htmlbare(-lgn => $s->uauth->authurl) 
+	     if $guest && $s->uauth->authurl;
  }
  if ($s->cmdg('-qry') && $o =~/[aq]/) {
     $r .=$s->_htmlbare('-lst');
     $r .=$s->_htmlbare('-frm');
  }
  if (!$s->cmdg('-lst','-qry')) {
-    $r .=$s->_htmlbare('-lsr') if !$s->{-formtgf};
+  # $r .=$s->_htmlbare('-lsr') if !$s->{-formtgf};
+    $r .=$s->_htmlbare(-qry =>$s->htmlurl($s->qurl,$s->pxcb('-cmd')=>'-qry'))
+			       if $o =~/[aq]/  && !$s->{-formtgf} && ($vm || $o =~/!v/);
 
     # !!! '-sel' may be useful; '-edt' does not saves changes; see 'cmd' -sel transition
-    $r .=$s->_htmlbare('-sel') if $o =~/[aev]/ && $s->cmdg eq '-sel' && $o !~/!s/;
-    $r .=$s->_htmlbare('-edt') if $o =~/[av]/  && $s->cmdg eq '-sel' && $o !~/!v/ && $vm;
+    $r .=$s->_htmlbare('-sel') if $o =~/[aev]/ && $s->cmdg eq '-sel' && $o !~/!s/ && !$guest;
+    $r .=$s->_htmlbare('-edt') if $o =~/[av]/  && $s->cmdg eq '-sel' && $o !~/!v/ && $vm && !$guest;
 
     $r .=$s->_htmlbare('-frm') if $o =~/[aeu]/ && $s->cmdg ne '-del' && !$vm;
     $r .=$s->_htmlbare('-upd') if $o =~/[aeu]/ && $s->cmdg eq '-sel' && !$vm;
@@ -580,7 +586,10 @@ sub _htmlbare { # Transaction batton bar element
                   # ,-style=>"behavior:url(behaviorFile.htc)"
                     }
                    , $p->{-iurl} && $img{$b} 
-                   ? '<img src="' .$p->{-iurl} .'/' .$img{$b} .'" border=0 align=bottom />' .'<font size=-1>' .$p->htmlescape($v) .'</font>'
+                   ? '<font size=-1><img src="' .$p->{-iurl} .'/' .$img{$b} 
+			.'" border=0 align="bottom"'
+			.($b eq '-lgn' ? ' width=20 height=22 />' : ' />')
+			.$p->htmlescape($v) .'</font>'
                    : $p->htmlescape($v)) .' '
        : $v ? ( $p->{-iurl} && $img{$b}
               ? $g->image_button(-name=>$s->pxnme(-pxcb=>$b)
@@ -921,6 +930,8 @@ sub cmdfrm { # Record form for Query or Edit
    }
    elsif (!ref($f))          {$p->print($f); next}
    elsif (ref($f) eq 'CODE') {$p->print(&$f($s)); next}
+   elsif (!$f->{-flg}
+         ||$f->{-flg} =~/^["'ls]*$/) {next}
    next if !$f->{-fld};
 
    local $_ =$s->param($f->{-fld});
@@ -992,8 +1003,9 @@ sub cmdfrm { # Record form for Query or Edit
                $v    =$';
                my $w =$p->htmlescape($`); $w =~s/( {2,})/'&nbsp;' x length($1)/ge; $w =~s/\n/<br \/>\n/g; $w =~s/\r//g;
                $wgp .=$w;
-               $r    =~s/^host:\///;
-               $r    =~s/^fsurl:\//$s->fsurl||$s->fsurf/e;
+               $r    =~s/^(host|urlh):\/\//\//;
+               $r    =~s/^(url|urlr):\/\//$s->url(-relative=>1)/e;
+               $r    =~s/^(fsurl|urlf):\/\//($s->fsurl||$s->fsurf) .'\/'/e;
                $wgp .=$g->a({-href=>$r, -target=>'_blank'}, $p->htmlescape($r));
             }
             $v =$p->htmlescape($v); $v =~s/( {2,})/'&nbsp;' x length($1)/ge; $v =~s/\n/<br \/>\n/g; $v =~s/\r//g;
@@ -1156,12 +1168,14 @@ sub cmdhlp { # Help Command
     print $g->p($s->htmlescape($sh)),"\n" if $sh;
     print "<table>\n"; # -nup
     foreach my $c (index($s->{-opflg}||'','<') >=0 ? qw(-nap -nth) : ()
-                  ,qw(-bck -lst -qry -crt -sel -frm -ins -upd -del -hlp)) {
+                  ,qw(-bck -lgn -lst -qry -crt -sel -frm -ins -upd -del -hlp)) {
        next if !$s->lng($c);
        print "<tr>";
        print $g->th($ta
                    ,'<nobr>'
-                   ,($p->{-iurl} && $img{$c} ? '<img src="' . $p->{-iurl} .'/' .$img{$c} .'" border=0 align="top" />' : '') 
+                   ,($p->{-iurl} && $img{$c} 
+			? '<img src="' . $p->{-iurl} .'/' .$img{$c} .'" border=0 align="top"' . ($img{$c} =~m{small/}i ? ' width=20 height=22' : '').' />' 
+			: '') 
                    .$s->htmlescape($s->lng(0,$c))
                    .'</nobr>');
        print $g->td($ta, $s->htmlescape($s->lng(1,$c)));

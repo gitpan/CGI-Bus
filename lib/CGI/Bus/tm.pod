@@ -598,6 +598,25 @@ C<qparam> call with C<-pxsw> prefixed param names.
 
 =over
 
+=head2 26/06/2003
+
+=item Changed:
+
+C<htmlbar> button set behaviour:
+'Login' button moved after 'Back' and will be always shown for guests;
+'Login' button small picture resized;
+'List' button in the record form replaced with 'Query' button 
+and excluded when record editing;
+'Edit' button will not be shown for guests.
+
+
+=head2 28/04/2003
+
+=item Fixed:
+
+C<cmdfrm> 'l'ist, 's'elect, '"'quoted only fields (C<-flg> =~/^["'ls]*$/)
+are not considered in form layout now
+
 
 =head2 17/04/2003
 

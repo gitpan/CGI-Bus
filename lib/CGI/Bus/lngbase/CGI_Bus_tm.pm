@@ -12,11 +12,11 @@ use strict;
 1;
 
 sub lngbase {
- (-lgn=>['Login',  'Login to the System']
- ,-nap=>['Top',    'The topmost level']
+ (-nap=>['Top',    'The topmost level']
  ,-nup=>['Up',     'An upper level']
  ,-nth=>['Reset',  'This application default']
  ,-bck=>['Back',   'Back to previous screen']
+ ,-lgn=>['Guest',  'Login to the System']
  ,-lst=>['List',   'List records under query condition']
  ,-lsr=>['List',   'List records']
  ,-qry=>['Query',  'Query condition to list records by']

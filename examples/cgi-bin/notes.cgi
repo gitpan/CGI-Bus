@@ -99,7 +99,7 @@ $s->tmsql->set(
         ,-clst=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*((\w{3,5}:\/\/|\/).+)/ ? $_[0]->a({-href=>$3,-target=>$2},$_[0]->htmlescape($1)) : $_[0]->htmlescape($_)}
         }
  ,{-flg=>'a"',  -fld=>'comment'
-        ,-lbl=>'Comment', -cmt=>'Comment text or HTML code; host:// or fsurl:// URLs may be used; query condition within <where></where> tags'
+        ,-lbl=>'Comment', -cmt=>'Comment text or HTML code; host:// or urlh://, url:// or urlr://, fsurl:// or urlf:// URLs may be used; query condition within <where></where> <order_by></order_by> tags'
         ,-crt=>sub{$_}, -null=>''
         ,-inp=>{-cols=>68,-maxlength=>4*1024,-arows=>3,-hrefs=>1,-htmlopt=>1}
         ,-colspan=>10}
@@ -226,7 +226,8 @@ $s->tmsql->set(-cmdfrm =>sub{  # view related records in record form
        $s->cmdlst('-gxm!q','AllActual'
          ,join(' OR '
               ,(map {"$_=" .$s->dbi->quote($s->qparam('id'))} 'notes.idrm')
-              ,($s->qparam('comment')||'') !~/^<where>(.+?)<\/where>/ ? () : ("($1)")
+              ,($s->qparam('comment')||'') !~/^<where>(.+)<\/where>(?:<order_by>(.+)<\/order_by>){0,1}/
+               ? () : (($2 ? $s->qparamsw('ORDER_BY', $2) : 1) && "($1)")
               )
          )
     }

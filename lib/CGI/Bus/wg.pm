@@ -135,7 +135,8 @@ sub textarea { # Text Area with autorowing and hrefs
     while ($v =~/\b(\w{3,5}:\/\/[^\s\t,()<>\[\]"']+[^\s\t.,;()<>\[\]"'])/) {
        my $t =$1;
        $v =$';
-       $t =~s/^host:\///;
+       $t =~s/^(host|urlh):\/\//\//;
+       $t =~s/^(url|urlr):\/\//$s->url(-relative=>1)/e;
        push @h, $t;
     }
     $r .=join(';&nbsp;', map {$s->a({-href=>$_},$s->htmlescape($_))} @h);

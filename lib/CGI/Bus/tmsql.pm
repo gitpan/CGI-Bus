@@ -678,7 +678,10 @@ sub cmdfrm { # Record form for Query or Edit
                   ,$p->htmltextarea(-name =>$s->pxsw('WHERE')
                                    ,-title=>$s->lng(1,'WHERE')
                                    ,-arows=>2,-cols=>68)
-                  .($vww ? "<font size=-1> AND ($vww) </font>" :''));
+                  .($vw && $vw->{-wherepar} && !$s->qparamsw('WHERE')
+                    ? ('<font size=-1> [ AND (' .$p->htmlescape($vw->{-wherepar}) .') ]</font>') 
+                    : '')
+                  .($vww ? "<font size=-1> AND ($vww)</font>" :''));
      $p->print('</tr><tr>');
     if ($s->{-ftext}) {
      $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'F-TEXT'));
@@ -707,6 +710,7 @@ sub cmdfrm { # Record form for Query or Edit
      ."'_'  matches exactly one character, "
      ."'\\' is escape char."
      .'</font>');
+     $p->print->text('<br /><font size=-1>Self <code>URL</code> may be useful: ' .$p->cgi->self_url .'</font>');
 
      if ($s->{-acd} && eval{$s->acltest('-sys')}) { # System Actions
         print "<hr />\n<strong>System Actions:</strong> ";
@@ -801,16 +805,17 @@ sub cmdlst { # List Data
 
  # Parse Form & View
  if ($opt =~/[gp]/) {         # Preview condition
-     foreach my $v (($opt !~/!q/ ? $s->qparamsw('WHERE') :'')
-                # , ($opt !~/!q/ ? $swps :'') # will be filled below
+     foreach my $v (($opt =~/!q/ ? '' : ($s->qparamsw('WHERE')||($vw && $vw->{-wherepar})||''))
+                # , ($opt =~/!q/ ? '' : $swps) # will be filled below
                   ,  $cnd
                   , ($vw ? $vw->{-where} :'')
-                  , ($vw && $vw->{-filter} ? $vw->{-filter}
-                    :($s->{-fltlst} || $s->{-filter}))
+                  , ($vw && $vw->{-filter} 
+                      ? $vw->{-filter}
+                      :($s->{-fltlst} || $s->{-filter}))
                   ) {
-      my $vv=(ref($v) ? &$v($s): $v);
-      $swfs .=(!$swfs ? '' : ' AND ') .'(' . $vv.') ' if $vv
-    }
+        my $vv =(!defined($v) ? '' : ref($v) ? &$v($s): $v =~/^ *$/ ? '' : $v);
+        $swfs .=(!$swfs ? '' : ' AND ') .'(' . $vv.') ' if $vv
+     }
  }
  if ($opt =~/[gp]/) {         # Parse Form
     foreach my $f (@{$s->{-form}}) {
@@ -937,10 +942,10 @@ sub cmdlst { # List Data
       my $vv=(ref($v) ? &$v($s): $v);
       $sws .=(!$sws ? '' : ' AND ') .'(' . $vv.') ' if $vv
     }
-    foreach my $v ( ($opt !~/!q/ ? $swps :'')
-                  , ($opt !~/!q/ ? $s->qparamsw('WHERE') :'')
+    foreach my $v ( ($opt =~/!q/ ? '' : $swps)
+                  , ($opt =~/!q/ ? '' : ($s->qparamsw('WHERE')||($vw && $vw->{-wherepar})||''))
                   ) {
-      my $vv=(ref($v) ? &$v($s): $v);
+      my $vv=(!defined($v) ? '' : ref($v) ? &$v($s): $v =~/^ *$/ ? '' : $v);
       $swts .=(!$swts ? '' : ' AND ') .'(' . $vv .') ' if $vv
     }
 
@@ -963,7 +968,7 @@ sub cmdlst { # List Data
     $sobs =join(',', map {ref($_) ? join(' ',@$_): $_} @$sobs) if ref($sobs);
 
     # Assembly SQL Select Statement
-    my $lr =!$s->dbi ? undef : ($s->qparamsw('LIMIT') ||$s->{-listrnm});
+    my $lr =!$s->dbi ? undef : ($s->qparamsw('LIMIT') || ($vw && $vw->{-listrnm}) || $s->{-listrnm});
     $s->{-gensel} =
           ' FROM ' .$sts
           .($sws ? " WHERE $sws " : '')
@@ -974,7 +979,9 @@ sub cmdlst { # List Data
     $s->{-genselg} =$vw && $vw->{-gant1}
          ? 'SELECT MIN(' .$vw->{-gant1} .'), MAX(' .$vw->{-gant2} .')' 
           .     ', MAX(' .$vw->{-gant1} .'), MIN(' .$vw->{-gant2} .')' 
-          .' ' .$s->{-gensel}
+         #.' ' .$s->{-gensel} # 'order by' clause may contain fields to be defined in 'select' list
+          .' FROM ' .$sts
+          .($sws ? " WHERE $sws " : '')
          : '';
     $s->{-gensel} =
            'SELECT ' .$sfs .($vw && $vw->{-gant1} ? ', ' .join(', ', $vw->{-gant1}, $vw->{-gant2}) : '')
@@ -1033,7 +1040,7 @@ sub cmdlst { # List Data
     else {
        $dsub =&$dsub($s);
     }
-    my $lr=$s->qparamsw('LIMIT') ||$s->{-listrnm};
+    my $lr=$s->qparamsw('LIMIT') ||($vw && $vw->{-listrnm}) ||$s->{-listrnm};
     my $rc =0;
     my $r;
     my @hr0=$vw && $vw->{-href} ? @{$vw->{-href}} :();

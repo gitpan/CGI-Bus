@@ -645,8 +645,10 @@ See also C<urlescape>.
 =item htmlescapetext (text) -> escaped 
 
 Alike C<htmlescape>, but with
-text area formatting improved with '&nbsp;' signs and '<code>' tags as needed,
-'<br />' and '<a href=' tags
+text area formatting improved with '&nbsp;' signs and '<code>' tags as needed;
+'<br />' and '<a href=' tags; 
+URLs; 
+relative URLs marked with 'host://' and 'url://' protocols.
 
 
 =item htmlfsdir ( name, edit?, allow edit?, files path, URL, ?filesystemURL, ?rows, ?cols )
@@ -1091,6 +1093,48 @@ See also C<Error and Message processing>, L<CGI::Carp|CGI/Carp>
 =head1 VERSION
 
 =over
+
+=head2 07/07/2003
+
+Version 0.56 released
+
+
+=head2 25/06/2003
+
+L<CGI::Bus::tm|CGI/Bus/tm> changed: 'htmlbar' button set behaviour.
+
+L<CGI::Bus::tmsql|CGI/Bus/tmsql> changed: new '-listrnm' view description slot
+used in 'cmdlst' alike common '-listrnm' slot
+
+
+=head2 21/05/2003
+
+L<CGI::Bus::tmsql|CGI/Bus/tmsql> fixed:
+Excluded 'order by', 'group by', 'limit' clauses from
+gant (timeline) chart minimum and maximum margins SQL 'select' command
+to escape fields to be defined in 'select' list.
+
+'gwo' application example changed:
+added 'List Obj Hier' view and 'subject_q' virtual field.
+
+
+
+=head2 29-28/04/2003
+
+L<CGI::Bus::tmsql|CGI/Bus/tmsql> new '-wherepar' view description slot
+
+L<CGI::Bus::tm|CGI/Bus/tm> C<cmdfrm> fixed:
+'l'ist, 's'elect, '"'quoted only fields (C<-flg> =~/^["'ls]*$/)
+are not considered in form layout now
+
+
+
+=head2 26-25/04/2003
+
+L<CGI::Bus|CGI/Bus>, L<CGI::Bus::wg|CGI/Bus/wg>, L<CGI::Bus::tmsql|CGI/Bus/tmsql> changed:
+special URL protocol 'url://' added, translated as relative to script URL.
+Special URL protocols new aliaces: 
+host:// or urlh://, url:// or urlr://, fsurl:// or urlf://
 
 
 

@@ -67,7 +67,8 @@ Like C<CGI::textarea> call, but with additional attributes:
 -arows=>min autosizes widget to it's content.
 -hrefs=>1 searches HTML hyperlinks in content and displays them,
 special URL protocols may be used and translated: 
-'host://'  -> '/'.
+'host://'  -> '/',
+'url://' -> relative script name.
 -htmlopt=>1 is to autodetect and use in view mode HTML data format,
 it is ignored (deleted).
 

@@ -503,7 +503,7 @@ C<set>(C<-lists> =>
 { view_name=>{ C<-lst>, C<-lbl>, C<-cmt>, 
 C<-fields>, C<-key>,
 C<-dsub>, C<-sub>,
-C<-where>, C<-filter>, C<-rowlst>, C<-orderby>, C<-groupby>,
+C<-where>, C<-wherepar>, C<-filter>, C<-rowlst>, C<-orderby>, C<-groupby>,
 C<-href>, C<-hrefc>,
 C<-htmlts>, C<-htmlte>, C<-width>, C<-refresh>,
 C<-gant1>, C<-gant2>, C<-htmlg1>
@@ -593,7 +593,6 @@ Default is 0 - first column only;
 Key fields to open list entry parameters
 
 
-
 =item -lst
 
 =item -lst_LNG
@@ -601,6 +600,12 @@ Key fields to open list entry parameters
 View name as displayed to user,
 default is key of view.
 LNG is C<lngname>
+
+
+=item -listrnm
+
+View rows number default margin.
+Margin of the number of the rows returned by C<-lst> operation
 
 
 =item -orderby
@@ -630,7 +635,12 @@ View implementation sub{} instead C<cmdlst>
 
 'WHERE' clause part string for SQL 'SELECT'.
 Complete 'WHERE' clause is formed with C<-fltlst> or C<-filter>,
-C<-where>, 'Query' screen condition.
+C<-where>, 'Query' screen condition or C<-wherepar>.
+
+
+=item -wherepar
+
+Default 'Query' screen 'WHERE' condition to be used as a part for SQL 'SELECT'.
 
 
 =item -width
@@ -1458,6 +1468,30 @@ C<qparam> call with C<-pxsw> prefixed param names.
 =head1 VERSION
 
 =over
+
+
+=head2 25/06/2003
+
+
+=item Changed:
+
+New C<-listrnm> C<Views Description> slot used in C<cmdlst>, alike common C<-listrnm>
+
+
+=head2 21/05/2003
+
+=item Fixed:
+
+Excluded 'order by', 'group by', 'limit' clauses from
+gant (timeline) chart minimum and maximum margins SQL 'select' command
+to escape fields to be defined in 'select' list.
+
+
+=head2 29/04/2003
+
+=item New:
+
+C<-wherepar> view description slot
 
 
 =head2 17/04/2003

@@ -192,8 +192,13 @@ $s->tmsql->set(
         ,-clst=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*((\w{3,5}:\/\/|\/).+)/ ? $_[0]->a({-href=>$3,-target=>$2},$s->htmlescape($1)) : $s->htmlescape($_)}
         ,-width=>30
         }
+ ,{-flg=>'"', -fld=>'subject_q', -col=>"CONCAT_WS(' ', object, subject)"
+        ,-lbl=>'Subject', -cmt=>'Subject following Object'
+        ,-width=>30
+        ,-clst=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*((\w{3,5}:\/\/|\/).+)/ ? $_[0]->a({-href=>$3,-target=>$2},$s->htmlescape($1)) : $s->htmlescape($_)}
+        }
  ,{-flg=>'a"',  -fld=>'comment'
-        ,-lbl=>'Comment', -cmt=>'Comment text or HTML code; host:// or fsurl:// URLs may be used; query condition within <where></where> tags'
+        ,-lbl=>'Comment', -cmt=>'Comment text or HTML code; host:// or urlh://, url:// or urlr://, fsurl:// or urlf:// URLs may be used; query condition within <where></where> <order_by></order_by> tags'
         ,-crt=>sub{$_}, -null=>''
         ,-inp=>{-cols=>68,-arows=>3,-maxlength=>4*1024,-hrefs=>1,-htmlopt=>1}
         ,-colspan=>10}
@@ -220,7 +225,8 @@ $s->tmsql->set(
                   ,-fields=>[qw(status subject_v alist_v)]
                   ,-gant1=>'stime', -gant2=>'etime'
                   ,-orderby=>'auser, arole, stime, etime'
-                  ,-where=>"status NOT IN('deleted','template') AND gwo.idnv is NULL"}
+                  ,-where=>"status NOT IN('deleted','template') AND gwo.idnv is NULL"
+                  ,-wherepar=>"stime >=SUBDATE(NOW(), INTERVAL 2 MONTH)"}
  ,'AllToDo'=>     {-lbl=>'All ToDo', -cmt=>'All records to do'
                   ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'ftime desc, ctime desc'
@@ -293,6 +299,10 @@ $s->tmsql->set(
                   ,-orderby=>'object', -groupby=>'object'
                   ,-href=>[undef,undef,'-lst',$s->tmsql->pxsw('LIST'),'AllActual',$s->tmsql->pxsw('ORDER_BY'),'record_s asc, otime desc, ctime desc']
                   ,-where=>"status NOT IN ('deleted','template') AND gwo.idnv is NULL"}
+ ,'ObjHier'=>     {-lbl=>'List Obj Hier', -cmt=>'Hierarchy of Objects and Queries'
+                  ,-fields=>[qw(status subject_q alist_v)]
+                  ,-where=>"record IN('object','query') AND status NOT IN('deleted','template') AND gwo.idrm is NULL AND gwo.idnv is NULL"
+                  ,-orderby=>'subject_q'}
  ,'DocTypes'=>    {-lbl=>'List DocTypes', -cmt=>'List of DocTypes'
                   ,-fields=>[qw(doctype)], -key=>[qw(doctype)]                
                   ,-orderby=>'doctype', -groupby=>'doctype'
@@ -390,7 +400,8 @@ $s->tmsql->set(-cmdfrm =>sub{  # view related records in record form
        $s->cmdlst('-gxm!q','AllActual'
          ,join(' OR '
               ,(map {"$_=" .$s->dbi->quote($s->qparam('id'))} 'gwo.idpr', 'gwo.idrm')
-              ,($s->qparam('comment')||'') !~/^<where>(.+?)<\/where>/ ? () : ("($1)")
+              ,($s->qparam('comment')||'') !~/^<where>(.+)<\/where>(?:<order_by>(.+)<\/order_by>){0,1}/
+               ? () : (($2 ? $s->qparamsw('ORDER_BY', $2) : 1) && "($1)")
               )
          )
     }

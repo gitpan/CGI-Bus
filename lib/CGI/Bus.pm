@@ -13,7 +13,7 @@ use CGI::Carp qw(fatalsToBrowser);
 
 
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $AUTOLOAD);
-$VERSION = '0.55';
+$VERSION = '0.56';
 
 use vars qw($SELF);
 
@@ -1212,7 +1212,8 @@ sub htmlescapetext {
    $m  =$1;  $r =$';
    $l  =$g->escapeHTML($`); $l =~s/( {2,})/'&nbsp;' x length($1)/ge; $l =~s/\n/<br \/>\n/g; $l =~s/\r//g;
    $e .=$l;
-   $m  =~s/^host:\///;
+   $m  =~s/^(host|urlh):\/\//\//;
+   $m  =~s/^(url|urlr):\/\//$s->url(-relative=>1)/e;
    $e .=$g->a({-href=>$m, -target=>'_blank'}, $g->escapeHTML($m));
  }
  $r  =$g->escapeHTML($r); $r =~s/( {2,})/'&nbsp;' x length($1)/ge; $r =~s/\n/<br \/>\n/g; $r =~s/\r//g;

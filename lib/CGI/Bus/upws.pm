@@ -45,7 +45,8 @@ my %img =(-logo     =>'portal.gif'        # portal  world1
 sub _img {
  $_[0]->parent->{-iurl} && $img{$_[1]} 
  ? ('<img src="' .$_[0]->parent->{-iurl} .'/' .$img{$_[1]} 
-   .'" alt="" border=0 title="' .(defined($_[2]) ? $_[2] : $_[0]->lng(1,$_[1])) .'" />')
+#  .'" alt="" border=0 title="' .(defined($_[2]) ? $_[2] : $_[0]->lng(1,$_[1])) .'" />')
+   .'" alt="" border=0 title="' .$_[0]->lng(1, defined($_[2]) ? $_[2] : $_[1]) .'" />')
  : ''
 }
 
@@ -686,7 +687,7 @@ sub scrusites { # Users Sites Display
  }
  else {
     $s->{-ushref} =$p->fut->fdumpload($tf);
-    $s->{-ushome}=$p->udata->param('upws_usphome');
+    $s->{-ushome} =$p->udata->param('upws_usphome');
  }
  $p->print->text('</td>');
  $p->print->td({-valign=>'top',-align=>'right'}
@@ -695,11 +696,21 @@ sub scrusites { # Users Sites Display
                   ,-value=>$s->lng(0, 'Refresh')
                   ,-title=>$s->lng(1, 'Refresh'))
        .($s->{-ushome}
-        ? ($p->cgi->br .$p->cgi->a({-href=>($s->{-uspurf} ||$s->{-uspurl} ||$s->{-usurl}) 
-                                       .'/' .$s->{-ushome}
-                               ,-target => '_blank'
-                               }
-                              ,$s->_img('USFHome') .$s->{-ushome}))
+        ? ($p->cgi->br
+          .$p->cgi->a({-href=>($s->{-usurl} ||$s->{-uspurf} ||$s->{-uspurl}) 
+                              .'/' .$s->usohome($s->{-ushome})
+                      }, $s->_img('-usite','USFHomes'))
+          .$p->cgi->a({-href=>($s->{-uspurf} ||$s->{-uspurl} ||$s->{-usurl}) 
+                              .'/' .$s->usohome($s->{-ushome})
+                      ,-target => '_blank'
+                      }, $s->_img('USFHome','USFHomes'))
+          .$p->cgi->a({-href=>($s->{-usurl} ||$s->{-uspurf} ||$s->{-uspurl}) 
+                              .'/' .$s->{-ushome}
+                      }, $s->_img('-usite','USFHome'))
+          .$p->cgi->a({-href=>($s->{-uspurf} ||$s->{-uspurl} ||$s->{-usurl}) 
+                              .'/' .$s->{-ushome}
+                      ,-target => '_blank'
+                      }, $s->_img('USFHome') .$s->{-ushome}))
         : ''))
        )
    ->text('</tr><tr>')
@@ -715,7 +726,7 @@ sub scrusites { # Users Sites Display
       $p->print->td($hl
       , '<nobr>' .$p->a({-href=> $r->[3] =~/^\w{3,5}:\/\// 
                                ? $r->[3] : ($s->{-usurl} ||$s->{-uspurl} ||$s->{-uspurf}) .'/' .$r->[3]}
-                       , $s->_img('-usite') .$p->htmlescape($r->[2])) .'</nobr>');
+                       , $s->_img('-usite','Index') .$p->htmlescape($r->[2])) .'</nobr>');
    }
    else {
       $p->print->th($hl, '<nobr>' .$s->_img('-udir') .$p->htmlescape($r->[2]) .'</nobr>');
@@ -752,12 +763,9 @@ sub usfhome {   # User's files home link
 sub usohome {   # User's office home
  my ($s,$u) =@_;
  $u =$s->usfhome if !defined($u);
- if ($u =~/^(.+?)[\\\/]([^\\\/]+)$/) {
-     $u =$1;     
-     foreach my $e (@{$s->{-usudir}}) {
-        next if !$e || $u !~/^(.+?)[\\\/]\Q$e/i;
-        return $1
-     }
+ foreach my $e (@{$s->{-usudir}}) {
+    next if !$e || $u !~/^(.+?)[\\\/]\Q$e\E([\\\/][^\\\/]+|)([\\\/][^\\\/]+|)[\\\/]*$/i;
+    return $1 .($3 ||'')
  }
  $u =''
 }
