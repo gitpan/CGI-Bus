@@ -1,0 +1,1428 @@
+#!perl -w
+#
+# CGI::Bus::tmsql - SQL Transaction Manager
+#
+# admiral 
+# 21/10/2001; 19/01/2002
+#
+# 
+
+package CGI::Bus::tmsql;
+require 5.000;
+use strict;
+use CGI::Carp qw(fatalsToBrowser);
+use CGI::Bus::tm;
+use vars qw(@ISA);
+@ISA =qw(CGI::Bus::tm);
+
+
+1;
+
+
+
+sub _setform {  # Arrange Form to Fields
+ my $s =shift;
+ $s->{-fields} ={};
+ my ($st, $sta);
+ my $lng  =$s->lngname;
+ my $lngl ='-lbl' .($lng ? "_$lng" : '');
+ my $lngc ='-cmt' .($lng ? "_$lng" : '');
+
+ foreach my $f (@{$s->{-form}}) {
+   next if !ref($f) || ref($f) eq 'CODE';
+
+   if ($f->{-tbl}) {
+      $st  =$f;
+      $sta =$st->{-alias}||$st->{-tbl};
+      next;
+   }
+
+   $s->{-fields}->{$f->{-fld}} =$f;
+   $f->{-table} =$st->{-tbl};     # parent table
+   $f->{-talias}=$sta;            # parent table alias
+   $f->{-colns} =                 # column name for select
+                 !$f->{-col} ? $sta .'.' .$f->{-fld} 
+                :index($f->{-col},'(') >=0 ? $f->{-col}
+                :index($f->{-col},'.') >=0 ? $f->{-col}
+                :$sta .'.' .$f->{-col};
+
+   $s->{-keyfld} =$f->{-fld}      # key field
+              if !$s->{-keyfld} && $f->{-flg} =~/k/;
+   if ($lng) {
+      $f->{-lbl} =$f->{$lngl} if $f->{$lngl};
+      $f->{-cmt} =$f->{$lngc} if $f->{$lngc};
+   }
+ }
+}
+
+
+
+
+###################################
+# TRANSACTION METHODS
+###################################
+
+ 
+sub eval {     # Transaction DBI run
+ my $s =shift;
+ my $r =ref($_[$#_]) eq 'CODE' ? pop : sub{$s->cmd('-cmd')};
+ my $e =undef;
+ my $d =$s->dbi(@_);
+ local $s->parent->{-problem} ='';
+ my $ac =$d->{AutoCommit};
+ CORE::eval {$d->{AutoCommit}=0};
+ if (!CORE::eval {
+   local $d->{RaiseError}=1; 
+   $r =&$r($s);
+   if (!$d->{AutoCommit}) {
+      $s->pushmsg('COMMIT');
+      $d->commit;
+   };
+   1;
+ }) {
+    $e =$@ ||'Undefined Error';
+    if (!$d->{AutoCommit}) {
+       $s->pushmsg('ROLLBACK');
+       CORE::eval{$d->rollback}
+    }
+    $r =undef
+ }
+ print $s->htmlres(!$e,$e);
+ $d->{AutoCommit} =$ac if $d->{AutoCommit} ne $ac;
+ $r
+}
+
+
+
+
+###################################
+# SQL GENERATOR UTILITY
+###################################
+
+
+
+sub htmlddlb {  # HTML Drop-Down List Box - Input Helper
+ my ($s,$n,$ds) =(shift, shift, shift);
+ my $dc =ref($_[0]) ? shift : [];              # data container
+ my $df =ref($_[0]) eq 'CODE' ? shift : undef; # data feed sub
+ my $g =$s->cgi;
+ if ($g->param($n .'_B')) {
+    $ds =&$ds($s) if ref($ds) eq 'CODE';
+    if (!ref($ds)) {
+        my $sel =$ds;
+        if ($s->{-lists}->{$ds}) {
+            $s->cmdlst('-g!q', $ds);
+            $sel =$s->{-gensel};
+        }
+        $ds =$dc;
+        $s->pushmsg($sel);
+        my $c =$s->dbi->prepare($sel);
+           $c->execute;
+        my $lr=$s->{-lboxrnm};
+        my $r;
+        my $rc =0;
+        while ($r =$c->fetch) {
+           if    ($df) {&$df($s,$ds,$r)}
+           elsif (ref($dc) eq 'ARRAY') {push @$ds, $r->[0]}
+           else                   {$ds->{$r->[0]} =$r->[1]}
+           last if ++$rc >=$lr;
+        }
+        $s->pushmsg($rc <=$lr ? $s->lng(1,'rfetch',$rc) : $s->lng(1,'rfetchf',$lr));
+        $c->finish;
+    }
+    $s->parent->htmlddlb($n, $ds
+        ,map {[$_=>$s->{-fields}->{$_=~/^\t/ ?substr($_,1) :$_}->{-lbl}||$_]} @_)
+ }
+ else {
+    $s->parent->htmlddlb($n, $ds, @_)
+ }
+}
+
+
+sub htmllst {   # List Data by SQL Select or array ref
+ my ($s, $ds, $dc, $kc, $hr, $lh, $rj, $cj, $le) =@_;
+ my $p =$s->parent;
+ my $g =$s->cgi;
+ # self, data, display, {key=>name}, [href], rowjoin, coljoin
+ my $c;
+ $ds =&$ds($s) if ref($ds) eq 'CODE';
+ if (!ref($ds)) {
+    if ($s->{-lists}->{$ds}) {
+       $s->cmdlst('-g!q', $ds);
+       $ds =$s->{-gensel};
+    }
+    $s->pushmsg($ds);
+    $c =$s->dbi->prepare($ds);
+    $c->execute;
+    $ds =undef;
+ }
+ $lh ='' if !defined($lh);
+ $rj ='' if !defined($rj);
+ $cj ='' if !defined($cj);
+ $le ='' if !defined($le);
+ my $lr=$s->qparamsw('LIMIT') ||$s->{-listrnm};
+ my $rc =0;
+ my $r;
+ $r = !$ds ? $c->fetch : shift @$ds;
+ @$dc= (0..$#{$r}) if $r && (!defined($dc) || !scalar(@$dc));
+
+ my @hr0=$hr ? @$hr :();
+       $hr0[0] =$p->qurl         if !$hr0[0];
+       $hr0[1] =$s->pxcb('-cmd') if !$hr0[1];
+       $hr0[2] ='-sel'           if !$hr0[2];
+ my $mh =-1;
+ my $mr =$#{$dc};
+    $mh =$mr if $mh <0;
+    $mh =-1  if !defined($kc) ||!scalar(%$kc);
+ local $_;
+ while ($r) {  
+   my $href =$p->htmlurl(@hr0
+             ,(map {($kc->{$_}, $r->[$_])} sort keys %$kc))
+             if $mh >0;
+    
+   last if !print $rc >0 ? $rj : $lh
+       ,join($cj
+         ,(map {$g->a({-href=>$href,-target=>$s->{-formtgf}}
+                     ,!defined($r->[$_]) || $r->[$_] eq '' ? '&nbsp&nbsp' : $p->htmlescape($r->[$_]))
+           } @$dc[0..$mh])
+         ,$mr !=$mh ? (map {$p->htmlescape($r->[$_])} @$dc[$mh+1..$mr])
+                    : ()
+       );
+   if (++$rc >=$lr) {
+      last
+   }
+   $r = !$ds ? $c->fetch : shift @$ds
+ }
+ print $le if $rc;
+ $s->pushmsg($s->{-genlstm} =$rc <=$lr ? $s->lng(1,'rfetch',$rc) : $s->lng(1,'rfetchf',$lr));
+ $c->finish if $c;
+}
+
+
+sub keyfld {  # Single Key field
+ $_[0]->_setform if !$_[0]->{-keyfld};
+ $_[0]->{-keyfld}
+}
+
+
+sub keyval {  # Key value
+ $_[0]->qparam((!$_[1] ? '' : substr($_[1],0,1) eq '-' ? $_[0]->{$_[1]} : $_[1]) .$_[0]->keyfld)
+}
+
+
+
+
+###################################
+# SQL GENERATOR TRANSACTION COMMANDS
+###################################
+
+
+
+sub cmdchk { # Check / Calculate Data before save
+ my $s =shift;
+ $s->SUPER::cmdchk(@_);
+ $s->cgi->delete($s->{-vsd}->{-npf}) if $s->{-vsd} && $s->{-vsd}->{-npf};
+ $s
+}
+
+
+sub cmdsql { # Insert / Update / Delete Record
+ my $s    =shift;
+ my $cmd  =shift;
+ my $op   =substr($cmd,1,1);# 'i'nsert | 'u'pdate | 'd'elete
+ my $opt  =(shift) ||'-gx'; # 'g'enerate + e'x'ecute
+ my $pxpv =shift;           # previous value param prefix
+    $pxpv =!defined($pxpv) ? $s->{-pxpv}
+          : substr($pxpv,0,1) eq '-' ? ($s->{$pxpv} ||$pxpv)
+          : $pxpv;
+ my $pxcv =shift;          # current value param prefix
+    $pxcv =!defined($pxcv) ? ''
+          : substr($pxcv,0,1) eq '-' ? ($s->{$pxcv} ||$pxpv)
+          : $pxcv;
+ my $st   =''; # statement table
+ my $sta  =''; #           alias
+ my $sto  =''; #           oldname
+ my $sts  =''; # statement tables string
+ my $sws  =''; #           where  string
+ my $swps =''; #           where  parameters string
+ my $ipns =''; # input parameter names string
+ my $ipvs =''; #                 values string
+ 
+ if ($opt =~/[gp]/) {         # Parse Form
+    foreach my $f (@{$s->{-form}}) { 
+      next if !ref($f) || ref($f) eq 'CODE';
+      my $tskip =1; # skip table in 'from'
+
+      if ($f->{-tbl}) {                            # turn on table
+         $st  =$f;
+         next
+      }
+
+      if ($f->{'-cdb' .$op}) {                     # convert before
+         local $_ =$s->param($pxcv .$f->{-fld});
+         $s->param($pxcv .$f->{-fld}, &{$f->{'-cdb' .$op}}($s, $pxcv));
+      }
+
+      if ($op =~/[iu]/ && $f->{-flg} =~/[a$op]/    # update string
+      &&!($op =~/i/ && $f->{-flg} =~/g/)) {        # do not insert generated values
+          my $p  =$s->param($pxcv .$f->{-fld});
+          local $_ =$p;
+          if (defined($p)) {
+             $tskip =0;
+             $p =&{$f->{-cdb}}($s,$pxcv) if $f->{-cdb};
+             $ipns .=($ipns ? ', ' :'') .($f->{-col} ||$f->{-fld});
+             $ipvs .=($ipvs ? ', ' :'');
+             $ipvs .=($f->{-col} ||$f->{-fld}) .'=' if $op =~/u/;
+             if (0) {}
+             elsif (defined($f->{-null}) && $p eq $f->{-null}) {$p ='NULL'}
+             elsif ($p eq 'NULL') {}
+             elsif ($f->{-flg} =~/(["'])/) { # quote
+               my $q =$1;
+               $p = $s->dbi ? $s->dbi->quote($p) :"$q$p$q";
+             }
+             $ipvs .=$p
+          }
+      }
+
+      if ($op =~/[ud]/ && $f->{-flg} =~/[wk]/) {   # where condition
+          my $p  =$s->param($pxpv .$f->{-fld});          
+          local $_ =$p;
+          if ($p || $f->{-flg} =~/[k]/) {
+             $tskip =0;
+             $p =&{$f->{-cdb}}($s,$pxcv) if $f->{-cdb};
+             $swps .=($swps ? ' AND ' :'') .($f->{-col} ||$f->{-fld});
+             if (0) {}
+             elsif (!defined($p)) {
+               $swps .=' IS NULL'
+             }
+             elsif (defined($f->{-null}) && $p eq $f->{-null}) {
+               $swps .=' IS NULL'
+             }
+             elsif ($p eq 'NULL') {
+               $swps .=" IS $p"
+             }
+             elsif ($f->{-flg} =~/(["'])/) { # quote
+               my $q =$1;
+               $p = $s->dbi ? $s->dbi->quote($p) :"$q$p$q";
+               $swps .=" = $p"
+             }
+             else {
+               $swps .=" = $p"
+             }
+          }
+      }
+
+      if ($st ne $sto && !$tskip) {                # push table
+          $sto  =$st;
+          $sts .=(!$sts ? '' : ', ') .$st->{-tbl} 
+      }
+    }
+ }
+
+ if ($opt =~/[g]/) {          # Assembly SQL Statement  
+    if ($op =~/[ud]/) {
+       foreach my $v ($swps, ($s->{-fltedt} ||$s->{-filter})) {
+         my $vv=(ref($v) ? &$v($s): $v);
+         $sws .=(!$sws ? '' : ' AND ') 
+              .'(' . $vv.') '
+              if $vv
+       }
+       $s->{-genwhr} =$sws;
+    }
+    $s->{-genfrom} =$sts;
+    $s->{-genedt}  =$op =~/i/ ? "INSERT INTO $sts ($ipns) VALUES ($ipvs)"
+                   :$op =~/u/ ? "UPDATE $sts SET $ipvs WHERE $sws"
+                   :$op =~/d/ ? "DELETE FROM $sts WHERE $sws"
+                   : '';
+ }
+
+ if ($opt =~/x/ && $s->dbi) { # Execute SQL Statement 
+
+    $s->pushmsg($s->{-genedt});
+    $s->dbi->do($s->{-genedt});
+
+    foreach my $f (@{$s->{-form}}) { 
+      next if !ref($f) || ref($f) eq 'CODE' || !$f->{-fld};
+      if ($f->{'-cdb' .$op .'a'}) { # after command   
+         local $_ =$s->param($pxcv .$f->{-fld});
+         $s->param($pxcv .$f->{-fld}, &{$f->{'-cdb' .$op .'a'}}($s, $pxcv));
+      }
+    }
+ }
+}
+
+
+sub _vscmn { # Versioning Common Code
+ my $s    =shift;
+ my $v    =$s->{-vsd}; return if !$v;
+ my $p    =$s->parent;
+ my $c    =shift;          # command: 'i'nsert, 'u'pdate, 'd'elete
+ my $opt  =shift;          # options
+    $opt  ='' if !defined($opt);
+ my $pxpv =shift;          # previous value param prefix
+    $pxpv =!defined($pxpv) ? $s->{-pxpv}
+          : substr($pxpv,0,1) eq '-' ? ($s->{$pxpv} ||$pxpv)
+          : $pxpv;
+ my $pxcv =shift;          # current value param prefix
+    $pxcv =!defined($pxcv) ? ''
+          : substr($pxcv,0,1) eq '-' ? ($s->{$pxcv} ||$pxpv)
+          : $pxcv;
+ my $b =1; # backup
+ if ($c =~/[ud]/) {
+    $s->die("Editing of version of record prohibited\n") if $v->{-npf} && $s->qparam($pxpv .$v->{-npf});
+    $b =$v->{-cvd} ? !&{$v->{-cvd}}($s)
+       :$v->{-svd} ? !($v->{-svd} eq $s->qparam($pxpv .$v->{-sf}))
+       :1;
+    if ($b && $opt !~/!v/) {
+       my %save;
+     # my $save =$s->qparamh($s->qparampx('-pxpv'));
+       if ($v->{-npf}) {
+          $save{$v->{-npf}} =$s->qparam($pxpv .$v->{-npf});
+          $s->qparam($pxpv .$v->{-npf}, $s->qparam($pxcv .$s->keyfld))
+       }
+       foreach my $f (@{$s->{-form}}) { 
+          next if !ref($f) || ref($f) eq 'CODE' 
+               || !$f->{-fld} || !($f->{-cdbi} || $f->{-cdbia});
+          $save{$f->{-fld}} =$s->qparam($pxpv .$f->{-fld});
+       }
+
+       $s->cmdsql('-ins',undef,undef,'-pxpv');
+       if ($s->{-fsd}  # backup files
+       && $c eq 'u'
+       && (!$v->{-svd} || ($v->{-svd} eq $s->qparam($pxcv .$v->{-sf})))
+       && -d $s->fspath) {
+          $s->fspathcp(undef,     [1, $s->keyval($pxpv)]);
+          $s->fsacl('r', '-pxpv', [1, $s->keyval($pxpv)]);
+       }
+
+       foreach my $fn (keys %save) {$s->qparam($pxpv .$fn, $save{$fn})}
+    }
+
+    if ($c eq 'd') {
+       $s->qparam($pxcv .$v->{-sf}, $v->{-sd}) if $v->{-sd};
+    }
+ }
+ $p->cgi->param($pxcv .$s->{-vsd}->{-uuf}, $p->user)    if $s->{-vsd}->{-uuf};
+ $p->cgi->param($pxcv .$s->{-vsd}->{-utf}, $p->strtime) if $s->{-vsd}->{-utf};
+}
+
+
+sub _fscmn {  # File Store Common Code
+ my $s    =shift;
+ my $v    =$s->{-vsd}; return if !$s->{-fsd};
+ my $p    =$s->parent;
+ my $c    =shift;          # command: 'i'nsert, 'u'pdate, 'd'elete
+ my $opt  =shift;          # options
+ my $pxpv =shift;          # previous value param prefix
+    $pxpv =!defined($pxpv) ? $s->{-pxpv}
+          : substr($pxpv,0,1) eq '-' ? ($s->{$pxpv} ||$pxpv)
+          : $pxpv;
+ my $pxcv =shift;          # current value param prefix
+    $pxcv =!defined($pxcv) ? ''
+          : substr($pxcv,0,1) eq '-' ? ($s->{$pxcv} ||$pxpv)
+          : $pxcv;
+ if ($c =~/[iu]/) {
+    my $fsa =!$v ? 'w'
+            :$v->{-cvd} ? (&{$v->{-cvd}}($s) ? 'w' : 'r')
+            :$v->{-svd} ? (($v->{-svd} eq $s->qparam($pxcv .$v->{-sf})) ? 'w' : 'r')
+            :'';
+    my $fsc =$c =~/[i]/ && $s->keyval($pxpv) 
+                        && -d $s->fspath($s->keyval($pxpv));
+    $s->fspathmk($s->qparam($pxcv .$s->keyfld))  
+                           if $fsa eq 'w' || $fsc;
+
+    $s->fspathcp($s->keyval($pxpv), $s->keyval($pxcv))
+                           if $fsc;
+    $s->fsacl($fsa, $pxcv) if ($fsa || $fsc) && -d $s->fspath;
+  # $s->fsacl($fsa, $pxcv) if $fsc; # 'fsacl' above was above 'fspathcp'
+ }
+}
+
+
+sub cmdins { # Insert Record
+ my $s =shift;
+ $s->acltest('-ins','');
+ $s->die($s->lng(1,'op!let',$s->lng(0,'-ins')) ."\n") 
+        if ($s->{-rowins} && !&{$s->{-rowins}}($s)) 
+        || ($s->{-rowsav} && !&{$s->{-rowsav}}($s));
+ $s->_vscmn('i',@_) if $s->{-vsd};
+ $s->cmdsql('-ins',@_);
+ $s->_fscmn('i',@_)  if $s->{-fsd};
+}
+
+
+sub cmdupd { # Update Record
+ my $s =shift;
+ $s->cmdsel(undef,'-pxpv') if !$_[0] || $_[0] !~/!s/;
+ $s->acltest('-upd','-pxpv');
+ $s->die($s->lng(1,'op!let',$s->lng(0,'-upd')) ."\n") 
+        if ($s->{-rowupd} && !&{$s->{-rowupd}}($s)) 
+        || ($s->{-rowsav} && !&{$s->{-rowsav}}($s));
+ $s->_vscmn('u',@_) if $s->{-vsd};
+ $s->cmdsql('-upd',@_);
+ $s->_fscmn('u',@_)  if $s->{-fsd};
+}
+
+
+sub cmddel { # Delete Record
+ my $s =shift;
+ $s->cmdsel(undef,'-pxpv') if !$_[0] || $_[0] !~/!s/;
+ $s->acltest('-del','-pxpv');
+ $s->die($s->lng(1,'op!let',$s->lng(0,'-del')) ."\n") 
+        if ($s->{-rowdel} && !&{$s->{-rowdel}}($s)) 
+        || ($s->{-rowsav} && !&{$s->{-rowsav}}($s));
+ if ($s->{-vsd}) {
+    $s->_vscmn('d',@_);
+    $s->cmdsql('-upd',@_);
+ }
+ else {
+    $s->cmdsql('-del',@_);
+    $s->fspathrm() if $s->{-fsd} && -d $s->fspath;
+ }
+}
+
+
+sub cmdsel { # Select Record
+ my $s    =shift;
+ my $opt  =shift ||'-gx';         # 'g'enerate + e'x'ecute
+ my $pxsv =shift;                 # param name prefix
+    $pxsv =!defined($pxsv) ? ''   
+          : substr($pxsv,0,1) eq '-' ? ($s->{$pxsv} ||$pxsv)
+          : $pxsv;
+ my $st   =''; # select table
+ my $sta  =''; #              alias
+ my $sto  =''; #              oldname
+ my $sfdl =[]; # select fields definitions list
+ my $sts  =''; # select tables string
+ my $sws  =''; #        where  string
+ my $swps =''; #        where  parameters string
+ 
+ if ($opt =~/[gp]/) {              # Parse Form
+    foreach my $f (@{$s->{-form}}) {
+      next if !ref($f) || ref($f) eq 'CODE';
+      my $tskip =1; # skip table in 'from'
+
+      if ($f->{-tbl}) {            # turn on table
+         $st  =$f;
+         $sta =$st->{-alias}||$st->{-tbl};
+         next;
+      }
+      if ($f->{-flg} =~/[sa]/) {   # select fields
+          push @$sfdl, $f;
+          $tskip =0;
+      }
+      if ($f->{-flg} =~/[wk]/      # where condition
+      &&!($f->{-flg} =~/g/         # do not use generated on insert values
+       && $s->{-cmd} eq '-ins')) { 
+          my $p  =$s->param($pxsv .$f->{-fld});
+          if (defined($p)) {
+             $tskip =0;
+             if ($f->{-cdb}) {local $_ =$p; $p =&${$f->{-cdb}}($s,$p)}
+             my $fm =$f->{-fld};
+             $swps .=($swps ? ' AND ' :'');
+             if (0) {}
+             elsif (defined($f->{-null}) && $p eq $f->{-null}) {
+               $swps .="$fm IS NULL"
+             }
+             elsif ($p eq 'NULL') {
+               $swps .="$fm IS $p"
+             }
+             elsif ($f->{-flg} =~/(["'])/) { # quote
+               my $q =$1;
+               $p = $s->dbi ? $s->dbi->quote($p) :"$q$p$q";
+               $swps .="$fm = $p"
+             }
+             else {
+               $swps .="$fm = $p"
+             }
+          }
+      }
+      if ($st ne $sto && !$tskip) {# push table
+          $sto  =$st;
+          $sts .=(!$sts ? '' : ($st->{-join}||',') .' ') 
+                .$st->{-tbl} .' AS ' .$sta 
+                .($st->{-joina} ? ' ' .$st->{-joina} :'')
+                .' ';
+          $sws .=(!$sws ? '' : ' AND ') .'(' .$st->{-joinw} .') ' if $st->{-joinw}
+      }
+    }
+ }
+
+ if ($opt =~/[g]/) {               # Assembly SQL Select Statement  
+    foreach my $v ($swps, ($s->{-fltsel} ||$s->{-filter})) {
+      my $vv=(ref($v) ? &$v($s): $v);
+      $sws .=(!$sws ? '' : ' AND ') 
+           .'(' . $vv.') '
+           if $vv
+    }
+    $s->{-genwhr}  =$sws;
+    $s->{-genfrom} =$sts;
+    $s->{-gensel}  ='SELECT ' .join(', ',map {$_->{-colns} 
+                              .' AS ' .$_->{-fld}} @$sfdl)
+                   ." FROM $sts "
+                   ." WHERE $sws";
+ }
+
+ if ($opt =~/x/ && $s->dbi) {      # Execute SQL Select Statement 
+    $s->pushmsg($s->{-gensel});
+    my $p =$s->parent;
+    my $g =$s->cgi();
+    my $r =[$s->dbi->selectrow_array($s->{-gensel})];
+    $s->pushmsg($s->lng(1,'rfetch', 1)) if  scalar(@$r);
+    $s->die($s->lng(1,'!rfetch') ."\n") if !scalar(@$r);
+    $s->problem($s->lng(1,'!rfetch') ."\n") if !scalar(@$r) && 0;
+    local  $_;
+    for (my $c =0; $c <=$#{$r}; $c++) {
+      my $f =$sfdl->[$c];      
+      $_ =$r->[$c];
+      $_ =&{$f->{-cstr}}($s,$_,$r,$c) if $f->{-cstr};
+      $_ =$f->{-null} if !defined($_) && defined($f->{-null});
+      $g->param(-name=>($pxsv .$f->{-fld}),-value=>$_);
+      $g->param(-name=>$s->pxpv($f->{-fld}),-value=>$_) if !$pxsv;
+    }
+ }
+}
+
+
+sub cmdcrt { # Create Fields
+ my $s   =shift;
+ $s->SUPER::cmdcrt(@_);
+ $s->cgi->delete($s->{-vsd}->{-npf}) if $s->{-vsd} && $s->{-vsd}->{-npf};
+ $s
+}
+
+
+sub cmdqry { # Query Condition Init
+ my $s   =shift;
+ $s->SUPER::cmdqry(@_);
+ $s
+}
+
+
+sub cmdhtm { # Common HTML
+  my $s =shift;
+  if ($s->{-cmde} && $s->{-acd} && $s->{-fsd} && $s->cmd('-frm') && $s->cmdg('-sel')) {
+     $s->cmdsel(undef,'-pxpv') if !$s->cmd('-sel');
+     $s->acltest('-sel','')    if  $s->cmd('-sel');
+     $s->{-cmde} =eval{$s->acltest('-upd','-pxpv')};
+  }
+  elsif ($s->{-acd} && $s->cmd('-sel')) {
+     $s->acltest('-sel','');
+     $s->{-cmde} =eval{$s->acltest('-upd','-pxpv')} if $s->{-cmde};
+  }
+  $s->SUPER::cmdhtm(@_);
+  $s
+}
+
+
+sub cmdfrm { # Record form for Query or Edit
+ my $s =shift;
+ $s->SUPER::cmdfrm(@_);
+ my $p =$s->parent;
+ my $ed=$s->{-cmde} && $s->cmdg(qw(-sel -crt -frm));
+
+ if (!$s->cmdg('-qry') && $s->{-fsd} && -d $s->fspath) {
+  # $p->print->text('<BR />');
+    my $ed = $ed && (!$s->{-vsd} 
+                 || ($s->{-vsd}->{-cvd} ? (&{$s->{-vsd}->{-cvd}}($s))
+                    :$s->{-vsd}->{-svd} ? $s->{-vsd}->{-svd} eq $s->qparampv($s->{-vsd}->{-sf})
+                    :0));
+    $p->print->htmlfsdir($s->pxsw('files'), $ed, $ed && $s->cmd('-frm')
+        , $s->fspath, $s->fsurl, $s->fsurf, '20%','100%');
+  # $p->print->text('<HR />')
+  #   if $s->cmd('-sel') && $s->{-vsd} && $s->{-vsd}->{-npf};
+ }
+
+ if ($s->cmd('-sel') && $s->{-vsd} && $s->{-vsd}->{-npf}) {
+     $s->_cmdfrmv();
+ }
+
+ if ($s->cmdg('-qry')) {
+     my $vw =$s->{-lists} ? $s->{-lists}->{$s->qlst} : undef;
+     my $vwf=($vw && $vw->{-fields} ? $s->htmlescape(join(', ',@{$vw->{-fields}})):'');
+     my $vww=$vw ? ($vw->{-where} || $vw->{-filter} ||'') : '';
+        $vww=$s->htmlescape(ref($vww) ? &$vww($s) : $vww);
+     my $vwo=($vw && $vw->{-orderby} ? $vw->{-orderby} :'');
+        $vwo=$s->htmlescape(ref($vwo) 
+                  ? join(',', map {ref($_) ? join(' ',@$_): $_} @$vwo)
+                  : $vwo);
+     $p->print('<HR />');
+     $p->print('<TABLE>');
+    if ($s->{-lists}) {
+     $p->print('<TR>');
+     $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'LIST'));
+     $p->print->td({-valign=>'top'}
+                  ,$p->popup_menu(-name=>$s->pxsw('LIST')
+                  ,-title =>$s->lng(1,'LIST')
+                  ,-values=>$s->qlstnmes
+                  ,-labels=>$s->qlstlbls
+                  ,-default=>$s->qlst)
+                  . ($vwf ? "<FONT SIZE=\"-1\"> ($vwf)</FONT>" :''));
+     $p->print('</TR>');
+    }
+     $p->print('<TR>');
+     $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'WHERE'));
+     $p->print->td({-valign=>'top'}
+                  ,$p->htmltextarea(-name =>$s->pxsw('WHERE')
+                                   ,-title=>$s->lng(1,'WHERE')
+                                   ,-arows=>2,-cols=>68)
+                  .($vww ? "<FONT SIZE=\"-1\"> AND ($vww) </FONT>" :''));
+     $p->print('</TR><TR>');
+    if ($s->{-ftext}) {
+     $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'F-TEXT'));
+     $p->print->td({-valign=>'top'}
+                  ,$p->textfield(-name =>$s->pxsw('FTEXT')
+                                ,-title=>$s->lng(1,'F-TEXT')
+                                ,-size =>88));
+     $p->print('</TR><TR>');
+    }
+     $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'ORDER BY'));
+     $p->print->td({-valign=>'top'}
+                  ,$p->textfield(-name =>$s->pxsw('ORDER_BY')
+                                ,-title=>$s->lng(1,'ORDER BY')
+                                ,-size =>88) 
+                  .($vwo ? "<FONT SIZE=\"-1\"> ($vwo)</FONT>" : ''));
+     $p->print('</TR><TR>');
+     $p->print->th({-align=>'left',-valign=>'top'},$s->lng(0,'LIMIT ROWS'));
+     $p->print->td({-valign=>'top'}
+                  ,$p->textfield(-name=>$s->pxsw('LIMIT'),-title=>$s->lng(1,'LIMIT ROWS')) 
+                  .'<FONT SIZE="-1"> (' .($s->{-listrnm}||'') .')</FONT>');
+     $p->print('</TR>');
+     $p->print('</TABLE>');
+     $p->print->text('<FONT SIZE="-1">'
+     ."Use <CODE>expr LIKE 'pattern'</CODE> for simple match comparison, where "
+     ."'%' matches any number of characters (even zero), "
+     ."'_'  matches exactly one character, "
+     ."'\\' is escape char."
+     .'</FONT>');
+
+     if ($s->{-acd} && eval{$s->acltest('-sys')}) { # System Actions
+        print "<HR />\n<STRONG>System Actions:</STRONG> ";
+        if ($s->{-fsd}) { # FS Scan
+           $p->print->submit(-name=>$s->pxcb('fsscan')
+                     , -value=>'Check/Correct File Store'
+                     , -title=>'Scan File Store for problems');
+           $s->fsscan() if $s->param($s->pxcb('fsscan'));
+        }
+     }
+ }
+}
+
+
+sub _cmdfrmv {# List Record's Versions
+ my $s =shift;
+ return if !$s->{-vsd};
+ my $fl =$s->{-fields};
+ my $utf=$s->{-vsd}->{-utf};
+ my $uuf=$s->{-vsd}->{-uuf};
+ my $npf=$s->{-vsd}->{-npf};
+ my $kf =$s->keyfld;
+ my $kv =$s->param($kf);
+ my $tbl = $s->{-fields}->{$kf}->{-table};
+ my(@sl, @vl, @kl);
+ if ($utf) {push @sl, $utf; push @vl, $#sl};
+ if ($uuf) {push @sl, $uuf; push @vl, $#sl};
+ if ($kf)  {push @sl, $kf;  push @kl, $#sl};
+ if (scalar(@vl) <2)       {push @vl, $#sl};
+ my $sql ="SELECT " 
+         .join(',',map {$tbl .'.' .($fl->{$_}->{-col}||$_)} @sl)
+         ." FROM  $tbl"
+         ." WHERE $tbl." .($fl->{$npf}->{-col}||$npf).'=' 
+         .($fl->{$kf}->{-flg} =~/["']/ ? $s->dbi->quote($kv) : $kv)
+         ." ORDER BY $tbl." 
+         .($utf ? ($fl->{$utf}->{-col}||$utf) : ($fl->{$kf}->{-col}||$kf))
+         .' DESC';
+ $s->htmllst($sql,[@vl],{$kl[0]=>$kf},undef
+            ,$s->cgi->hr .'<STRONG>' .$s->lng(0,'Versions') .'</STRONG><FONT SIZE=-1>&nbsp;&nbsp;'
+            ,';&nbsp;&nbsp;','&nbsp;','</FONT>');
+}
+
+
+sub cmdlst { # List Data
+ my $s    =shift;
+ my $opt  =defined($_[0]) && substr($_[0],0,1) eq '-' ?shift :'-gx'; 
+                                           # 'g'enerate + e'x'ecute
+ my $vw   =$s->{-lists} ? $s->{-lists}->{shift ||$s->qlst} : undef;
+ return &{$vw->{-sub}}($s,$opt,$vw,@_) if $vw->{-sub};
+ my $cnd  =shift;
+ my $dsub =$vw ? $vw->{-dsub}   :undef;     # data feed sub, instead of SQL
+ my $rsub =($vw && $vw->{-rowlst}) ||$s->{-rowlst}; # row processor sub
+ my $vwfl =$vw ? $vw->{-fields} :undef;     # view fields list
+ my $vwfk =$vw ? $vw->{-key}    :undef;     # view fields key
+ my $vwfa =$vwfl;                           # view fields all list
+           if ($vwfa && $vwfk) {$vwfa =[@$vwfa]; foreach my $f (@$vwfk) 
+              {push @$vwfa, $f if !grep {$_ eq $f} @$vwfa}}
+ my $st   =''; # select table
+ my $sta  =''; #               alias
+ my $sto  =''; #               oldname
+ my $sfs  =''; # select fields string
+ my $sfdl =[]; #               definitions list
+    $sfdl->[$#{$vwfa}] =undef if $vwfa;
+ my $vfnl =[]; # view   fields numbers list
+ my $ufnl =[]; # url    fields numbers list
+ my $sts  =''; # select tables string
+ my $sws  =''; #        where  string
+ my $swfs =''; #        where  find       string
+ my $swps =''; #        where  parameters string
+ my $swts =''; #        where  title      string
+ my $sobs =''; #        orderby string
+    $sobs =$s->param($s->pxsw('ORDER_BY'));
+    $sobs =$vw->{-orderby} if !$sobs && $vw && $vw->{-orderby};
+
+ # Parse Form & View
+ if ($opt =~/[gp]/) {         # Preview condition
+     foreach my $v (($opt !~/!q/ ? $s->qparamsw('WHERE') :'')
+                # , ($opt !~/!q/ ? $swps :'') # will be filled below
+                  ,  $cnd
+                  , ($vw ? $vw->{-where} :'')
+                  , ($vw && $vw->{-filter} ? $vw->{-filter}
+                    :($s->{-fltlst} || $s->{-filter}))
+                  ) {
+      my $vv=(ref($v) ? &$v($s): $v);
+      $swfs .=(!$swfs ? '' : ' AND ') .'(' . $vv.') ' if $vv
+    }
+ }
+ if ($opt =~/[gp]/) {         # Parse Form
+    foreach my $f (@{$s->{-form}}) {
+      next if !ref($f) || ref($f) eq 'CODE';
+      my $tskip =1;     # skip table in 'from'
+      my $findx =undef; # field index
+   
+      if ($f->{-tbl}) {            # turn on table
+         $st  =$f;
+         $sta =$st->{-alias}||$st->{-tbl};
+         next;
+      }
+
+      my $fn =$f->{-fld};
+
+      if ($vwfl) {                 # list or select fields defined for view
+         for (my $i =0; $i <=$#{$vwfl}; $i++) {
+             next if $vwfl->[$i] ne $fn;
+             $tskip =0;
+             $sfdl->[$i] =$f;
+             $findx =$i; 
+             $vfnl->[$findx] =$findx;                  # list field
+             last
+         }
+      }
+      elsif ($f->{-flg} =~/[lsa]/){# list or select fields
+           $tskip =0;
+           push @$sfdl, $f;
+           $findx =$#{$sfdl};
+           push @$vfnl, $findx if $f->{-flg} =~/[la]/; # list field
+      }
+
+      if ($vwfk) {                 # key fields defined for view
+         if (grep {$_ eq $fn} @$vwfk) {
+            if (defined($findx)) { push @$ufnl, $findx}
+            else {push @$sfdl, $f; push @$ufnl, $#{$sfdl}}
+         }
+      }
+      elsif ($f->{-flg} =~/[k]/) { # key  field
+            if (defined($findx)) { push @$ufnl, $findx}
+            else {push @$sfdl, $f; push @$ufnl, $#{$sfdl}}
+      }
+
+      if (!defined($findx)         # field in condition or sort order
+       &&(($swfs && $swfs =~/\b$fn\b/)               # condition check
+        ||($sobs && (!ref($sobs) ? $sobs =~/\b$fn\b/ # order by check 
+                    : grep {(ref($_) ? $_->[0] : $_) eq $fn} @$sobs
+          )))) {
+         push @$sfdl, $f;
+         $tskip =0;
+      }
+
+      if ($opt !~/!q/               # query condition by user
+       && !$dsub
+       && $f->{-flg} =~/[qa]/) {
+          my $p  =$s->param($fn);
+          if (!defined($p) && $f->{-qry}) {
+             $p =ref($f->{-qry}) eq 'CODE' ? &{$f->{-qry}}($s) : $f->{-qry};
+             $s->param($f->{-fld},$p) if defined($p) && $p ne '';
+          }
+          if (defined($p) && $p ne '') {
+             $tskip =0;
+             if ($f->{-cdb}) {local $_ =$p; $p =&${$f->{-cdb}}($s,$p)}
+             my $fm =defined($findx) ? $fn : $f->{-colns};
+             $swps .=($swps ? ' AND ' :'');
+             if ($p =~/^ *\(/) { # expr
+               $swps .=$p
+             }
+             elsif ($p =~/^ *([><=]|not|in|is|like)\b/i) { # translate expr
+               $p     =~s/(\&|\|\band\b|\bor\b|\() *([=><]|\bnot\b|\bin\b|\bis\b|\blike\b)/$1 $fm $2/ig;
+               $swps .="($fm $p)"
+             }
+             elsif (defined($f->{-null}) && $p eq $f->{-null}) {
+               $swps .="$fm IS NULL"
+             }
+             elsif ($p eq 'NULL') {
+               $swps .="$fm IS $p"
+             }
+             elsif ($f->{-flg} =~/(["'])/) { # quote
+               my $q =$1;
+               $p = $s->dbi ? $s->dbi->quote($p) :"$q$p$q";
+               $swps .="$fm = $p"
+             }
+             else {
+               $swps .="$fm = $p"
+             }
+          }
+      }
+      if ($st ne $sto && !$tskip) {# push table
+          $sto  =$st;
+          $sts .=(!$sts ? '' : ($st->{-join}||',') .' ') 
+               .$st->{-tbl} .' AS ' .$sta 
+               .($st->{-joina} ? ' ' .$st->{-joina} :'')
+               .' ';
+          $sws .=(!$sws ? '' : ' AND ') .'(' .$st->{-joinw} .') ' if $st->{-joinw}
+      }
+    }
+ }
+ if ($opt =~/[gp]/) {         # Fill not found view fields
+    if ($vwfa) {
+       for (my $i =0; $i <=$#$vwfa; $i++) {
+           if (!defined($sfdl->[$i])) {
+              $sfdl->[$i] ={-fld=>$vwfa->[$i], -colns=>$vwfa->[$i]};
+              push @$ufnl, $i if $vwfk && grep {$_ eq $vwfa->[$i]} @$vwfk;
+           }                             
+       }
+       for (my $i =0; $i <=$#$vwfl; $i++) {
+           $vfnl->[$i] =$i if !defined($vfnl->[$i]);
+       }
+    }
+ }
+
+ if ($opt =~/[g]/) {          # Assembly SQL Select Statement
+
+    # Assembly Select list
+    $sfs =join(', ',map {$_->{-colns} .' AS ' .$_->{-fld}} @$sfdl);
+
+    # Assembly Where Part of SQL Select
+    foreach my $v (($opt !~/!q/ ? $swps :'') 
+                  , $swfs
+                  ) {
+      my $vv=(ref($v) ? &$v($s): $v);
+      $sws .=(!$sws ? '' : ' AND ') .'(' . $vv.') ' if $vv
+    }
+    foreach my $v ( ($opt !~/!q/ ? $swps :'')
+                  , ($opt !~/!q/ ? $s->qparamsw('WHERE') :'')
+                  ) {
+      my $vv=(ref($v) ? &$v($s): $v);
+      $swts .=(!$swts ? '' : ' AND ') .'(' . $vv .') ' if $vv
+    }
+
+    if ($opt !~/!q/ && $s->{-ftext} && $s->qparamsw('FTEXT')) {
+       my $c =$s->{-ftext};
+       my $v =$s->qparamsw('FTEXT');
+       $c =~s/%\$_/$s->dbi->quote('%' .$v .'%')/ge;
+       $c =~s/\$_/$s->dbi->quote($v)/ge;
+       $sws  .=(!$sws  ? '' : ' AND ') .$c;
+       $swts .=(!$swts ? '' : ' AND ') .$c
+    }
+    $s->{-genwhr}  =$sws;
+    $s->{-genfrom} =$sts;
+
+    # Assembly OrderBy Part of SQL Select
+    $sobs =join(',', map {ref($_) ? join(' ',@$_): $_} @$sobs) if ref($sobs);
+
+    # Assembly SQL Select Statement
+    $s->{-gensel} =
+           'SELECT ' .$sfs .' FROM ' .$sts
+          .($sws ? " WHERE $sws " : '')
+          .($vw && $vw->{-groupby} ? ' GROUP BY ' .$vw->{-groupby} .' ' :'')
+          .($sobs ? " ORDER BY $sobs " :'');
+    $s->{-genselt} =$swts;
+ }
+
+ if ($opt =~/x/ && $s->dbi) { # Execute SQL Statement 
+    my $p =$s->parent;
+    my $g =$s->cgi;    
+    if ($opt !~/m/) {
+       my $t =$p->{-htmlstart}->{-title}||$p->{-htpgstart}->{-title}||'';
+       print '<STRONG>'
+           , $p->htmlescape(($t ? "$t - " : '' ) .(ref($vw->{-cmt}) ? $vw->{-cmt}->[0] : $vw->{-cmt}))
+           , "</STRONG><BR />\n" 
+           if $vw && $vw->{-cmt};
+       print join("<BR />\n"
+           , map {$p->htmlescape($_)} @{$vw->{-cmt}}[1..$#{$vw->{-cmt}}])
+           , "<BR />\n"
+           if $vw && $vw->{-cmt} && ref($vw->{-cmt});
+       print '<FONT SIZE="-1">', $p->htmlescape($s->{-genselt}), '</FONT>' 
+           if $s->{-genselt};
+       print "<HR />\n"; # if ($vw && $vw->{-cmt}) ||$s->{-genselt};
+    }
+    my $c;
+    if (!$dsub) {
+       $s->pushmsg($s->{-gensel});
+       $c =$s->dbi->prepare($s->{-gensel});
+       $c->execute;
+    }
+    else {
+       $dsub =&$dsub($s);
+    }
+    my $lr=$s->qparamsw('LIMIT') ||$s->{-listrnm};
+    my $rc =0;
+    my $r;
+    my @hr0=$vw && $vw->{-href} ? @{$vw->{-href}} :();
+       $hr0[0] =$p->qurl if !$hr0[0];
+       $hr0[1] =$s->pxcb('-cmd') if !$hr0[1];
+       $hr0[2] ='-sel'   if !$hr0[2];
+    my $mh =$vw && $vw->{-hrefc} ? $vw->{-hrefc} :0;
+    my $mr =$#{$vfnl};
+       $mh =$mr if $mh <0;
+    local $_;
+    print "<TABLE>\n";
+    if ($opt !~/m/) {
+       print '<TR>';
+       foreach my $i (@$vfnl) {
+         print $g->th({-align=>'left',-valign=>'top'}
+                     # ,-style=>"{border-bottom-style:groove;border-width:thin}"
+                     # ;border-color:buttonshadow
+           , $p->htmlescape($sfdl->[$i]->{-lbl}||$sfdl->[$i]->{-fld}||'(0)'));
+       }
+       print "</TR><TR></TR>\n";
+    }
+    if (!$dsub) {
+       $r =[];
+       @$r[0..$#{$sfdl}] =();
+       $c->bind_columns(undef,\(@$r));
+    }
+    while (!$dsub ? $c->fetch : ($r =shift @$dsub)) {  # !!! Optimize ???
+       next if $rsub && !(&$rsub($s,$sfdl,$r));
+       my $href =$p->htmlurl(@hr0
+                            ,(map {($sfdl->[$_]->{-fld},$r->[$_])} @$ufnl));
+       last if !print '<TR>'
+        ,(map { my $c =$_; local $_ =$r->[$c];
+           $_ =$sfdl->[$c]->{-clst} ? &{$sfdl->[$c]->{-clst}}($s, $sfdl->[$c], $_)
+              :$sfdl->[$c]->{-cstr} ? $g->escapeHTML(&{$sfdl->[$c]->{-cstr}}($s, $sfdl->[$c], $_))
+              :$g->escapeHTML($_);
+           ('<TD VALIGN="top"><NOBR><A HREF="', $href, '"'
+           ,$s->{-formtgf} ? (' TARGET="', $s->{-formtgf}, '"') : (), '>'
+           ,!defined($_) ||$_ eq '' ? '&nbsp&nbsp' : $_
+           ,'</A></NOBR></TD>'
+           )
+         } @$vfnl[0..$mh])
+        ,(map { my $c =$_; local $_ =$r->[$c];
+           $_ =$sfdl->[$c]->{-clst} ? &{$sfdl->[$c]->{-clst}}($s, $sfdl->[$c], $_)
+              :$sfdl->[$c]->{-cstr} ? $g->escapeHTML(&{$sfdl->[$c]->{-cstr}}($s, $sfdl->[$c], $_))
+              :$g->escapeHTML($_);
+           ('<TD VALIGN="top">', (!defined($_) ? '&nbsp;' : $_), '</TD>');
+         } @$vfnl[$mh+1..$mr])
+        ,"</TR>\n";
+       if (++$rc >=$lr) {
+          last
+       }
+    }
+    print "</TABLE>\n";
+    $s->pushmsg($s->{-genlstm} =$rc <=$lr ? $s->lng(1,'rfetch',$rc) : $s->lng(1,'rfetchf',$lr));
+    $c->finish if $c;
+ }
+}
+
+
+sub cmdscan {# Scan data like cmdlst and eval code
+ my $s   =shift;
+ my $opt =defined($_[0]) && substr($_[0],0,1) eq '-' ? shift : '';
+ my $cmd =!ref($_[0]) ? shift : undef;
+ my $sub =ref($_[$#_]) eq 'CODE' ? pop : undef;
+                                        # Get SQL SELECT
+ if    (!defined($cmd)) {               # default - current list
+       $s->cmdlst('-g' .$opt)
+ }
+ elsif ($cmd !~/select\b/i) {           # by list name
+       $s->cmdlst('-g' .$opt, $cmd, @_);
+ }
+ else  {                                # implicit
+       $s->{-gensel} =$cmd;      
+ }
+ $cmd =$s->{-gensel};
+ $s->pushmsg($cmd);
+
+ my $c =$s->dbi->prepare($cmd);
+    $c->execute;
+
+ return($c) if !$sub;                   # Return SELECT initiated
+
+ local $_ =undef;                       # Iterate Sub{} given
+ my    $g =$s->cgi;
+ print join(";<BR />\n", map {$s->htmlescape($_)} @{$s->pushmsg});
+ $s->parent->set('-cache')->{-pushmsg} =undef;
+ while ($_ =$c->fetchrow_hashref) {
+    foreach my $f (@{$s->{-form}}) {    # set pk, reset fields
+       next if !ref($f) || ref($f) eq 'CODE' || !$f->{-fld};
+       if ($f->{-flg} =~/k/) {$g->param($f->{-fld},$_->{$f->{-fld}})}
+       else {$g->delete($f->{-fld})}
+    }
+    &$sub($s,$_);                       # do sub   
+    $s->parent->set('-cache')->{-pushmsg} =undef;
+ }
+ foreach my $f (@{$s->{-form}}) {       # reset fields
+   next if !ref($f) || ref($f) eq 'CODE' || !$f->{-fld};
+   $g->delete($f->{-fld})
+ }
+ $c->finish;
+}
+
+
+sub cmdscan1{# First row of cmdscan, Exists
+ my $s =shift;
+ my $c =$s->cmdscan(@_);
+ my $r =$c->fetchrow_hashref;
+ $c->finish;
+ $s->pushmsg($s->lng(1,'rfetch', $r ? 1 : 0));
+ $r
+}
+
+
+sub cmdhlp {    # Help Command
+ my $s =shift;
+ $s->SUPER::cmdhlp(@_);
+ my $g =$s->cgi;
+ my $o =defined($_[0]) && substr($_[0],0,1) eq '-' ? shift : '-tolfcvs';
+        # 't'itle, 'o'ther, 'l'ists, 'f'ields, 'c'ommands, 'v'ersioning, files 's'tore
+ my $ta={-align=>'left',-valign=>'top'};
+ my $sh='';
+ if ($o =~/[vo]/ && $s->{-vsd}) {
+    $sh ='Versioning';
+    print $g->h2($s->htmlescape($s->lng(0, $sh))),"\n";
+    $sh =$s->lng(1, $sh);
+    print $g->p($s->htmlescape($sh)),"\n" if $sh;
+    print "<TABLE>\n";
+    foreach my $n (qw(-npf -uuf -utf -cof -sf)) {
+       next if !$s->{-vsd}->{$n} || !$s->{-fields}->{$s->{-vsd}->{$n}};
+       my $f =$s->{-fields}->{$s->{-vsd}->{$n}};
+       next if !$f || ref($f) ne 'HASH' || !$f->{-fld} || !$f->{-cmt};
+       print '<TR>';
+       print $g->td($ta, $s->htmlescape('[' .$f->{-flg} .']'));
+       print $g->th($ta, $s->htmlescape($f->{-lbl}||$f->{-fld}));
+       print $g->td($ta, $s->htmlescape($f->{-fld}));
+       print $g->td($ta, $s->htmlescape($f->{-cmt}));
+       print "</TR>\n";
+    }
+    print '<TR>', $g->td(), $g->th($ta, $s->htmlescape("'" .$s->{-vsd}->{-svd} ."'")), $g->td()
+        , $g->td($ta, $s->htmlescape($s->lng(1,'-vsd-svd'))), '</TR>' if $s->{-vsd}->{-svd};
+    print '<TR>', $g->td(), $g->th($ta, $s->htmlescape("'" .$s->{-vsd}->{-sd} ."'")), $g->td()
+        , $g->td($ta, $s->htmlescape($s->lng(1,'-vsd-sd'))),  '</TR>'            if $s->{-vsd}->{-sd};
+    print "</TABLE>\n";
+ }
+ if ($o =~/[so]/ && $s->{-fsd}) {
+    $sh ='File Store';
+    print $g->h2($s->htmlescape($s->lng(0, $sh))),"\n";
+    $sh =$s->lng(1, $sh);
+    print $g->p($s->htmlescape($sh)),"\n" if $sh;
+    print "<TABLE>\n";
+    print '<TR>', $g->th($ta, $s->htmlescape("'" .($s->{-fsd}->{-urf} ||$s->{-fsd}->{-url}) ."'"))
+        , $g->td($ta, $s->htmlescape($s->lng(1,'-fsd-url'))),   '</TR>' if $s->{-fsd}->{-url};
+    print '<TR>', $g->th($ta, $s->htmlescape("'" .($s->{-fsd}->{-vsurf} ||$s->{-fsd}->{-vsurl}) ."'"))
+        , $g->td($ta, $s->htmlescape($s->lng(1,'-fsd-vsurl'))), '</TR>' if $s->{-fsd}->{-vsurl};
+    my $sf =$s->{-vsd} ? $s->{-vsd}->{-sf} : ''; 
+    if ($sf) {
+       $sf =$s->{-fields}->{$sf}->{-lbl} ||$sf;
+       $sf ='(' .$sf .($s->{-vsd}->{-svd} ? (' = ' .$s->{-vsd}->{-svd}) :'') .')';
+    }
+    print '<TR>', $g->th($ta, $s->lng(0,'-fsd-vsd-e'))
+        , $g->td($s->htmlescape($s->lng(1,'-fsd-vsd-e', $sf)))
+        , '</TR>' if $s->{-vsd};
+    print '<TR>', $g->th($ta, $s->lng(0,'-fsd-vsd-ei'))
+        , $g->td($s->htmlescape($s->lng(1,'-fsd-vsd-ei',$sf)))
+        , '</TR>' if $s->{-vsd};
+    print "</TABLE>\n";
+ }
+ $s
+}
+
+
+###################################
+# ACCESS CONTROL
+###################################
+
+
+sub acl {        # ACL get
+ my ($s, $sub, $cmd, $px) =@_;
+ return [] if !$s->{-acd};
+ $px =!defined($px) ? ''
+     : substr($px,0,1) eq '-' ? ($s->{$px} ||$px)
+     : $px;
+ if (ref($s->{-acd}->{$sub}) eq 'CODE') { # sub
+    &{$s->{-acd}->{$sub}}($s,$sub,$cmd,$px) ||[]
+ }
+ elsif ($sub =~/^-[so]/ ||$sub =~/i$/) {  # value list
+    $s->{-acd}->{$sub} ||[]
+ }
+ else {                                   # field list
+    my $r =[];
+    foreach my $e (@{$s->{-acd}->{$sub}}) {
+       push @$r, split / *[;,] */, $s->param($px .$e)
+    }
+    $r
+ }
+}
+
+
+sub acltest {    # ACL test command
+ my ($s, $cmd, $px) =@_;
+ return $s->user if !$s->{-acd};
+ my $op =$cmd ? substr($cmd,1,1) : '';
+ my $un =$s->ugnames;
+ my @l;
+ if (grep {$_ eq $cmd} qw(-ins -upd -del)) {
+    return $s->user if !grep {$s->{-acd}->{$_}} qw(-swrite -write);
+    @l =qw(-swrite -write);
+ }
+ elsif ($cmd eq '-lst') {
+    @l =qw(-sread -swrite);
+ }
+ elsif ($cmd eq '-sys') {
+    @l =qw(-swrite -oswrite);
+ }
+ else {
+    return $s->user if !grep {$s->{-acd}->{$_}} qw(-sread -read -swrite -write);
+    @l =qw(-sread -read -swrite -write -readsub);
+ }
+ foreach my $cs (@l) {
+   my $c =$s->{-acd}->{$cs .$op} ? ($cs .$op) : $cs;
+   next      if !defined($s->{-acd}->{$c});
+   my $t =$s->acl($c,$cmd,$px);
+   next      if !defined($t);
+   return $t if !ref($t) && $t;
+   foreach my $e (@$t) {return $e if grep {lc($_) eq lc($e)} @$un}
+ }
+ return(0) if $cmd eq '-lst';           
+ $s->parent->userauth if $s->parent->uguest  # !!! header may be already printed
+                      && (!$s->parent->{-cache} ||!$s->parent->{-cache}->{-httpheader});
+ $s->die($s->lng(1,'op!acl2',$s->lng(0,$cmd)) ." '" .$s->user ."'\n");
+}
+
+
+sub aclsel {     # ACL Where Select Clause
+ my $s =shift;
+ my $o =(defined($_[0]) && ($_[0] eq '' ||substr($_[0],0,1) eq '-') ? shift : '') 
+        ||'-t'; 
+ my $a =(defined($_[0]) && ($_[0] eq '' ||substr($_[0],0,1) eq '-') ? shift : '');
+ my $n =(defined($_[0]) && ($_[0] eq '' ||substr($_[0],0,1) eq '-') ? shift : '');
+ return('') if $o =~/t/ && $s->{-acd} && $s->acltest('-lst'); # 't'est if needed
+ my @r;
+ if (scalar(@_)) {
+    @r =map {ref($_) ? $_ : $s->{-fields}->{$_}->{-colns}} @_
+ }
+ else {
+   return('') if !$s->{-acd};
+   foreach my $l (qw(-write -read)) {
+     next if !$s->{-acd}->{$l};
+     foreach my $n (@{$s->{-acd}->{$l}}) {
+       my $f = $s->{-fields}->{$n}->{-colns};
+       push (@r, $f) if !grep {$_ eq $f} @r;
+     }
+   }
+ }
+ return('') if !scalar(@r);
+ my $u =$s->ugnames;
+ my $r ='';
+ foreach my $e (@r) {
+   if (ref($e)) {$u =$e; next}
+   $r .=(!$r ? '' : $n ? ' AND ' : ' OR ') .$e 
+      .(scalar(@$u) ==1 ? (($n ? '<>' : '=') .$s->dbi->quote($u->[0]))
+       : (($n ? ' NOT' : '') .' IN(' .join(',', map {$s->dbi->quote($_)} @$u) .')'))
+ }
+ return('') if !$r;
+ ($a ? ' AND' : '') .'(' .$r .')'
+}
+
+
+###################################
+# FILE STORE
+###################################
+
+
+sub fsname {    # File Store Name (?key value)
+ my $s =shift;
+ my $c =shift;
+ my $v =ref($_[0]) ? ($_[0]->[0] ||0): undef;
+    $v =$s->param($s->{-vsd}->{-npf}) if !defined($v) && $s->{-vsd} && $s->{-vsd}->{-npf};
+ my $k =ref($_[0]) ?  $_[0]->[1] : $_[0];
+    $k =$s->keyval() if !defined($k);
+    $k =''           if !defined($k);
+ my $d =$s->{-fsd} && defined($s->{-fsd}->{-ksplit}) 
+        ? $s->{-fsd}->{-ksplit} :3;
+    $d =length($k) if $d eq '0';
+ my $r ='';
+ if (ref($d) eq 'CODE') {
+    local $_ =$k;
+    foreach my $v (&$d($s, $k)) {
+      next if !defined($v);
+      $v =~s/([^a-zA-Z0-9])/uc sprintf("_%02x",ord($1))/eg;
+      $r .='/' .$v;
+    }
+ }
+ else {
+    for (my $i =0; $i <length($k); $i +=$d) {
+      my $v =substr($k, $i, $d);
+      $v =~s/([^a-zA-Z0-9])/uc sprintf("_%02x",ord($1))/eg;
+      $r .='/' .$v;
+    }
+ }
+ $r .='$';
+ return($r) if !$c;
+ (($v ? $s->{-fsd}->{'-vs' .$c} :'') ||$s->{-fsd}->{'-' .$c} ||return(undef)) .$r
+}
+
+
+sub fsnamekey { # File Store Name -> Key value
+ my ($s, $v) =@_;
+ chop($v) if substr($v,length($v)-1,1) eq '$';
+ $v =~s/[\\\/]//g;
+ $v =~s/_(..)/chr(hex($1))/eg;
+ $v
+}
+
+
+sub fspath {    # File Store Path
+ $_[0]->fsname('path',$_[1]||undef);
+}
+
+
+sub fsurl {     # File Store URL
+ $_[0]->fsname('url',$_[1]||undef);
+}
+
+
+sub fsurf {     # File Store Filesystem URL
+ $_[0]->fsname($_[0]->{-fsd}->{-urf} ? 'urf' : 'url', $_[1]||undef);
+}
+
+
+sub fspathmk {  # File Store Path Make
+ my $s =shift;
+ my $p =$s->fspath(@_);
+ $s->fut->mkdir($p) if !-d $p;
+ $p
+}
+
+
+sub fspathcp {  # File Store Path Copy
+ my ($s, $p1, $p2)  =@_;
+ $s->fut->copy('-rd', $s->fspath($p1), $s->fspathmk($p2))
+}
+
+
+sub fspathrm {  # File Store Path Remove
+ my ($s, $p)  =(shift, shift);
+ $s->fut->delete('-r', $s->fspath($p));
+}
+
+
+sub fsacl {     # File Store ACL
+ my ($s, $op, $px, $p) =@_;
+ $op ='w' if !defined($op); # 'r'ead, 'w'rite
+ $px =!defined($px) ? ''
+     : substr($px,0,1) eq '-' ? ($s->{$px} ||$px)
+     : $px;
+ $p  =$s->keyval($px) if !defined($p);
+ $p  =$s->fspath($p);
+
+ if ($s->{-fsd}->{-acl}) {               # Developer's Sub{}
+    return &{$s->{-fsd}->{-acl}}($s,$op,$px,$p)
+ }
+ if (($s->{-fsd}->{-urf}
+    ||$s->{-fsd}->{-url}) =~/^file:/i) { # Filesystem ACL
+    if ($^O eq 'MSWin32') {              # Windows ACL (cacls or xcacls or WSH)
+       my @o =('/T','/C','/G');
+       my $a =$s->acl('-oswrite', undef, $px);
+       if (!scalar(@$a)) {
+          $a =[eval{Win32::LoginName}||$ENV{USERNAME}||'Administrators'];
+          push @$a, 'System' if !grep {lc($_) eq 'system'} @$a;
+       }
+       $s->oscmd('cacls', "\"$p\"", @o, (map {"\"$_\":F"} @{$s->unamesun($a)})
+                , sub{print "Y\n"});
+       unshift @o, '/E';
+       foreach my $l (qw(-swrite -write -sread -read)) {
+         my $a =$s->unamesun($s->acl($l, undef, $px));
+         my $r =($l =~/write/ && $op eq 'w' ? 'F' : 'R');
+         $s->oscmd('cacls', $p, @o, map {"\"$_\":$r"} @$a) if scalar(@$a);
+       }
+    }
+    else {                               # UNIX ACL
+       # Any Standards?
+    }
+ }
+ if (($ENV{SERVER_SOFTWARE}||'') 
+                          =~/Apache/i) { # HTTP or DAV ACL
+    # .htaccess
+    my @a;
+    foreach my $l (qw(-oswrite -swrite -write -sread -read)) {
+      my $a =$s->unamesun($s->acl($l, undef, $px));
+      next if !scalar(@$a);
+      push @a, @$a;
+    }
+    if (scalar(@a)) {
+      @a =@{$s->unamesun(@a)};
+      $s->fut->fstore('-',"$p/.htaccess"
+      ,'<Files "*">'
+      ,join(' ','require user ', @a)
+      ,join(' ','require group ',@a)
+      ,'</Files>')
+    }
+ }
+}
+
+
+sub fsscan {    # File Store Scan
+ my ($s,$opt) =@_;
+ $opt ='ft' if !$opt;
+ return if !$s->{-fsd};
+
+ if ($opt =~/f/) {
+ foreach my $path ($s->{-fsd}->{-path}, $s->{-fsd}->{-vspath}){
+   next if !$path || !-d $path;
+   print $s->h1("FileStore/Table Scan: $path"),"\n";
+   eval('use File::Find'); $File::Find::prune =0; $File::Find::dir ='';
+   File::Find::find(sub{
+    if ($_ =~/\$$/) {
+       $File::Find::prune =1;
+       my $kp =$File::Find::dir .'/' .$_;
+       my $kd =substr($kp, length($path) +1);
+       my $kv =$s->fsnamekey($kd);
+       my $kt =$s->{-fields}->{$s->keyfld}->{-table};
+       my $kf =$s->{-fields}->{$s->keyfld}->{-col} ||("$kt." .$s->keyfld);
+       my @r  =$s->dbi->selectrow_array("select $kf from $kt where $kf=?",{},$kv);
+       my $src="$path/$kd";
+       my $dst =$path .$s->fsname('',$s->fsnamekey($kd));
+       if    (0 && (eval{$s->fut->delete('-',"$src/.htaccess")} ||1)
+                && $s->fut->rmpath($src)) {}
+       elsif (!scalar(@r)) {
+          print $s->htmlescape("$kp --0> $kv"),"<BR />\n";
+        # $s->fut->delete('-r', $src) && $s->fut->rmpath($src);
+          $s->fut->rmpath($src);
+       }
+       elsif ($src ne $dst) {
+        # print $s->htmlescape("$src --> $dst"),"<BR />\n";
+          $s->fut->copy('-rd',$src,$dst) 
+          && $s->fut->delete('-r',$src)
+          && $s->fut->rmpath($src);                    
+       }
+       if (@{$s->pushmsg}) {
+          print join(";<BR />\n", map {$s->htmlescape($_)} @{$s->pushmsg}), "<BR />\n";
+          $s->parent->set('-cache')->{-pushmsg} =undef;
+       }
+    }
+   }, $path);
+ }
+ }
+
+ if ($opt =~/t/) {
+ print $s->h1('Table/FileStore Scan'),"\n";
+ my $v =$s->{-vsd};
+ $s->cmdscan(@_, sub{
+    $s->cmdsel;
+    my $fsa =!$v ? 'w'
+            :$v->{-cvd} ? (&{$v->{-cvd}}($s) ? 'w' : 'r')
+            :$v->{-svd} ? (($v->{-svd} eq $s->qparam($v->{-sf})) ? 'w' : 'r')
+            :'';
+    $s->fsacl($fsa) if $fsa && -d $s->fspath; 
+    print join(";<BR />\n", map {$s->htmlescape($_)} @{$s->pushmsg}), "<BR />\n";
+ });
+ }
+}
+
+
