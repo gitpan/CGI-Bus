@@ -179,6 +179,23 @@ $s->tmsql->set(
         ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Open DocTypes'},-lst=>,$_[0]->pxsw('LIST')
                       ,$_ ? ('AllActual','doctype'=>$_) : ('DocTypes'), '$_')}
         ,-inphtml=>sub{'$_' .$_[0]->htmlddlb('doctype_','DocTypes','doctype')}}
+ ,"\t","\t"
+ ,{-flg=>'a"',  -fld=>'project'
+        ,-lbl=>'Project', -cmt=>'Direction, project, process, item of expenses, related to Record'
+        ,-crt=>sub{$_}, -null=>'', -inp=>{-maxlength=>60}
+        ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Open Projects'},-lst=>$_[0]->pxsw('LIST')
+                      ,$_ 
+                      ? ('AllActual','project'=>$_, $s->tmsql->pxsw('ORDER_BY'),'record_s asc, otime desc, ctime desc') 
+                      : ('Project'), '$_')}
+        ,-inphtml=>sub{'$_' .$_[0]->htmlddlb('project_','Projects','project')}}
+ ,''
+ ,{-flg=>'a"',  -fld=>'cost'
+        ,-lbl=>'Cost', -cmt=>'Cost of the Record described by'
+        ,-null=>'', -inp=>{-maxlength=>10}
+        }
+ ,{-flg=>'"',  -fld=>'cost_sum', -col=>"sum(cost)"
+        ,-lbl=>'Cost', -cmt=>'Total cost of the project'
+        }
  ,{-flg=>'am"', -fld=>'subject'
         ,-lbl=>'Subject', -cmt=>'Subject or Title followed by optional |URL or |_blank|URL'
         ,-crt=>sub{$_}
@@ -307,6 +324,11 @@ $s->tmsql->set(
                   ,-fields=>[qw(doctype)], -key=>[qw(doctype)]                
                   ,-orderby=>'doctype', -groupby=>'doctype'
                   ,-href=>[undef,undef,'-lst',$s->tmsql->pxsw('LIST'),'AllActual']
+                  ,-where=>"status NOT IN ('deleted','template') AND gwo.idnv is NULL"}
+ ,'Projects'=>    {-lbl=>'List Projects', -cmt=>'List of Projects'
+                  ,-fields=>[qw(project cost_sum)], -key=>[qw(project)]
+                  ,-orderby=>'project', -groupby=>'project'
+                  ,-href=>[undef,undef,'-lst',$s->tmsql->pxsw('LIST'),'AllActual',$s->tmsql->pxsw('ORDER_BY'),'record_s asc, otime desc, ctime desc']
                   ,-where=>"status NOT IN ('deleted','template') AND gwo.idnv is NULL"}
  ,'Users'=>       {-lbl=>'List Users', -cmt=>'List of Users'
                   ,-fields=>[qw(user)], -key=>[$s->tmsql->pxsw('WHERE')]

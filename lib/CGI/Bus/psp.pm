@@ -9,7 +9,7 @@
 package CGI::Bus::psp;
 require 5.000;
 use strict;
-use CGI::Carp qw(fatalsToBrowser);
+use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
 use CGI::Bus::Base;
 use vars qw(@ISA);
 @ISA =qw(CGI::Bus::Base);
@@ -33,7 +33,7 @@ sub _furl {           # File URL
    my $m =$b .'path';
    my $p =$s->$m();
    next if lc(substr($f,0,length($p))) ne lc($p);
-   my $u =substr($f,length($p)+1);
+   my $u =length($f) >length($p)+1 ? substr($f,length($p)+1) : '';
    $m =$b .'url';
    return $s->$m($u)
  }

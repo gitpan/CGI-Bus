@@ -35,8 +35,8 @@ $a ='';                  # root application directory
  $s->set  (-urfcnd=>                            # filesystem URLs usage condition
                      sub{$ENV{REMOTE_ADDR} =~/^(127)\./});
 
- $s->set  (-login=>'/cgi-bin/cgi-bus/auth/uauth.cgi'); # login script
-#$s->set  (-login=>'/cgi-bin/cgi-bus/auth/');
+#$s->set  (-login=>'/cgi-bin/cgi-bus/auth/uauth.cgi'); # login script
+ $s->set  (-login=>'/cgi-bin/cgi-bus/auth/');	# login directory
 
 
  $s->set  (-usercnv=>sub{lc($_[0]->usercn($_))} # user names conversion

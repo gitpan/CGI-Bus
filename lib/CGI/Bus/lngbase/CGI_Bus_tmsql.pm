@@ -25,6 +25,7 @@ sub lngbase {
  ,-qry=>['Query',  'Query condition to list records by']
  ,-crt=>['New',    'New record creation to insert it to the database']
  ,-sel=>['Select', '(Re)read data from database, select record']
+ ,-prn=>['Print',  'Printable form']
  ,-edt=>['Edit',   'Edit mode toggle']
  ,-frm=>['Form',   'Form reload and review, data recalculation']
  ,-upd=>['Update', 'Update this record in the database, save changes of this record']

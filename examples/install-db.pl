@@ -238,3 +238,14 @@ ALTER TABLE notes ADD COLUMN mailto varchar(255) AFTER rrole
 #
 #
 #
+{"2003-10-21 'gworganizer' update"
+ ###########################
+}
+#
+ALTER TABLE gworganizer ADD COLUMN project varchar(60) AFTER object;
+ALTER TABLE gworganizer ADD COLUMN cost    decimal     AFTER project;
+DROP   INDEX project   ON gworganizer;
+CREATE INDEX project   ON gworganizer (project,  etime, utime);
+#
+#
+#

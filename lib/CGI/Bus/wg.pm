@@ -9,7 +9,7 @@
 package CGI::Bus::wg;
 require 5.000;
 use strict;
-use CGI::Carp qw(fatalsToBrowser);
+use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
 use CGI::Bus::Base;
 use vars qw(@ISA $AUTOLOAD);
 @ISA =qw(CGI::Bus::Base);
@@ -139,7 +139,10 @@ sub textarea { # Text Area with autorowing and hrefs
        $t =~s/^(url|urlr):\/\//$s->url(-relative=>1)/e;
        push @h, $t;
     }
-    $r .=join(';&nbsp;', map {$s->a({-href=>$_},$s->htmlescape($_))} @h);
+    $r .=join(';&nbsp; '
+		,map {$s->a({-href=>$_, -target=>'_blank', -title=>$_}
+			,$s->htmlescape(length() >49 ? substr($_,0,47) .'...' : $_))
+			} @h);
     $r .='<br />' if $r;
     delete $a{-hrefs};
  }
@@ -147,41 +150,54 @@ sub textarea { # Text Area with autorowing and hrefs
 }
 
 
-sub fsdir {    # Filesystem dir field
+sub fsdir {	# Filesystem dir field
+		# name,edit,path,URL,URF,rows,cols
  my ($s, $nm, $ed, $ea, $fp, $fu, $fr, $sr, $sc) =@_;
  my $p =$s->parent;
- my ($nml, $nma, $nmu) =("${nm}_l", "${nm}_d", "${nm}_u");
- my $r ='';            #path#URL #URF #rows#cols
- if ($p->urfcnd && $ed && $fr) {
+ my ($nml, $nma, $nmu, $nmc, $nmo) =("${nm}_l", "${nm}_d", "${nm}_u", "${nm}_c", "${nm}_o");
+ my $r =$p->cgi->a({-href=>$fr||$fu,-target=>'_blank',-title=>$p->htmlescape($s->lng(1,'Files'))}
+		, $p->{-iurl}
+		? ('<img border="0" src="' .$p->{-iurl} .'/folder.open.gif" />')
+		: ('<strong>' .$p->htmlescape($s->lng(0,'Files')) ."&nbsp;&nbsp;&nbsp;</strong>")) ."\n";
+ my $fo=undef;
+	$s->_fsclose($fp, [$p->cgi->param($nmc)])
+		if $ed && $p->cgi->param($nmc);
+	$fo = $ed && ($p->cgi->param($nmc)||$p->cgi->param($nmo)) && $s->_fsopens($fp,{});
+ if (1 && $p->urfcnd && $ed && $fr) {
     my $fs ='';
     if ($fr =~/^file:(.*)/i) {
         $fs =$1;
         $fs =~s/\//\\/g;
     }
-    $r .=$p->cgi->a({-href=>$fr,-target=>'_blank',-title=>$p->htmlescape($s->lng(1,'Files'))}
-                   ,'<strong>' .$p->htmlescape($s->lng(0,'Files')) .'&nbsp;&nbsp;&nbsp;</strong>');
-    $r .='<font size=-1> ( ' .$p->htmlescape($fs) .' )</font><br />' if $fs;
-    $r .='<iframe scrolling="auto" src="' .$p->htmlescape($fr) .'"';
-    $r .=' application=yes';
-    $r .=' height="' .$sr .'"' if $sr;
-    $r .=' width="'  .$sc .'"' if $sc;
-    $r .='> </iframe>';
+    $r .='<font size=-1> ( ' .$p->htmlescape($fs) ." )</font>\n"
+		if $fs;
+    $r .=$p->cgi->submit(-name=>$nmo, -value=>$s->lng(0,'fsopens'), -title=>$s->lng(1,'fsopens')) ."\n"
+		if !$fo && $^O eq 'MSWin32';
+    $r .="<br />"
+	.$p->cgi->scrolling_list(-name=>$nmc, -override=>1, -multiple=>'true'
+		, -values=>	['---' .$s->lng(0,'fsclose') .'---'
+				,ref($fo) eq 'HASH' ? sort keys %$fo : @$fo]
+		, ref($fo) eq 'HASH' ? (-labels=>$fo) : ()
+		)
+        .$p->cgi->submit(-name=>$nma, -value=>$s->lng(0,'fsclose'), -title=>$s->lng(1,'fsclose')) ."\n"
+		if $fo;
   # !!! filefield may be useful to attach files, but file creation time will not be saved !!!
   # $r .=$p->cgi->filefield(-name=>$nmu);
   # $s->_fsdirupload($nmu, $fp) if $ea && $p->cgi->param($nmu);
+    $r .='<iframe scrolling="auto" src="' .$p->htmlescape($fr) .'"';
+    $r .=' application="yes"';
+    $r .=' height="' .$sr .'"' if $sr;
+    $r .=' width="'  .$sc .'"' if $sc;
+    $r .='> </iframe>';
     return $r;
  }
  my $fb =$p->urfcnd && $ed ? ($fr ||$fu) : ($fu ||$fr);
- $r =$p->cgi->a({-href=>$p->urfcnd ? ($fr ||$fu) : ($fu ||$fr)
-                ,-target=>'_blank', -title=>$s->lng(1,'Files')}
-               ,'<strong>' .$s->lng(0,'Files') .'&nbsp;&nbsp;</strong>') 
-               .'&nbsp;&nbsp;';
  if (!$ed) {
-    my $fl =join(', '
+    my $fl =join(",\n"
            , map {$p->cgi->a({-href=>"$fb/$_", -target=>'_blank'}, $p->htmlescape($_))} 
              eval{$p->fut->globn("$fp/*")}
            );
-    $r .=$fl if $fl;
+    $r .=$fl ."\n" if $fl;
     my  $fd;
     if ($fd =$p->orarg('-f',"$fp/index.html","$fp/index.htm")) {
      my $fn =($fd =~/([^\\\/]+)$/ ? $1 : $fd);
@@ -201,13 +217,21 @@ sub fsdir {    # Filesystem dir field
          $p->fut->delete('-r',"$fp/$fn");
        }
     }
-    $r .=$p->cgi->filefield(-name=>$nmu); # -size
+    $r .=$p->cgi->filefield(-name=>$nmu, -title=>$s->lng(1,'fsbrowse')); # -size
     $r .=$p->cgi->submit(-name=>$nma, -value=>$s->lng(0,'+|-'), -title=>$s->lng(1,'+|-'));
-    $r .='&nbsp;&nbsp;&nbsp;';
+    $r .=$p->cgi->submit(-name=>$nmo, -value=>$s->lng(0,'fsopens'), -title=>$s->lng(1,'fsopens'))
+		if !$fo && $^O eq 'MSWin32';
+    $r .=$p->cgi->scrolling_list(-name=>$nmc, -override=>1, -multiple=>'true'
+		, -values=>	['---' .$s->lng(0,'fsclose') .'---'
+				,ref($fo) eq 'HASH' ? sort keys %$fo : @$fo]
+		, ref($fo) eq 'HASH' ? (-labels=>$fo) : ()
+		) ."\n"
+		if $fo;
+    $r .="\n&nbsp;&nbsp;&nbsp;\n";
     foreach my $fn (eval{$p->fut->globn("$fp/*")}) {
        $r .=$p->cgi->a({-href=>"$fb/$fn", -target=>'_blank'}
-           ,$p->cgi->checkbox(-name=>$nml, -value=>$fn, -label=>$fn))
-          .'&nbsp;&nbsp;&nbsp;';
+           ,$p->cgi->checkbox(-name=>$nml, -value=>$fn, -label=>$fn, -title=>$s->lng(1,'fsdelmrk')))
+          ."&nbsp;&nbsp;&nbsp;\n";
     }
  }
  $r
@@ -233,3 +257,47 @@ sub _fsdirupload { # Filesystem dir field file upload
     }
  }
 }
+
+
+sub _fsopens {	# opened files (`net file`; NetFileEnum; IADsResource, IADsFileServiceOperations)
+		# (mask, ?container)
+ return(undef) if $^O ne 'MSWin32';
+ my $rc	=$_[2]||[];
+ my $mask =$_[1]||''; $mask =~s/\//\\/ig;
+ my $o =eval('use Win32::OLE; Win32::OLE->GetObject("WinNT://'
+	.(eval{Win32::NodeName()}||$ENV{COMPUTERNAME}) .'/lanmanserver")');
+ return(undef) if !$o;
+ if (ref($rc) eq 'HASH') {
+	%$rc =map {(substr($_->{Path}, length($mask)+1), $_->{User} .': ' .substr($_->{Path}, length($mask)+1))
+		} grep {(eval{$_->{Path}}||'') =~/^\Q$mask\E/i
+			} Win32::OLE::in($o->Resources());
+	# %$rc =(1=>'1.1',2=>'2.1',3=>'3.1');
+	$rc =undef if !%$rc
+ }
+ else {
+	@$rc =map {eval{substr($_->{Path}, length($mask)+1)}
+		} grep {(eval{$_->{Path}}||'') =~/^\Q$mask\E/i  # $_->GetInfo;
+			} Win32::OLE::in($o->Resources());
+	$rc =undef if !@$rc
+ }
+ $rc
+}
+
+
+sub _fsclose {	# close opened files (`net file /close`)
+		# (mask, [files])
+ return(0) if $^O ne 'MSWin32';
+ my $mask =$_[1]||''; $mask =~s/\//\\/ig;
+ my $list =$_[2]||[];
+ my $o =eval('use Win32::OLE; Win32::OLE->GetObject("WinNT://'
+	.(eval{Win32::NodeName()}||$ENV{COMPUTERNAME}) .'/lanmanserver")');
+ return(0) if !$o;
+ foreach my $f (grep {$_ && (eval{$_->{Path}}||'')=~/^\Q$mask\E/i
+			} Win32::OLE::in($o->Resources())) {
+	my $n =eval{$f->{Path} =~/^\Q$mask\E[\\\/]*(.+)/i ? $1 : undef};
+	next if !$n || !grep /^\Q$n\E$/i, @$list;
+	$_[0]->oscmd('net','file',$f->{Name},'/close');
+ }
+ 1
+}
+

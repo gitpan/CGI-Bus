@@ -9,11 +9,11 @@
 package CGI::Bus;
 require 5.000;
 use strict;
-use CGI::Carp qw(fatalsToBrowser);
+use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
 
 
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $AUTOLOAD);
-$VERSION = '0.56';
+$VERSION = '0.57';
 
 use vars qw($SELF);
 
@@ -208,6 +208,10 @@ sub set {
     else {                         #  -key
        $s->{-reset}->{$h} =1;
     }
+ }
+ if ($opt{-debug}) {
+	$SIG{__WARN__} =sub{return if $^S;
+	eval{$s->pushmsg('WARN: ' .($_[0] =~/(.+)[\n\r]+$/ ? $1 : $_[0]))}};
  }
  $TempFile::TMPDIRECTORY =$opt{-tpath} if $opt{-tpath}; # use CGI
 
@@ -710,7 +714,7 @@ sub hurf {    # Homes Store file URL
 
 sub urfcnd {  # Use URFs?
  my $s =shift;
- $s->{-cgi}->user_agent =~/MSIE|StarOffice/
+ ($s->{-cgi}->user_agent||'') =~/MSIE|StarOffice/
  && ( ref($s->{-urfcnd}) eq 'CODE' ? &{$s->{-urfcnd}}(@_)
     : exists $s->{-urfcnd} ? $s->{-urfcnd}
     : 1 # $ENV{REMOTE_ADDR}
@@ -823,7 +827,7 @@ sub dumpout { # Data dump out
 sub dumpin {  # Data dump in
  my ($s, $d) =@_;
  my $e; for(my $i=0; !$e && $i<10; $i++) {$e =eval('use Safe; Safe->new()')};
- $e->reval($d)
+ defined($e) && $e->reval($d)
 }
 
 
@@ -932,8 +936,10 @@ sub unames {  # User Names
     $s->{-cache}->{-unames} =[];
     push @{$s->{-cache}->{-unames}}, $s->user;
     push @{$s->{-cache}->{-unames}}, lc($s->user)   if lc($s->user)   ne $s->user;
-    push @{$s->{-cache}->{-unames}}, $s->usercn     if $s->usercn     ne $s->user;
-    push @{$s->{-cache}->{-unames}}, lc($s->usercn) if lc($s->usercn) ne $s->usercn;
+  # push @{$s->{-cache}->{-unames}}, $s->usercn     if lc($s->usercn) ne lc($s->user);
+  # push @{$s->{-cache}->{-unames}}, lc($s->usercn) if lc($s->usercn) ne $s->usercn;
+    push @{$s->{-cache}->{-unames}}, $s->useron     if lc($s->useron) ne lc($s->user);
+    push @{$s->{-cache}->{-unames}}, lc("$2\@$1")   if $s->useron =~/^([^\\]+)\\(.+)$/;
  }
  $_[0]->{-cache}->{-unames}
 }
@@ -1057,21 +1063,23 @@ sub userauth {# User Authenticate
 
 sub userauthopt { # User Authenticate optional
  my $s =shift;
- if ($s->uguest
+ if ($s->uguest()
   &&(defined($s->{-cgi}->param('_auth'))
   || defined($s->{-cgi}->param('_login')))) {
-    $s->userauth()
+    $s->userauth(@_)
  }
  elsif ((($ENV{SERVER_SOFTWARE}||'') =~/IIS/)
-      &&($s->cgi->url =~/\/_*(login|auth|a|ntlm|search|guest)\//i)) { # !!! IIS impersonation avoid
-    my $url  =$s->cgi->url;
-    $s->userauth if $url !~/\/_*(search|guest)\//i 
-                 && !$s->uauth->signget; # $s->uguest
-    if (($s->qparam('_run')||'') ne 'SEARCH') { # see 'search' in 'upws'
+      &&($s->cgi->url() =~/\/_*(login|auth|a|ntlm|search|guest)\//i)) { # !!! IIS impersonation avoid
+    my $url  =$s->cgi->url();
+    $s->userauth(@_) if $url !~/\/_*(search|guest)\//i 
+		 && !$s->{-cache}->{-RevertToSelf}
+                 && !$s->uauth()->signget(); # $s->uguest
+    if (($s->qparam('_run')||'') ne 'SEARCH'
+	&& !$s->{-cache}->{-RevertToSelf}) { # see 'search' in 'upws'
        $url  =~s/\/_*(login|auth|a|ntlm|search|guest)\//\//i;
        $url .=($ENV{QUERY_STRING} ? ('?' .$ENV{QUERY_STRING}) :'');
-       $s->print->redirect(-uri=>$url, -nph=>1);
-       eval{$s->reset};
+       $s->print()->redirect(-uri=>$url, -nph=>1);
+       eval{$s->reset()};
        exit;
     }
  }
@@ -1231,6 +1239,7 @@ sub urlescape {
 sub htmlurl { # Create URL from call string and parameters
  return($_[0]->{-cgi}->url .($ENV{QUERY_STRING} ? '?' .$ENV{QUERY_STRING} : '')) if scalar(@_) <2;
  my $rsp = $_[1]; # do not escape at all?!!!
+    $rsp ='' if !defined($rsp);
  chop $rsp if $rsp ne '' && substr($rsp, length($rsp) -1, 0) eq '/';
  $rsp  =~s/([^a-zA-Z0-9_\.\-\/\?\=\&;:%])/uc sprintf("%%%02x",ord($1))/eg; # see cgi->escape
  $rsp .=($rsp =~/\?/ ? '&' : '?');
@@ -1269,7 +1278,7 @@ sub htmlfsdir {     # HTML Filesystem dir field
 
 sub print {    # print and CGI::BusCgiPrint object
  my $s =shift;
- return(undef) if scalar(@_) && !print @_;
+ return(undef) if scalar(@_) && !CORE::print @_;
  CGI::BusCgiPrint->new($s);
 }
 

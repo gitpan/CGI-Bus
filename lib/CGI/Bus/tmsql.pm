@@ -9,7 +9,7 @@
 package CGI::Bus::tmsql;
 require 5.000;
 use strict;
-use CGI::Carp qw(fatalsToBrowser);
+use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
 use CGI::Bus::tm;
 use vars qw(@ISA);
 @ISA =qw(CGI::Bus::tm);
@@ -86,7 +86,7 @@ sub eval {     # Transaction DBI run
     }
     $r =undef
  }
- print $s->htmlres(!$e,$e);
+ print $s->htmlres(!$e,$e) if $e ||($s->qparamsw('MIN')||'') !~/r/;
  $d->{AutoCommit} =$ac if $d->{AutoCommit} ne $ac;
  $r
 }
@@ -641,11 +641,12 @@ sub cmdfrm { # Record form for Query or Edit
                     :0));
     $p->print->htmlfsdir($s->pxsw('files'), $ed, $ed && $s->cmd('-frm')
         , $s->fspath, $s->fsurl, $s->fsurf, '20%','100%');
+    $p->print("\n");
   # $p->print->text('<hr />')
   #   if $s->cmd('-sel') && $s->{-vsd} && $s->{-vsd}->{-npf};
  }
 
- if ($s->cmd('-sel') && $s->{-vsd} && $s->{-vsd}->{-npf}) {
+ if ($s->cmd('-sel') && $s->{-vsd} && $s->{-vsd}->{-npf} && ($s->qparamsw('MIN')||'') !~/v/) {
      $s->_cmdfrmv();
  }
 
@@ -752,8 +753,8 @@ sub _cmdfrmv {# List Record's Versions
          .(!$lr ? '' : eval{$s->dbi->{Driver}->{Name} eq 'mysql'} ? (' LIMIT ' .($lr+1) .' ') : '')
          ;
  $s->htmllst($sql,[@vl],{$kl[0]=>$kf},undef
-            ,$s->cgi->hr .'<strong>' .$s->lng(0,'Versions') .'</strong><font size=-1>&nbsp;&nbsp;'
-            ,';&nbsp;&nbsp;','&nbsp;','</font>');
+            ,$s->cgi->hr .'<strong>' .$s->lng(0,'Versions') .'</strong><font size=-1><span class="_ListList">&nbsp;&nbsp; '
+            ,';&nbsp;&nbsp; ','&nbsp; ','</span></font>');
 }
 
 
@@ -994,17 +995,20 @@ sub cmdlst { # List Data
     my $g =$s->cgi;    
     if ($opt !~/m/) {
        my $t =$p->{-htmlstart}->{-title}||$p->{-htpgstart}->{-title}||'';
-       print '<strong>'
+       print '<strong class="_MenuHeader">'
            , $p->htmlescape(($t ? "$t - " : '' ) .(ref($vw->{-cmt}) ? $vw->{-cmt}->[0] : $vw->{-cmt}))
            , "</strong><br />\n" 
            if $vw && $vw->{-cmt};
-       print join("<br />\n"
+       print '<span class="_MenuComment">'
+	   , join("<br />\n"
            , map {$p->htmlescape($_)} @{$vw->{-cmt}}[1..$#{$vw->{-cmt}}])
-           , "<br />\n"
+           , "<br /></span>\n"
            if $vw && $vw->{-cmt} && ref($vw->{-cmt});
-       print '<font size=-1>', $p->htmlescape($s->{-genselt}), '</font>' 
+       print '<span class="_MenuComment"><font size=-1>'
+	   , $p->htmlescape($s->{-genselt})
+	   , "</font></span>\n" 
            if $s->{-genselt};
-       print "<hr />\n"; # if ($vw && $vw->{-cmt}) ||$s->{-genselt};
+       print "<hr class=\"_MenuHeader\"/>\n"; # if ($vw && $vw->{-cmt}) ||$s->{-genselt};
     }
     my $c;
     my ($gt1, $gt2, $gm1, $gm2, $gi1, $gi2, $gv1, $gv2, $gs0);
@@ -1053,12 +1057,12 @@ sub cmdlst { # List Data
     local $_;
     print $vw && $vw->{-htmlts} ? $vw->{-htmlts}
         : $s->{-htmlts}         ? $s->{-htmlts}
-        : $gm2 ? "<font size=-1>\n<table rules=all border=1 cellspacing=0 frame=void style=\"{font-size=x-small}\">\n"
+        : $gm2 ? "<font size=-1>\n<table class=\"_ListTable\" rules=all border=1 cellspacing=0 frame=void style=\"font-size: x-small;\">\n"
                                   # rules=rows|all frame=void
-      # : "<table>\n";
-        : "<table cellpadding=\"3%\">\n";
-      # : "<table cellpadding=3>\n";
-      # : "<table rules=all border=1 cellspacing=0 frame=void>\n";
+      # : "<table class=\"_ListTable\">\n";
+        : "<table class=\"_ListTable\" cellpadding=\"3%\">\n";
+      # : "<table class=\"_ListTable\" cellpadding=3>\n";
+      # : "<table class=\"_ListTable\" rules=all border=1 cellspacing=0 frame=void>\n";
     if ($opt !~/m/) {
        print '<thead><tr>'
             ,map {

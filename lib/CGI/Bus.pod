@@ -341,8 +341,8 @@ Name and charset of the language to use. See C<lngname>
 
 Login screen URL. 
 Used by C<userauth> and L<CGI::Bus::uauth|CGI/Bus/uauth>.
-If login script URL ends with '/' sign, it is treated as 
-authenticated location, and current script name will to be appended.
+If login URL ends with '/' sign, it is treated as 
+authenticated location, current script name will be appended.
 
 
 =item -ppath
@@ -1030,14 +1030,24 @@ See also C<-user>.
 =item userauth (?redirect) -> user name
 
 Authenticate current user if guest.
-See also C<-userauth>, L<CGI::Bus::uauth|CGI/Bus/uauth>
+There are three authentication methods:
+by web server, via C<-login> script back redirecting;
+by application, using C<-login> screen back redirecting;
+by web server, redirecting to C<-login> directory.
+First two methods uses signature cookies.
+Last method on Microsoft IIS requests 'RevertToSelf' deimpersonation
+using L<Win32::API|Win32/API> and requires low process insulation.
+
+See also C<-userauth>, L<CGI::Bus::uauth|CGI/Bus/uauth>.
+
 
 
 =item userauthopt () -> user name
 
 Authenticate current user if guest and required
 by '_auth' or '_login' L<CGI|CGI> param.
-Otherwise avoid '_*(login|auth|a|ntlm)' IIS impersonated script subURL with redirection.
+Otherwise avoid '_*(login|auth|a|ntlm)'
+IIS impersonated script subURL with redirection if not 'RevertToSelf.
 Uses C<userauth>.
 
 
@@ -1093,6 +1103,34 @@ See also C<Error and Message processing>, L<CGI::Carp|CGI/Carp>
 =head1 VERSION
 
 =over
+
+=head2 09/06/2004
+
+Version 0.57, improvement release.
+
+
+=head2 27/05/2004 - 05/06/2004
+
+HTML classes added to support CSS.
+
+Inline HTML styles changed to be compatible with Mozilla.
+
+'Back' button behaviour changed - 'window.history.back()' follows 'window.history.go(-x)', 
+this is useful for opened in new windows links.
+
+Perl warnings will be shown at the bottom of the screen in debug modes.
+
+C<usercn> removed from C<ugnames>.
+
+L<CGI::Bus::uauth|CGI/Bus/uauth> changed: 
+Microsoft IIS deimpersination code added 
+using 'RevertToSelf' via L<Win32::API|Win32/API>.
+Tried when finished with '/' sign C<-login> URL.
+See cource code comments.
+
+L<CGI::Bus::wg|CGI/Bus/wg> changed:
+added user interface to close opened file attachments on Windows server.
+
 
 =head2 07/07/2003
 

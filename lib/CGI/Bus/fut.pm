@@ -9,7 +9,7 @@
 package CGI::Bus::fut;
 require 5.000;
 use strict;
-use CGI::Carp qw(fatalsToBrowser);
+use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
 use CGI::Bus::Base;
 use vars qw(@ISA);
 @ISA =qw(CGI::Bus::Base);

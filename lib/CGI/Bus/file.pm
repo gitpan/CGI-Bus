@@ -9,7 +9,7 @@
 package CGI::Bus::file;
 require 5.000;
 use strict;
-use CGI::Carp qw(fatalsToBrowser);
+use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
 use CGI::Bus::Base;
 use IO::File;
 use Fcntl qw(:DEFAULT :flock);

@@ -9,7 +9,7 @@
 package CGI::Bus::smtp;
 require 5.000;
 use strict;
-use CGI::Carp qw(fatalsToBrowser);
+use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
 use CGI::Bus::Base;
 use Net::SMTP;
 use vars qw(@ISA);
@@ -25,7 +25,7 @@ use vars qw(@ISA);
 sub smtp {
  my $s =shift;
  $s->set(@_);
- $s->{-smtp} =eval {Net::SMTP->new($s->{-host})};
+ $s->{-smtp} =eval {local $^W=undef; Net::SMTP->new($s->{-host})};
  die("SMTP host '" .$s->{-host} ."' $@\n") if !$s->{-smtp} ||$@;
  $s->{-smtp}
 }
@@ -43,6 +43,7 @@ sub mailsend { # from, to, msg rows
    elsif (!$to   && $r=~/^to:(.*)/i)            {$to   =[split /,/,$1]}
  }
  $s->parent->pushmsg("SMTP msgsend $host $from -> ".join(',',@$to));
+ local $^W=undef;
  my $smtp =$s->smtp(); $s->{-smtp} =undef;
  $smtp->mail(index($from,'@') <0 && $dom ? $from .'@' .$dom :$from)
                             || $s->die("SMTP From: $from\n");

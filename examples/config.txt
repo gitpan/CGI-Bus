@@ -1,7 +1,9 @@
 
 Subdirectory/URL map
 ====================
-subdir	   http://     	    file:// IIS guest  auth.    access  comment
+(* Two IIS Guests used when 'RevertToSelf' not available)
+
+subdir	   http://     	    file:// IIS Guest* auth.    access  comment
 -------	   -------          ------- ---------  ------   ------  -------
 cgi-bin	-> /cgi-bin/cgi-bus	    IUSR_xxx   avoid    --x   application
 cgi-bin	-> /cgi-bin/cgi-bus/auth    -          required --x

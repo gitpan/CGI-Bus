@@ -16,7 +16,11 @@ sub lngbase {
  ,'ddlbclose'   =>['x',     'close']
  ,'ddlbsetvalue'=>['<',     'set value']
  ,'Files'       =>['Files', 'Files attached']
- ,'+|-'         =>['+/-',   'Add or remove']
+ ,'+|-'         =>['+/-',   'Add / Close / Delete']
+ ,'fsopens'	=>['...',   'Files opened']
+ ,'fsclose'	=>['Close', 'Close files choosen']
+ ,'fsbrowse'	=>['Browse','Choose file to upload']
+ ,'fsdelmrk'	=>['DelMark','Mark to delete']
  )
 }
 

@@ -9,7 +9,7 @@
 package CGI::Bus::upws;
 require 5.000;
 use strict;
-use CGI::Carp qw(fatalsToBrowser);
+use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
 use CGI::Bus::Base;
 use vars qw(@ISA);
 @ISA =qw(CGI::Bus::Base);
@@ -184,7 +184,7 @@ sub scrleft {   # left screen (urls)
  my $p =$s->parent;
  my $tf=$s->qparam('_target');
 
- $s->print->htpgstart(undef, $p->hmerge($p->{-htpnstart},-target=>$tf||'RIGHT'));
+ $s->print()->htpgstart(undef, $p->hmerge($p->{-htpnstart},-target=>$tf||'RIGHT',-class=>'_PaneLeft'));
 
  { my $li=$s->{-logo};
    my $lt=$tf ? 1 : 0;
@@ -204,15 +204,15 @@ sub scrleft {   # left screen (urls)
    $s->print($li) if $li;
  }
 
- $s->print->strong($s->user)->br;
-#$s->print->strong($s->a({-href=>$s->uauth->authurl($s->qurl), -target=>'_parent'}, $s->user))->br;
+ $s->print($p->strong($s->user), $p->br);
+#$s->print()->strong($s->a({-href=>$s->uauth->authurl($s->qurl), -target=>'_parent'}, $s->user))->br;
  $s->print('<NOBR>');
  if ($s->uguest) {
-    $s->print->a({-href  =>$s->uauth->authurl($s->qurl)
+    $s->print()->a({-href  =>$s->uauth->authurl($s->qurl)
                         || $s->qurl('','_run'=>'LOGIN')
-                 ,-target=>'_parent'   #'_top' # _parent
-                 ,-title =>$s->lng(1,'Login')}
-                ,$s->_img('Login') .$s->lng(0,'Login') .'...')->br->br;
+                  ,-target=>'_parent'   #'_top' # _parent
+                  ,-title =>$s->lng(1,'Login')}
+                  ,$s->_img('Login') .$s->lng(0,'Login') .'...')->br->br;
  }
 
  my $l =$s->urls;
@@ -227,54 +227,52 @@ sub scrleft {   # left screen (urls)
       $t =lc($t);
       if ($i) {
          $i =($i !~/\// ? $u .'/' : '') .substr($i,1);
-         $s->print->a({-href=>$u, -target=>$t, -title=>"$c|$t|$u"}, $s->_img($t,"$c|$t|$u"))
-                  ->a({-href=>$i||$u, -title=>$i||$e}, $s->htmlescape($c))
-                  ->a({-href=>$u, -target=>$t, -title=>"$c|$t|$u"}, $p->{-iurl} ? '' : $t eq '_blank' ? '...' : '!')
-                  ->br
+         $s->print()->a({-href=>$u, -target=>$t, -title=>"$c|$t|$u"}, $s->_img($t,"$c|$t|$u"))
+                    ->a({-href=>$i||$u, -title=>$i||$e}, $s->htmlescape($c))
+                    ->a({-href=>$u, -target=>$t, -title=>"$c|$t|$u"}, $p->{-iurl} ? '' : $t eq '_blank' ? '...' : '!')
+                    ->br
       }
       else {
-         $s->print->a({-href=>$u, -target=>$t, -title=>$e}
-                     ,$s->_img($t,$e)
-                     .$s->htmlescape($c) 
-                     .($p->{-iurl} ? '' : $t eq '_blank' ? '...' : '!'))
+         $s->print()->a({-href=>$u, -target=>$t, -title=>$e}
+                       ,$s->_img($t,$e)
+                       .$s->htmlescape($c) 
+                       .($p->{-iurl} ? '' : $t eq '_blank' ? '...' : '!'))
                   ->br
       }
    }
    elsif ($e =~/^([^|]+)\|+(.+)$/) {
       my ($c,$u) =($1, $2);
-      $s->print->a({-href=>$u,-title=>$c}
+      $s->print()->a({-href=>$u,-title=>$c}
       , $s->_img($u !~m{\w/\w}i ? '-host' : $u =~m{\.(cgi|pl|php|asp)\b}i ? '-hcgi' : '-href', $c) 
       . $s->htmlescape($c))->br;
    }
    else {
-      $s->print->a({-href=>$e,-title=>$e}, $s->_img('-href',$e) .$s->htmlescape($e))->br;
+      $s->print()->a({-href=>$e,-title=>$e}, $s->_img('-href',$e) .$s->htmlescape($e))->br;
    }
    $d =$e;
  }
 
  if (!$s->parent->uguest) {
-    $s->print->br if $l->[$#{$l}];
-    $s->print->a({-href=> $s->qurl('','_run'=>'SETUP')
-                 ,-title=>$s->lng(1,'Setup', $s->parent->user)}
-                ,$s->_img('Setup') .$s->lng(0,'Setup'))->br;
-    $s->print->a({-href  =>$s->qurl('','_run'=>'LOGOUT')
-                 ,-target=>'_parent' #'_top' # _parent
-                 ,-title =>$s->lng(1,'Logout')}
-                ,$s->_img('Logout') .$s->lng(0,'Logout') .'!')->br
+    $s->print()->br if $l->[$#{$l}];
+    $s->print()->a({-href=> $s->qurl('','_run'=>'SETUP')
+                  ,-title=>$s->lng(1,'Setup', $s->parent->user)}
+                  ,$s->_img('Setup') .$s->lng(0,'Setup'))->br;
+    $s->print()->a({-href  =>$s->qurl('','_run'=>'LOGOUT')
+                  ,-target=>'_parent' #'_top' # _parent
+                  ,-title =>$s->lng(1,'Logout')}
+                  ,$s->_img('Logout') .$s->lng(0,'Logout') .'!')->br
         if $s->parent->uauth->signget;
  }
  $s->print('</NOBR>');
  $s->scrbot;
- $s->print->htpgend;
+ $s->print()->htpgend;
 }
 
 
 
 sub scrtopr  {  # top right screen (frame)
  my $s =shift;
-#$s->print->htpgstart();
-#$s->print->htpgstart(undef, $s->parent->hmerge($s->parent->{-htpnstart}, -style=>"{margin-top:0px}"));
- $s->print->htpgstart(undef, $s->parent->{-htpnstart});
+ $s->print->htpgstart(undef, $s->parent->hmerge($s->parent->{-htpnstart}, -class=>'_PaneLeft'));
  $s->print->startform(-action=>$s->qurl, -acceptcharset=>$s->parent->{-httpheader} ?$s->parent->{-httpheader}->{-charset} :undef);
  $s->print->htpfend();
 }
@@ -325,7 +323,7 @@ sub search {    # search screen
  my $s =shift;
  my $p =$s->parent;
  my $g =$p->cgi;
- $p->print->htpgstart;
+ $p->print->htpgstart(undef, {-class=>'_PaneList'});
  $p->print->startform(-action=>$s->qurl);
  $p->print->hidden('_run'   =>'SEARCH');
  $s->print('<table width="100%"><tr><td>');
@@ -375,6 +373,8 @@ sub search {    # search screen
        if ($p->cgi->url !~/\/_*(login|auth|a|ntlm|search|guest)\//i
        && !$ENV{REMOTE_USER}) {
           $p->print->h1('Authentication required')
+       } elsif ($p->{-cache}->{-RevertToSelf}) {
+          $p->print->h1('Impersonation required')
        } else {
        eval('use Win32::OLE');
        my $oq =Win32::OLE->CreateObject("ixsso.Query");
@@ -441,7 +441,7 @@ sub search {    # search screen
             my $rp =$ol->{Path}->{Value};
                $rp =~s/\\/\//g;
             foreach my $e (@$qt) {
-               next if lc(substr($rp, 0, length($e->[0]))) ne lc($e->[0]);
+               next if !$e->[0] || lc(substr($rp, 0, length($e->[0]))) ne lc($e->[0]);
                $vp =$e->[1] .substr($rp, length($e->[0]));
                last;
             }
@@ -667,9 +667,7 @@ sub scrusites { # Users Sites Display
  my $lv =0;
  my $lr =2;
 
-#$p->print->htpgstart;
-#$p->print->htpgstart(undef, {-style=>"{margin-top:0px}"});
- $p->print->htpgstart;
+ $p->print->htpgstart(undef, {-class=>'_PaneList'});
  $p->print->startform(-action=>$s->qurl);
 
  $p->print->hidden('_run'   =>'USITES');
@@ -677,8 +675,8 @@ sub scrusites { # Users Sites Display
  $s->_usdflt;
  local $s->{-uspfile} =[map {m/^(.+?)(\.[^\.]+)$/ ? "$1$us$2" : $_} @{$s->{-uspfile}}]
     if $us;
- $p->print->text('<table width="100%"><tr><td>')
-   ->h1($p->htmlescape($s->lng(0, 'USites') .($us ? " - $us" :'')));
+ $p->print->text('<table width="100%"><tr><td>');
+ $p->print->h1($p->htmlescape($s->lng(0, 'USites') .($us ? " - $us" :'')));
  my $tf =$p->fut->mkdir($p->tpath('upws')) ."/usites$us.pl";
  if (!-f $tf || $p->param('refresh')) {
     $s->uscollect;
@@ -791,8 +789,7 @@ sub scrsetup {  # setup screen
      $d =$s->udata->param;
  }
 
-#$s->print->htpgstart(undef, $s->parent->hmerge($s->parent->{-htpnstart}, -style=>"{margin-top:0px}"));
- $s->print->htpgstart(undef, $s->parent->{-htpnstart});
+ $s->print->htpgstart(undef, $s->parent->hmerge($s->parent->{-htpnstart}, -class=>'_PaneForm'));
  $s->print->startform(-action=>$s->qurl);
 
  $s->print->hidden('_run' =>'SETUP');

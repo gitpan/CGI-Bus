@@ -9,7 +9,7 @@
 package CGI::Bus::uauth;
 require 5.000;
 use strict;
-use CGI::Carp qw(fatalsToBrowser);
+use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
 use CGI::Bus::Base;
 use vars qw(@ISA);
 @ISA =qw(CGI::Bus::Base);
@@ -41,8 +41,10 @@ sub adsi {    # Win2000 ADSI object
 
 sub usdomain {# User names Server Domain
  my $s =shift;
- ($^O eq 'MSWin32' 
- ? ( eval('use Win32::TieRegistry; $Registry->{\'LMachine\\\\SOFTWARE\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\Winlogon\\\\\\\\CachePrimaryDomain\'} || $Registry->{\'LMachine\\\\SOFTWARE\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\Winlogon\\\\\\\\DefaultDomainName\'}')
+ $ENV{DOMAINNAME}
+ ||($^O eq 'MSWin32' 
+ ? ((0 && eval('use Win32::OLE; Win32::OLE->CreateObject("ADSystemInfo")->DomainShortName'))
+   ||eval('use Win32::TieRegistry; $Registry->{\'LMachine\\\\SOFTWARE\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\Winlogon\\\\\\\\CachePrimaryDomain\'} || $Registry->{\'LMachine\\\\SOFTWARE\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\Winlogon\\\\\\\\DefaultDomainName\'}')
    ||eval('use Win32; Win32::DomainName()'))
  : '')
  || ($s->surl =~/^[^\/\.]+[\/]+w*\.*([^\/]+)/i ? $1 : '')
@@ -253,10 +255,10 @@ sub auth {    # Authenticate User
  my $s =shift;
  my $m =shift if ref($_[0]); # auth methods
                              # redirect url
- if ($s->parent->uguest && ($s->{-login}||$s->parent->set('-login'))) {
+ if ($s->parent->uguest() && ($s->{-login}||$s->parent->set('-login'))) {
     my $l =$s->{-login}||$s->parent->set('-login');
     if ($l =~/\/$/) {
-       $l.=($s->qurl =~m{/([^/]+)$} ? $1 : '') .($ENV{QUERY_STRING} ? ('?' .$ENV{QUERY_STRING}) :'');
+       $l.=($s->qurl() =~m{/([^/]+)$} ? $1 : '') .($ENV{QUERY_STRING} ? ('?' .$ENV{QUERY_STRING}) :'');
     }
     else {
        $l =$s->parent->htmlurl($l,$cooknme,$s->url .($ENV{QUERY_STRING} ? ('?' .$ENV{QUERY_STRING}) :''));
@@ -265,13 +267,44 @@ sub auth {    # Authenticate User
     push @p, (-nph=>1) if ($ENV{SERVER_SOFTWARE}||'') =~/IIS/
                        || ($ENV{MOD_PERL} && !$ENV{PERL_SEND_HEADER}) # PerlSendHeader Off
                        ;
-    $s->parent->print->redirect(@p);
-    eval{$s->parent->reset};
+    $s->parent->print()->redirect(@p);
+    eval{$s->parent->reset()};
     exit;
  }
  if (($ENV{SERVER_SOFTWARE}||'') =~/IIS/) {
     if    ($s->signchk)        {}
-    elsif ($s->parent->uguest) {
+    elsif (1	# IIS Deimpersonation
+		# Set 'IIS / Home Directory / Application Protection' = 'Low (IIS Process)'
+		# or see 'Administrative Tools / Component Services'.
+		# Do not use quering to 'Index Server'.
+	&& $ENV{REMOTE_USER}
+	&& ($s->{-login}||$s->parent->set('-login')||'') =~/\/$/i) {
+	# && eval('use Win32::API; 1')
+	# && ((($s->qparam('_run')||'') eq 'SEARCH')
+	# || grep { if (!$_) {$s->die("Win32::API('RevertToSelf') -> $@\n")}
+	#	  elsif ($_->Call()) {
+	#		$s->parent->{-cache}->{-RevertToSelf} =(Win32::LoginName()||'?');
+	#		# $s->pushmsg("RevertToSelf: " .$s->parent->{-cache}->{-RevertToSelf} .' (' .$ENV{REMOTE_USER} .')');
+	#		1
+	#	  }
+	#	  else {undef}
+	#	} eval('new Win32::API("advapi32.dll","RevertToSelf",[],"N")')||'')
+	#) {	$s->parent->user($ENV{REMOTE_USER});
+		if (($s->qparam('_run')||'') eq 'SEARCH') {
+			$s->parent->user($ENV{REMOTE_USER});
+		}
+		elsif (eval('use Win32::API; (new Win32::API("advapi32.dll","RevertToSelf",[],"N"))->Call()')) {
+			$s->parent->{-cache}->{-RevertToSelf} =(Win32::LoginName()||'?');
+			$s->parent->user($ENV{REMOTE_USER});
+		}
+		else {
+			$s->die("Win32::API('RevertToSelf') -> $@\n")
+		}
+	}
+    elsif (!$s->parent->uguest()) {
+       $s->signset(@_);
+    }
+    else {
        # 401 Access Denied
        # WWW-Authenticate: NTLM
        # WWW-Authenticate: Basic realm="194.1.1.32"
@@ -285,17 +318,14 @@ sub auth {    # Authenticate User
        # print join("\r\n", map {'www-authenticate: ' .$_} @$m);
        # print "\r\nContent-Type: text/html; charset=ISO-8859-1\r\n";
        # print "error: Authentication Required\r\n\r\n";
-         eval{$s->parent->reset};
+         eval{$s->parent->reset()};
          exit;
     }
-    elsif (!$s->parent->uguest) {
-       $s->signset(@_);
-    }
  }
- elsif (!$s->parent->uguest && !$s->signchk) {
+ elsif (!$s->parent->uguest() && !$s->signchk()) {
     $s->signset(@_);
  }
- $s->parent->user
+ $s->parent->user()
 }
 
 

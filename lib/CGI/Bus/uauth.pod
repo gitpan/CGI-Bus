@@ -50,6 +50,10 @@ L<CGI::Bus::udata|CGI/Bus/udata> or its replacement.
 Cookie operation (C<auth>, C<loginscr>, C<signchk>, C<signset>, C<logout>) 
 use L<Digest|Digest> modules, default is 'MD5'.
 
+
+Microsoft IIS deimpersonation requires L<Win32::API|Win32/API> for 'RevertToSelf' call.
+
+
 See L<CGI::Bus::Base|CGI/Bus/Base> for inherited slots and methods.
 
 
@@ -216,6 +220,12 @@ See also C<usdomain>.
 =head1 VERSION
 
 =over
+
+=head2 05/06/2004
+
+New: Deimpersonation for Microsoft IIS
+using 'RevertToSelf' via L<Win32::API|Win32/API>.
+Tried when finished with '/' sign C<-login> URL.
 
 
 =head2 13/06/2002
