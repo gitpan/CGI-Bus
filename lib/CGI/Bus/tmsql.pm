@@ -771,6 +771,7 @@ sub cmdlst { # List Data
  my $s    =shift;
  my $opt  =defined($_[0]) && substr($_[0],0,1) eq '-' ?shift :'-gx'; 
                                            # 'g'enerate + e'x'ecute
+    $opt  =~s/-/-m/ if $opt =~/x/ && $opt !~/m/ && ($s->qparamsw('MIN')||'') =~/h/;
  my $vw   =$s->{-lists} ? $s->{-lists}->{shift ||$s->qlst} : undef;
  return &{$vw->{-sub}}($s,$opt,$vw,@_) if $vw->{-sub};
  my $cnd  =shift;
@@ -1052,7 +1053,7 @@ sub cmdlst { # List Data
       # : "<table cellpadding=3>\n";
       # : "<table rules=all border=1 cellspacing=0 frame=void>\n";
     if ($opt !~/m/) {
-       print '<tr>'
+       print '<thead><tr>'
             ,map {
              my $v =$sfdl->[$_]->{-lbl}||''; # ||$sfdl->[$_]->{-fld}
              ('<th align="left" valign="top"'
@@ -1099,7 +1100,7 @@ sub cmdlst { # List Data
           print "</tr><tr>\n" .'<th colspan=' .($#{$vfnl}+1) .'><nobr>' 
                 .('&nbsp;' x ($s->{-width} ||$vw->{-width})) .'</nobr></th>';
        }
-       print "</tr>\n";
+       print "</tr></thead><tbody>\n";
     }
     if (!$dsub) {
        $r =[];
@@ -1149,7 +1150,8 @@ sub cmdlst { # List Data
           last
        }
     }
-    print $vw && $vw->{-htmlte} ? $vw->{-htmlte}
+    print $opt !~/m/ ? '</tbody>' : ''
+        , $vw && $vw->{-htmlte} ? $vw->{-htmlte}
         : $s->{-htmlte}         ? $s->{-htmlte}
         : $gm2                  ? "</table></font>\n"
         : "</table>\n";
@@ -1322,9 +1324,10 @@ sub acltest {    # ACL test command
    my $c =$s->{-acd}->{$cs .$op} ? ($cs .$op) : $cs;
    next      if !defined($s->{-acd}->{$c});
    my $t =$s->acl($c,$cmd,$px);
-   next      if !defined($t);
-   return $t if !ref($t) && $t;
- # foreach my $e (@$t) {return $e if grep {lc($_) eq lc($e)} @$un}
+   next      if !$t;
+   return $t if !ref($t);
+   return $t if  ref($t) ne 'ARRAY'; # record read delegation via '-readsub'
+   next      if  ref($t) ne 'ARRAY';
    foreach my $e (@$t) {return $e if grep {$e =~/(?:^|[,\s])\Q$_\E(?:[,\s]|$)/i} @$un}
  }
  return(0) if $cmd eq '-lst';           
@@ -1476,8 +1479,9 @@ sub fsacl {     # File Store ACL
  if ($s->{-fsd}->{-acl}) {               # Developer's Sub{}
     return &{$s->{-fsd}->{-acl}}($s,$op,$px,$p)
  }
- if (($s->{-fsd}->{-urf}
-    ||$s->{-fsd}->{-url}) =~/^file:/i) { # Filesystem ACL
+ if ((($s->{-fsd}->{-urf}                # Filesystem ACL
+     ||$s->{-fsd}->{-url}) =~/^file:/i)
+    ||(($ENV{SERVER_SOFTWARE}||'') =~/IIS/)) { 
     if ($^O eq 'MSWin32') {              # Windows ACL (cacls or xcacls or WSH)
        my @o =('/T','/C','/G');
        my $a =$s->acl('-oswrite', undef, $px);
@@ -1498,8 +1502,10 @@ sub fsacl {     # File Store ACL
        # Any Standards?
     }
  }
- if (($ENV{SERVER_SOFTWARE}||'') 
-                          =~/Apache/i) { # HTTP or DAV ACL
+ if ((ref($s->{-acd}->{-htaccess})       # HTTP or DAV ACL      
+     ?&{$s->{-acd}->{-htaccess}}($s)
+     :  $s->{-acd}->{-htaccess})
+    ||(($ENV{SERVER_SOFTWARE}||'') =~/Apache/i)) {
     # .htaccess
     my @a;
     foreach my $l (qw(-oswrite -swrite -write -sread -read)) {

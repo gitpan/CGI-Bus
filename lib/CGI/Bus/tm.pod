@@ -599,6 +599,20 @@ C<qparam> call with C<-pxsw> prefixed param names.
 =over
 
 
+=head2 17/04/2003
+
+=item Improved:
+
+C<cmdfrm> text area formatting improved with '&nbsp;' signs and '<code>' tags as needed.
+
+
+=head2 25/11/2002
+
+=item Fixed:
+
+C<cmdfrm> lost line breacks when displaying text areas with embedded URLs
+
+
 =head2 13/09/2002
 
 =item New:

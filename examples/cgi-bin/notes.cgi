@@ -5,7 +5,7 @@
 # Initial Settings
 #
 use vars qw($s);
-$s = do("config.pl");
+$s = do("../config.pl");
 $s->set('-htmlstart')->{-title} =$s->server_name() .' - Notes';
 #
 # Form Description
@@ -73,13 +73,16 @@ $s->tmsql->set(
              $_[0]->param('cuser')
           }
         ,-null=>'', -inp=>{-maxlength=>60}
-        ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Open Users'},-lst=>,$_[0]->pxsw('LIST'),'Users','$_')}
+        ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Open Users'},-lst=>,$_[0]->pxsw('LIST')
+                      ,$_ ? ('AllActual','prole'=>$_) : ('Users'), '$_')}
         ,-inphtml=>sub{'$_' .$_[0]->htmlddlb('auser_',sub{$_[0]->uglist({})}, qw(prole rrole),"\tmailto")}
         }
  ,''
  ,{-flg=>'a"',  -fld=>'rrole'
         ,-lbl=>'Reader', -cmt=>'Reader Role, Group of Readers of the Note'
         ,-crt=>sub{$_}, -null=>'', -inp=>{-maxlength=>60}
+        ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Open Users'},-lst=>,$_[0]->pxsw('LIST')
+                      ,$_ ? ('AllActual','rrole'=>$_) : ('Users'), '$_')}
         }
  ,"\t","\t"
  ,{-flg=>'a"',  -fld=>'mailto'
@@ -96,7 +99,7 @@ $s->tmsql->set(
         ,-clst=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*((\w{3,5}:\/\/|\/).+)/ ? $_[0]->a({-href=>$3,-target=>$2},$_[0]->htmlescape($1)) : $_[0]->htmlescape($_)}
         }
  ,{-flg=>'a"',  -fld=>'comment'
-        ,-lbl=>'Comment', -cmt=>'Comment text'
+        ,-lbl=>'Comment', -cmt=>'Comment text or HTML code; host:// or fsurl:// URLs may be used; query condition within <where></where> tags'
         ,-crt=>sub{$_}, -null=>''
         ,-inp=>{-cols=>68,-maxlength=>4*1024,-arows=>3,-hrefs=>1,-htmlopt=>1}
         ,-colspan=>10}
@@ -221,7 +224,11 @@ $s->tmsql->set(-cmdfrm =>sub{  # view related records in record form
     if ($s->cmd('-sel')) {
        $s->print->hr;
        $s->cmdlst('-gxm!q','AllActual'
-         ,'notes.idrm=' .$s->dbi->quote($s->qparam('id')))
+         ,join(' OR '
+              ,(map {"$_=" .$s->dbi->quote($s->qparam('id'))} 'notes.idrm')
+              ,($s->qparam('comment')||'') !~/^<where>(.+?)<\/where>/ ? () : ("($1)")
+              )
+         )
     }
 });
 #
@@ -242,7 +249,7 @@ $s->tmsql->set(-rowsav1=>sub { # mail send
        ,$s->start_html($s->parent->{-htmlstart})  # $s->htpgstart()
        ,$s->htmlself(-sel=>'id'=>$s->param('id'),$subj),'<BR>'
        ,$s->{-fields}->{'comment'}->{-htmlopt} && $s->ishtml($s->param('comment'))
-        ? $s->param('comment') : $s->htmlescape($s->param('comment'))
+        ? $s->param('comment') : $s->htmlescapetext($s->param('comment'))
        ,$s->htpgend()
        );
     $s

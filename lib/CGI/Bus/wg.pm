@@ -133,8 +133,10 @@ sub textarea { # Text Area with autorowing and hrefs
     my $v =$v;
     my @h;
     while ($v =~/\b(\w{3,5}:\/\/[^\s\t,()<>\[\]"']+[^\s\t.,;()<>\[\]"'])/) {
-       push @h, $1;
+       my $t =$1;
        $v =$';
+       $t =~s/^host:\///;
+       push @h, $t;
     }
     $r .=join(';&nbsp;', map {$s->a({-href=>$_},$s->htmlescape($_))} @h);
     $r .='<br />' if $r;
@@ -146,44 +148,45 @@ sub textarea { # Text Area with autorowing and hrefs
 
 sub fsdir {    # Filesystem dir field
  my ($s, $nm, $ed, $ea, $fp, $fu, $fr, $sr, $sc) =@_;
+ my $p =$s->parent;
  my ($nml, $nma, $nmu) =("${nm}_l", "${nm}_d", "${nm}_u");
  my $r ='';            #path#URL #URF #rows#cols
- if ($s->parent->urfcnd && $ed && $fr) {
+ if ($p->urfcnd && $ed && $fr) {
     my $fs ='';
     if ($fr =~/^file:(.*)/i) {
         $fs =$1;
         $fs =~s/\//\\/g;
     }
-    $r .=$s->cgi->a({-href=>$fr,-target=>'_blank',-title=>$s->htmlescape($s->lng(1,'Files'))}
-                   ,'<strong>' .$s->htmlescape($s->lng(0,'Files')) .'&nbsp;&nbsp;&nbsp;</strong>');
-    $r .='<font size=-1> ( ' .$s->htmlescape($fs) .' )</font><br />' if $fs;
-    $r .='<iframe scrolling="auto" src="' .$s->htmlescape($fr) .'"';
+    $r .=$p->cgi->a({-href=>$fr,-target=>'_blank',-title=>$p->htmlescape($s->lng(1,'Files'))}
+                   ,'<strong>' .$p->htmlescape($s->lng(0,'Files')) .'&nbsp;&nbsp;&nbsp;</strong>');
+    $r .='<font size=-1> ( ' .$p->htmlescape($fs) .' )</font><br />' if $fs;
+    $r .='<iframe scrolling="auto" src="' .$p->htmlescape($fr) .'"';
     $r .=' application=yes';
     $r .=' height="' .$sr .'"' if $sr;
     $r .=' width="'  .$sc .'"' if $sc;
     $r .='> </iframe>';
   # !!! filefield may be useful to attach files, but file creation time will not be saved !!!
-  # $r .=$s->cgi->filefield(-name=>$nmu);
-  # $s->_fsdirupload($nmu, $fp) if $ea && $s->cgi->param($nmu);
+  # $r .=$p->cgi->filefield(-name=>$nmu);
+  # $s->_fsdirupload($nmu, $fp) if $ea && $p->cgi->param($nmu);
     return $r;
  }
- my $fb =$s->parent->urfcnd ? ($fr ||$fu) : ($fu ||$fr);
- $r =$s->cgi->a({-href=>$fb
+ my $fb =$p->urfcnd && $ed ? ($fr ||$fu) : ($fu ||$fr);
+ $r =$p->cgi->a({-href=>$p->urfcnd ? ($fr ||$fu) : ($fu ||$fr)
                 ,-target=>'_blank', -title=>$s->lng(1,'Files')}
                ,'<strong>' .$s->lng(0,'Files') .'&nbsp;&nbsp;</strong>') 
                .'&nbsp;&nbsp;';
  if (!$ed) {
     my $fl =join(', '
-           , map {$s->cgi->a({-href=>"$fb/$_"}, $s->htmlescape($_))} 
-             eval{$s->fut->globn("$fp/*")}
+           , map {$p->cgi->a({-href=>"$fb/$_", -target=>'_blank'}, $p->htmlescape($_))} 
+             eval{$p->fut->globn("$fp/*")}
            );
     $r .=$fl if $fl;
     my  $fd;
-    if ($fd =$s->parent->orarg('-f',"$fp/index.html","$fp/index.htm")) {
+    if ($fd =$p->orarg('-f',"$fp/index.html","$fp/index.htm")) {
      my $fn =($fd =~/([^\\\/]+)$/ ? $1 : $fd);
      #  $fd ='<embed scr="' ."$fb/$fn" .'" height=100% width=100% />';
-     #  $fd ='<iframe scroling="auto" src="' .$s->htmlescape("$fb/$fn") .'" width=100% height=100%></iframe>';
-        $fd =$s->parent->fut->fload('-b',$fd);
+     #  $fd ='<iframe scroling="auto" src="' .$p->htmlescape("$fb/$fn") .'" width=100% height=100%></iframe>';
+        $fd =$p->fut->fload('-b',$fd);
         $fd =$' if $fd =~m/<body\b[^>]*>/i;
         $fd =$` if $fd =~m/<\/body\b/i;
         $fd ='<base href="' .($fb) .'/" />' .$fd if $fd !~m/<base\b/i; # !!! May be a problem
@@ -191,18 +194,18 @@ sub fsdir {    # Filesystem dir field
     }
  }
  elsif ($ed) {
-    $s->_fsdirupload($nmu, $fp) if $ea && $s->cgi->param($nmu);
-    if ($ea && $s->cgi->param($nma)) {
-       foreach my $fn ($s->cgi->param($nml)) {
-         $s->fut->delete('-r',"$fp/$fn");
+    $s->_fsdirupload($nmu, $fp) if $ea && $p->cgi->param($nmu);
+    if ($ea && $p->cgi->param($nma)) {
+       foreach my $fn ($p->cgi->param($nml)) {
+         $p->fut->delete('-r',"$fp/$fn");
        }
     }
-    $r .=$s->cgi->filefield(-name=>$nmu); # -size
-    $r .=$s->cgi->submit(-name=>$nma, -value=>$s->lng(0,'+|-'), -title=>$s->lng(1,'+|-'));
+    $r .=$p->cgi->filefield(-name=>$nmu); # -size
+    $r .=$p->cgi->submit(-name=>$nma, -value=>$s->lng(0,'+|-'), -title=>$s->lng(1,'+|-'));
     $r .='&nbsp;&nbsp;&nbsp;';
-    foreach my $fn (eval{$s->fut->globn("$fp/*")}) {
-       $r .=$s->cgi->a({-href=>"$fb/$fn"}
-           ,$s->cgi->checkbox(-name=>$nml, -value=>$fn, -label=>$fn))
+    foreach my $fn (eval{$p->fut->globn("$fp/*")}) {
+       $r .=$p->cgi->a({-href=>"$fb/$fn", -target=>'_blank'}
+           ,$p->cgi->checkbox(-name=>$nml, -value=>$fn, -label=>$fn))
           .'&nbsp;&nbsp;&nbsp;';
     }
  }

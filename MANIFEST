@@ -3,13 +3,16 @@ Makefile.PL
 readme
 test.pl
 
+examples/config.txt
 examples/install-db.pl
-examples/cgi-bus-httpd.conf
 examples/config.pl
-examples/gwo.cgi
-examples/notes.cgi
-examples/uauth.cgi
-examples/upws.cgi
+examples/cgi-bus-httpd.conf
+examples/cgi-bin/gwo.cgi
+examples/cgi-bin/notes.cgi
+examples/cgi-bin/uauth.cgi
+examples/cgi-bin/upws.cgi
+examples/cgi-bin/search-mis.cgi
+examples/cgi-bin/test.cgi
 
 lib/CGI/Bus.pm
 lib/CGI/Bus.pod

@@ -46,6 +46,33 @@ Default is '/icons/portal.gif' on Apache
 and 'web.gif' on IIS.
 
 
+=item -search
+
+Search system URL or sub{}; optional
+
+
+=item -searchms
+
+Search hook 
+sub(self, Query object, Util object, [pathSearch,...], [[pathBegin, pathReplace],...]){} 
+to be called before Microsoft Index Server Query object 'CreateRecordset'
+method called.
+Required when using Microsoft Index Server.
+Attention: Results of Microsoft Index Server calls are impersonated
+and dependent on filesystem ACLs and effective user account.
+
+If both C<-search> and C<-searchms> defined, 
+C<-search> should contain URL of search script and
+C<-searchms> will be used to produce search.
+This behaviour is useful with impersonated search script like
+
+ $ENV{QUERY_STRING}='_run=SEARCH'
+                   .($ENV{QUERY_STRING} ? '&' .$ENV{QUERY_STRING} : '');
+ chdir('..');
+ do('upws.cgi'); # impersonated when called
+
+
+
 =item -urls
 
 URLs array ref or sub{} to place at the end of the 
@@ -176,6 +203,14 @@ are cached inside temporary directory.
 =head1 VERSION
 
 =over
+
+=head2 20/10/2002
+
+=item New:
+
+C<-search>, C<-searchms> slots. 
+Problem: Microsoft Index Server calls should be impersonalisated
+to obtain rightly ACL checked results.
 
 
 =head2 12/09/2002

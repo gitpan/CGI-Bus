@@ -7,7 +7,7 @@
 # </Directory>
 #
 use vars qw($s);
-$s = do("config.pl");
+$s = do("../config.pl");
 $s->set('-htmlstart')->{-title}  =$s->server_name() .' - WorkSpace';
 
 $s->upws->set(-logo   =>undef            # logotype

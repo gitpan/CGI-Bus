@@ -16,10 +16,11 @@ sub lngbase {
  ,'Home'        =>['Home',      'Home Page URL']
  ,'Overview'    =>['Overview',  'Overview Page or Frameset']
  ,'Index'       =>['Contents',  'Heading or Index page']
+ ,'Search'      =>['Search',    'Find in $_ filesystem']
  ,'USites'      =>['HomePages', 'Users pages, create in your\'s publishing directory one of the files $_!']
  ,'USFHomes'    =>['GrpFiles',  'User\'s group files network home directory']
  ,'USFHome'     =>['PsnFiles',  'User\'s files network home directory']
- ,'Setup'       =>['Setup',     'User Setup']
+ ,'Setup'       =>['Setup',     'User Setup of $_']
  ,'Logout'      =>['Logout',    'Logout from the System, became guest']
 #,'Data Saved' 
 #,'Data Loaded'

@@ -45,12 +45,13 @@ sub evalf {           # PerlScript Eval File
   local @_ =@_;
   my $s =shift;
   my $o =substr($_[0],0,1) eq '-' ? shift : '-';
-  my $f =shift;
+  my $u =shift;
+  my $f =ref($u) ? $u->[0] : $u;
   my $t;
   my $h =CORE::eval('use IO::File; IO::File->new()');
   $h->open($f,'r') ||$s->parent->die("Cannot open file '" .($f||'') ."': $!");
   read($h, $t, -s $f) && close($h) || $s->parent->die("Cannot load '$f'");
-  $s->eval($o,$s->parse($o, $t, $f), $f, @_);
+  $s->eval($o,$s->parse($o, $t, $u), $f, @_);
 }
 
 
@@ -78,7 +79,7 @@ sub parse {           # PerlScript Parse Source
  if ($_[1] && $i =~m{(<body[^>]*>)}i) {
      my ($i0,$i1) =($` .$1 ,$');
      $i =$i0
-        .('<base href="'. $s->htmlescape($s->_furl($s->_fdir($_[1]))).'/" />')
+        .('<base href="'. $s->htmlescape(ref($_[1]) ? $_[1]->[1] : $s->_furl($s->_fdir($_[1]))).'/" />')
         .$i1
  }
  if ($opt =~/e/i && $i =~m{<body[^>]*>}i) {

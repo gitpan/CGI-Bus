@@ -8,35 +8,36 @@ BEGIN {}
 # use findgrp.exe on Windows NT !!!
 #
 use CGI::Bus;
-use vars qw($s);
-$s =CGI::Bus->new($s);
+use vars qw($s $a);
+$s =CGI::Bus->new($s);   # CGI::Bus object
+$a ='';                  # root application directory
 
  $ENV{COMPUTERNAME} =eval{Win32::NodeName()} if $^O eq 'MSWin32' 
                                             and !$ENV{COMPUTERNAME};
 
- $s->set  (-tpath => 'c:/tmp/cgi-bus'           # temporary files path
+ $s->set  (-tpath => "$a/tmp"                   # temporary files path
           ,-iurl  => '/icons'                   # apache images
-          ,-dpath => 'c:/Srv/Apache/cgi-bus');  # data files path
+          ,-dpath => $a);                       # data files path
  $s->udata(-path=>$s->dpath('udata'));          # users data path
 
  $s->set  (-ppath => undef                      # publish path, unused yet
-          ,-purl  => undef);                    # publish URL, unused yet
+          ,-purl  => undef);                    # publish URL,  unused yet
 
- $s->set  (-fpath => 'c:/Share/app/cgi-bus'     # files attachments path, may be -ppath
-          ,-furf  => 'file://' .($ENV{COMPUTERNAME} ||$s->server_name) .'/share/app/cgi-bus');
- $s->set  (-furl  => $s->furf);                 # files attachments URL
+ $s->set  (-fpath => "$a/files"                 # files attachments path, may be -ppath
+          ,-furf  => 'file://' .($ENV{COMPUTERNAME} ||$s->server_name) .'/cgi-bus');
+ $s->set  (-furl  => '/cgi-bus');               # files attachments URL
 
- $s->set  (-hpath => 'c:/Share/users'           # users home dirs path
+ $s->set  (-hpath => "$a/users"                 # users home dirs path
           ,-hurf  =>                            # home  dirs filesystem URL
                      'file://' .($ENV{COMPUTERNAME} ||$s->server_name) .'/users');
  $s->set  (-hurl  => '/users');                 # home  dirs URL
 
-#$s->set  (-urfcnd=>                            # filesystem URLs usage condition
-#                    sub{$ENV{REMOTE_ADDR} =~/^(127|10)\./});
+ $s->set  (-urfcnd=>                            # filesystem URLs usage condition
+                     sub{$ENV{REMOTE_ADDR} =~/^(127)\./});
 
-#$s->set  (-login=>$s->burl('a/uauth.cgi'));    # login script
-#$s->set  (-login=>$s->surl('cgi-bin/ntlm/cgi-bus/'));
- $s->set  (-login=>$s->surl('cgi-bin/cgi-bus/a/'));
+ $s->set  (-login=>'/cgi-bin/cgi-bus/auth/uauth.cgi'); # login script
+#$s->set  (-login=>'/cgi-bin/cgi-bus/auth/');
+
 
  $s->set  (-usercnv=>sub{lc($_[0]->usercn($_))} # user names conversion
         # ,-ugrpcnv=>sub{$_[0]->usercn($_)}     # group names conversion
@@ -51,8 +52,8 @@ $s =CGI::Bus->new($s);
 
 $s->set(-httpheader=>{                          # common http header
        #  -charset        => 'windows-1251'
-       # ,'-cache-control'=> 'no-cache'         # must-revalidate, max-age=sss
-         ,-expires        => 'now'
+       # '-cache-control' => 'no-cache'         # must-revalidate, max-age=sss
+          -expires        => 'now'
        }
        ,-htmlstart=>{                           # common & default html header
           -head  => '<meta http-equiv="Content-Type" content="text/html; charset=windows-1251">'

@@ -13,7 +13,7 @@ use CGI::Carp qw(fatalsToBrowser);
 
 
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $AUTOLOAD);
-$VERSION = '0.54';
+$VERSION = '0.55';
 
 use vars qw($SELF);
 
@@ -340,9 +340,10 @@ sub microtest{# Microtest of the Object
  foreach my $k (sort keys %ENV) {
    $s->print->text($s->htmlescape("$k = '" .$ENV{$k} ."'"))->br;
  }
- $s->print->text($s->htmlescape("\$0  = '$0'"))->br;
- $s->print->text($s->htmlescape("\$^V = '$^V'"))->br;
- $s->print->text($s->htmlescape("\$^X = '$^X'"))->br if $^X;
+ $s->print->text($s->htmlescape( "login = '" .(eval{$^O eq 'MSWin32' ? Win32::LoginName() : getlogin()} ||'') ."'"))->br;
+ $s->print->text($s->htmlescape("\$0    = '$0'"))->br;
+ $s->print->text($s->htmlescape("\$^V   = '$^V'"))->br;
+ $s->print->text($s->htmlescape("\$^X   = '$^X'"))->br if $^X;
  local $s->{-debug} =0;
  $s->print->htpgend();
 }
@@ -350,7 +351,8 @@ sub microtest{# Microtest of the Object
 
 sub microenv {# Microenv text of the Object
  my $s =shift;
- join(', ',map {($_,$ENV{$_}||'')} qw(REMOTE_USER REMOTE_ADDR REMOTE_PORT HTTP_USER_AGENT REQUEST_METHOD REQUEST_URI CONTENT_TYPE CONTENT_LENGTH HTTP_COOKIE GATEWAY_INTERFACE))
+ join(', ',('LOGIN=' .(eval{$^O eq 'MSWin32' ? Win32::LoginName() : getlogin()} ||''))
+          ,map {$_ .'=' .($ENV{$_}||'')} qw(REMOTE_USER REMOTE_ADDR REMOTE_PORT HTTP_USER_AGENT REQUEST_METHOD REQUEST_URI CONTENT_TYPE CONTENT_LENGTH HTTP_COOKIE GATEWAY_INTERFACE))
 }
 
 
@@ -639,7 +641,10 @@ sub tpath {   # Temporary files Path
  if (!defined($_[0]->{-tpath})) {
     $_[0]->{-tpath} =$TempFile::TMPDIRECTORY # use CGI
                    ||$ENV{TMP} ||$ENV{TEMP} 
-                   ||$_[0]->orarg('-d','/tmp','c:/tmp','/temp','c:/temp');
+                   ||$_[0]->orarg('-d'
+                                 ,$^O eq 'MSWin32'
+                                 ?('c:/tmp','c:/temp')
+                                 :('/tmp','/temp'));
     $_[0]->{-tpath} = ($_[0]->{-tpath} ||'') .'/cgi-bus'
  }
  !defined($_[1]) ? $_[0]->{-tpath} : $_[0]->{-tpath} .'/' .$_[1]
@@ -817,8 +822,8 @@ sub dumpout { # Data dump out
 
 sub dumpin {  # Data dump in
  my ($s, $d) =@_;
- eval('use Safe');
- Safe->new()->reval($d)
+ my $e; for(my $i=0; !$e && $i<10; $i++) {$e =eval('use Safe; Safe->new()')};
+ $e->reval($d)
 }
 
 
@@ -1052,9 +1057,24 @@ sub userauth {# User Authenticate
 
 sub userauthopt { # User Authenticate optional
  my $s =shift;
- $s->userauth() if $s->uguest
-                &&(defined($s->{-cgi}->param('_auth'))
-                || defined($s->{-cgi}->param('_login')));
+ if ($s->uguest
+  &&(defined($s->{-cgi}->param('_auth'))
+  || defined($s->{-cgi}->param('_login')))) {
+    $s->userauth()
+ }
+ elsif ((($ENV{SERVER_SOFTWARE}||'') =~/IIS/)
+      &&($s->cgi->url =~/\/_*(login|auth|a|ntlm|search|guest)\//i)) { # !!! IIS impersonation avoid
+    my $url  =$s->cgi->url;
+    $s->userauth if $url !~/\/_*(search|guest)\//i 
+                 && !$s->uauth->signget; # $s->uguest
+    if (($s->qparam('_run')||'') ne 'SEARCH') { # see 'search' in 'upws'
+       $url  =~s/\/_*(login|auth|a|ntlm|search|guest)\//\//i;
+       $url .=($ENV{QUERY_STRING} ? ('?' .$ENV{QUERY_STRING}) :'');
+       $s->print->redirect(-uri=>$url, -nph=>1);
+       eval{$s->reset};
+       exit;
+    }
+ }
  $s->user
 }
 
@@ -1081,7 +1101,14 @@ sub oscmd {     # OS Command with logging
        eval{close(WTRFH)};
     }
     else {
-       system(@_)
+       if ($opt !~/h/ && $_[0] =~/cacls/) { # !!! IIS/cacls behaviour debug
+          $r  =join(' ',@_,'2>&1');
+          @$o =`$r`;
+        # push @$o, Win32::LoginName, `logname`; # 'SYSTEM'/'IUSR_' || 'IUSR_'/'IWAM'
+       }
+       else {
+          system(@_)
+       }
     }
  }
  else {
@@ -1173,6 +1200,25 @@ sub htpfend {
 
 sub htmlescape {
  !defined($_[1]) ? '' : shift->{-cgi}->escapeHTML(@_)
+}
+
+
+sub htmlescapetext {
+ my $s =shift;
+ my $r =join("\n",@_);
+ my $g =$s->cgi;
+ my ($e, $m, $l) =('');
+ while ($r =~/\b(\w{3,5}:\/\/[^\s\t,()<>\[\]"']+[^\s\t.,;()<>\[\]"'])/) {
+   $m  =$1;  $r =$';
+   $l  =$g->escapeHTML($`); $l =~s/( {2,})/'&nbsp;' x length($1)/ge; $l =~s/\n/<br \/>\n/g; $l =~s/\r//g;
+   $e .=$l;
+   $m  =~s/^host:\///;
+   $e .=$g->a({-href=>$m, -target=>'_blank'}, $g->escapeHTML($m));
+ }
+ $r  =$g->escapeHTML($r); $r =~s/( {2,})/'&nbsp;' x length($1)/ge; $r =~s/\n/<br \/>\n/g; $r =~s/\r//g;
+ $e .=$r;
+ $e  ="<code>$e</code>" if $e =~/&nbsp;&nbsp;/;
+ $e
 }
 
 

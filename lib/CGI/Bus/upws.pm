@@ -18,6 +18,7 @@ my %img =(-logo     =>'portal.gif'        # portal  world1
          ,'Home'    =>'small/burst.gif'
          ,'Overview'=>'small/movie.gif'
          ,'Index'   =>'small/comp1.gif'
+         ,'Search'  =>'small/index.gif'
          ,'USites'  =>'small/image2.gif'
          ,-usite    =>'small/image2.gif'
          ,-udir     =>'small/blank.gif'   # dir2 blank
@@ -30,7 +31,7 @@ my %img =(-logo     =>'portal.gif'        # portal  world1
          ,-href     =>'small/text.gif'    # doc     text     generic forward blank
          ,-hgen     =>'small/generic.gif'
          ,-host     =>'small/comp2.gif'   # comp2 comp1
-         ,-hcgi     =>'small/doc.gif'
+         ,-hcgi     =>'small/binary.gif'  # doc
          ,'Logout'  =>'small/key.gif'
          ,'Login'   =>'small/key.gif'
    );
@@ -52,19 +53,20 @@ sub _img {
 
 sub urls {      # urls array
  my $s =shift;
+ my $g =$s->cgi;
  my $l =[];
  my $hu=$s->udata->paramj('upws_urlh');
  my $hf=$s->udata->paramj('upws_frmurls');
     $hf=scalar(@$hf) if $hf;
  my $ht;
- push @$l, $s->cgi->a({-href=>$hu, -title=>$s->lng(1, 'Home')}
+ push @$l, $g->a({-href=>$hu, -title=>$s->lng(1, 'Home')}
            ,$s->_img('Home') .$s->lng(0, 'Home'))
            if $hu;
- push @$l, $s->cgi->a({-href=>$s->qurl('', '_run'=>'RIGHT')
+ push @$l, $g->a({-href=>$s->qurl('', '_run'=>'RIGHT')
            ,-title=>$s->lng(1, 'Overview')}
            ,$s->_img('Overview') .$s->lng(0, 'Overview'))
            if $hf;
- push @$l, $s->cgi->a({-href=>$s->{-index}
+ push @$l, $g->a({-href=>$s->{-index}
            ,-title=>$s->lng(1, 'Index')}
            ,$s->_img('Index') .$s->lng(0, 'Index'))
            if $s->{-index} && !ref($s->{-index});
@@ -72,7 +74,24 @@ sub urls {      # urls array
            if $s->{-index} &&  ref($s->{-index});
  push @$l, @{$s->{-indexes}}
            if $s->{-indexes};
- push @$l, $s->cgi->a({-href=>$s->qurl('', '_run'=>'USITES')
+#push @$l, $g->a({-href=>$s->{-search} && !ref($s->{-search})
+#                      ? $s->{-search}
+#                      : $s->qurl('', '_run'=>'SEARCH')
+#          ,-title=>$s->lng(0, 'Search')}
+#          ,$s->_img('Search') .$s->lng(0, 'Search'))
+#          if $s->{-searchms} ? !$s->parent->uguest : $s->{-search};
+ if ($s->{-search}) {
+ my $url = $s->{-search} && !ref($s->{-search}) 
+         ? $s->{-search} 
+         : $s->qurl('', '_run'=>'SEARCH');
+ my $lgn = $s->{-searchms} && $s->parent->uguest 
+        && $g->url !~/\/_*(search|guest)\//i;
+ push @$l, $g->a({-href  =>$lgn ?$s->qurl('','_login'=>1,'_run'=>$url) :$url
+                 ,-target=>$lgn ? '_parent' : ($s->qparam('_target') ||'RIGHT')
+                 ,-title =>$s->lng(0, 'Search')}
+           ,$s->_img('Search') .$s->lng(0, 'Search'))
+ }
+ push @$l, $g->a({-href=>$s->qurl('', '_run'=>'USITES')
            ,-title=>$s->lng(1, 'USites', $s->{-uspfile} ? join(', ', @{$s->{-uspfile}}) : '')}
            ,$s->_img('USites') .$s->lng(0, 'USites'))
            if $s->{-usurl};
@@ -80,12 +99,12 @@ sub urls {      # urls array
     $s->_usdflt if !$s->{-uspath};
     my ($hu, $ho) =('',$s->{-uspurf});
     if (!$s->parent->uguest) {$hu =$s->usfhome; $ho =$s->usohome($hu)}
- push @$l, $s->cgi->a({-href=> $ho =~/^\w{3,5}:\/\// ? $ho : (($s->{-uspurf} ||$s->{-usurl}) ."/$ho")
+ push @$l, $g->a({-href=> $ho =~/^\w{3,5}:\/\// ? $ho : (($s->{-uspurf} ||$s->{-usurl}) ."/$ho")
            ,-target=>'_blank'
            ,-title =>$s->lng(1, 'USFHomes')}
            ,$s->_img('USFHomes') .$s->lng(0, 'USFHomes') .'&nbsp;&nbsp;&nbsp;')
            if $hu;
- push @$l, $s->cgi->a({-href=> $hu =~/^\w{3,5}:\/\// ? $hu : (($s->{-uspurf} ||$s->{-usurl}) ."/$hu")
+ push @$l, $g->a({-href=> $hu =~/^\w{3,5}:\/\// ? $hu : (($s->{-uspurf} ||$s->{-usurl}) ."/$hu")
            ,-target=>'_blank'
            ,-title =>$s->lng(1, 'USFHome')}
            ,$s->_img('USFHome') .$s->lng(0, 'USFHome') .'&nbsp;&nbsp;&nbsp;')
@@ -142,7 +161,7 @@ sub scrtop {    # top screen (top frameset)
 #         .$s->qurl('', '_run'=>'TOPR') .'"'
 #         ." target=\"RIGHT\" />\n") if $ft;
  $s->print('<frame name="RIGHT" src="'
-          .$s->urltop .'"'
+          .($s->qrun || $s->urltop) .'"'
           .' onfocus ="{var e; try {self.document.title = (self.RIGHT.document && self.RIGHT.document.title) || &quot;'
             .$s->parent->htmlescape($s->parent->set('-htmlstart')->{-title} || '') 
             .'&quot; || self.RIGHT.location.href || &quot;&quot;} catch(e) {}};";'
@@ -235,7 +254,7 @@ sub scrleft {   # left screen (urls)
  if (!$s->parent->uguest) {
     $s->print->br if $l->[$#{$l}];
     $s->print->a({-href=> $s->qurl('','_run'=>'SETUP')
-                 ,-title=>$s->lng(1,'Setup')}
+                 ,-title=>$s->lng(1,'Setup', $s->parent->user)}
                 ,$s->_img('Setup') .$s->lng(0,'Setup'))->br;
     $s->print->a({-href  =>$s->qurl('','_run'=>'LOGOUT')
                  ,-target=>'_parent' #'_top' # _parent
@@ -299,10 +318,176 @@ sub scrright {  # right screen (frameset)
 
 
 
+
+
+sub search {    # search screen
+ my $s =shift;
+ my $p =$s->parent;
+ my $g =$p->cgi;
+ $p->print->htpgstart;
+ $p->print->startform(-action=>$s->qurl);
+ $p->print->hidden('_run'   =>'SEARCH');
+ $s->print('<table width="100%"><tr><td>');
+ $s->print->h1($s->lng(0, 'Search'));
+ $s->print('</td><td align="left" valign="bottom">')
+          ->text($s->lng(1, 'Search', $s->parent->surl));
+ $s->print('</td>');
+ $s->print('</tr></table>');
+ $s->print->htmltextfield(-name=>'query', -asize=>70)
+          ->submit(-name =>'search'
+                  ,-value=>$s->lng(0, 'Search')
+                  ,-title=>$s->lng(1, 'Search'))
+          ->br;
+ $s->print->popup_menu(-name=>'querysort'
+                      ,-values=>['write','hitcount','vpath','docauthor']
+                      ,-labels=>{'write'    =>'Chronologically'
+                                ,'hitcount' =>'Ranked'
+                                ,'vpath'    =>'by Name'
+                                ,'docauthor'=>'by Author'
+                                }
+                      ,-default=>'write');
+ $s->print->popup_menu(-name=>'querymarg'
+                      ,-values=>[128,256,512,1024,2048]
+                      ,-labels=>{128 =>'128  max'
+                                ,256 =>'256  max'
+                                ,512 =>'512  max'
+                                ,1024=>'1024 max'
+                                ,2048=>'2048 max'
+                                }
+                      ,-default=>256);
+# $s->print->a({-href=>
+#      -e ($ENV{windir} .'/help/ix/htm/ixqrylan.htm')
+#       ? '/help/microsoft/windows/ix/htm/ixqrylan.htm'
+#       : '/help/microsoft/windows/isconcepts.chm' # .'::/ismain-concepts_30.htm'
+#      }, '?')
+#     if $s->{-searchms} && $^O eq 'MSWin32';
+
+ $p->print->endform->text("\n");
+
+ if (defined($s->qparam('query')) && $s->qparam('query') ne '') {
+    if ($s->{-searchms} && $^O eq 'MSWin32' && ($ENV{SERVER_SOFTWARE}||'') =~/IIS/) {
+       # Search MSDN for 'ixsso.Query'; See also:
+       # Q248187 "HOWTO: Impersonate a User from Active Server Pages"
+       # advapi32.dll: LogonUser, ImpersonateLoggedOnUser, ImpersonateSelf(int4(2)), RevertToSelf
+       # 'Platform SDK: Security': 'Client/Server Access Control Functions'
+       # "Replace a process level token" right
+       if ($p->cgi->url !~/\/_*(login|auth|a|ntlm|search|guest)\//i
+       && !$ENV{REMOTE_USER}) {
+          $p->print->h1('Authentication required')
+       } else {
+       eval('use Win32::OLE');
+       my $oq =Win32::OLE->CreateObject("ixsso.Query");
+       my $ou =Win32::OLE->CreateObject("ixsso.util");
+       my $qs =[];
+       my $qt =[];
+       $oq->{Query}      =$s->qparam('query') =~/^(@\w|\{\s*prop\s+name\s+=)/i
+                         ? $s->qparam('query')
+                         : ('@contents ' .$s->qparam('query'));
+       $oq->{Catalog}    ='Web';
+       $oq->{MaxRecords} =$p->qparam('querymarg') ||256;
+       $oq->{MaxRecords} =4096 if $oq->{MaxRecords} >4096;
+       $oq->{SortBy}     =$p->qparam('querysort') ||'write';
+       $oq->{SortBy}    .=$oq->{SortBy} =~/^(write|hitcount)$/i 
+                         ? '[d],docauthor[a]' : '[a],write[d]';
+       $oq->{Columns}    ='vpath,path,filename,hitcount,write,doctitle,docauthor,characterization';
+       $oq->{LocaleID}   =1049 if $p->lngname =~/ru/i;
+       push @$qs, $p->fpath
+         if $p->fpath && ($p->fpath ne $p->ppath);
+       push @$qs, $p->ppath
+         if !(grep {$p->ppath eq $_} ($ENV{PATH_TRANSLATED}, '.'));
+       push @$qs, $s->{-uspath}
+         if $s->{-uspath} ||($s->{-usurl} && $s->_usdflt);
+       foreach my $e (@$qs) {
+         push @$qt, [$e =~/^(.+?)[\\\/][^\\\/]+$/ ? $1 : $e, ''] 
+       }
+       foreach my $e ('c:', 'd:') {
+          push @$qt, [$e => ''] if !grep {lc($_->[0]) eq $e} @$qt
+       }
+       foreach my $e ($p->furl, $s->{-usurl}, $p->purl) {
+         next if !$e;
+         if ($e =~/^\w{3,5}\:\/\/[^\/]+(.*)$/) {$e =$1};
+         push @$qs, $e if $e;
+       }
+
+       &{$s->{-searchms}}($s, $oq, $ou, $qs, $qt) if ref($s->{-searchms});
+       $qs =[]; # !!!
+       foreach my $e (@$qs) { # optional, to narrow search
+          $e =~s/\//\\/g if $e !~/^[\\\/]/;
+          $ou->AddScopeToQuery($oq, $e, 'deep')
+       }
+
+       $p->pushmsg(map {$_ . ' = ' .(!defined($oq->{$_}) ? 'null' 
+                                    : $oq->{$_} =~/\D/ ? '\'' . $oq->{$_} .'\''
+                                    : $oq->{$_})}
+                    qw (Catalog Query MaxRecords SortBy Columns LocaleID))
+                if $p->{-debug};
+       $p->pushmsg(map {'AddScopeToQuery = ' .$_} @$qs)
+                if $p->{-debug};
+       $p->pushmsg(map {'Translate = \'' .$_->[0] .'\' -> \'' .$_->[1] .'\''} @$qt)
+                if $p->{-debug} >1;
+
+       my $ol =$oq->CreateRecordset('sequential'); # 'nonsequential'
+
+       if ($ol->{EOF}) {
+          $p->print('No records found');
+       }
+       my ($rcf, $rct, $rcd) =(0, 0, 0);
+       while (!$ol->{EOF}) {
+         my $vp =$ol->{vPath}->{Value};
+         $rcf +=1;
+         if (!$vp) {
+            $rct +=1;
+            my $rp =$ol->{Path}->{Value};
+               $rp =~s/\\/\//g;
+            foreach my $e (@$qt) {
+               next if lc(substr($rp, 0, length($e->[0]))) ne lc($e->[0]);
+               $vp =$e->[1] .substr($rp, length($e->[0]));
+               last;
+            }
+         }
+         if ($vp) {
+            $rcd +=1;
+            my $vt =$p->htmlescape($ol->{DocTitle}->{Value});
+               $vt = ($vt ? '$vt' .'&nbsp;&nbsp;' : '')
+                   . '(' .$p->htmlescape($ol->{DocAuthor}->{Value}) .')'
+                   if $ol->{DocAuthor}->{Value};
+               $vt = ($vt ? $vt .'&nbsp;&nbsp;&nbsp;(' : '')
+                   . $p->htmlescape($vp) .')';
+            print $g->a({-href=>$vp||$ol->{Path}->{Value}
+                        ,-title=>$ol->{HitCount}->{Value} 
+                          .': ' .$ol->{Path}    ->{Value}}
+                     , $vt)
+                     , $ol->{Characterization}->{Value}
+                     ? '<br />' .$p->htmlescape($ol->{Characterization}->{Value})
+                     : ''
+                     , "<br /><br />\n"
+         }
+         if (!eval {$ol->MoveNext; 1}) {
+            $p->print('Bad query');
+            last
+         }
+       }
+       $p->pushmsg("Records fetched = $rcd / found = $rcf, vpathgen = $rct / max = " .($oq->{MaxRecords}||'null') .', user = "' .($ENV{REMOTE_USER}||'Guest') .'" / "' .(eval{Win32::LoginName}||'') .'"');
+    }}
+    elsif (ref($s->{-search})) {
+       &{$s->{-search}}($s)
+    }
+ }
+ $s->scrbot;
+ $p->print->htpgend;
+}
+
+
+
+
 sub _usdflt {   # Users Sites Defaults
  my $s =shift;
  if (!$s->{-uspath}) { # users sites dir
-    foreach my $d ('/share/users','/share/home','d:/share/users','d:/share/home','/users','/home','d:/users','d:/home') {
+    foreach my $d ($^O eq 'MSWin32'
+                  ? ('c:/share/users','d:/share/users'
+                    ,'c:/share/home','d:/share/home'
+                    ,'c:/users','d:/users','c:/home','d:/home')
+                  : ('/share/users','/share/home','/users','/home')) {
        next if !-d $d;
        $s->{-uspath} =$d;
        my $dn =($d =~/^(\/|\w:\/)(.+)/ ? $2 : $d);
@@ -320,8 +505,7 @@ sub _usdflt {   # Users Sites Defaults
  $s->{-uspfile}=['index.url','index.html','index.htm'
                 ,'default.url','default.html','default.htm'] # publish files
                if !$s->{-uspfile};
- $s->{-ushref}                       # sites hyperlinks
- || $s->{-ushome}                    # current user's home
+ $s->{-uspath}
 }
 
 
@@ -460,8 +644,8 @@ sub uscollect { # Users Sites Collect
    push @$ds, [$lv  # nest level
               ,$nu  # name
               ,$ug->{$nu} ||$ug->{lc($nu)} ||$nu # label
-              ,$r->[0] =~/^\w{3,5}:\/\// ? $r->[0] 
-               : (($s->{-usurl} ||$s->{-uspurl} ||$s->{-uspurf}) .'/' .$r->[0])
+            # ,$r->[0] =~/^\w{3,5}:\/\// ? $r->[0] : (($s->{-usurl} ||$s->{-uspurl} ||$s->{-uspurf}) .'/' .$r->[0])
+              ,$r->[0]
               ,@$r  # fdir, hier
               ];
  # print ' . ';
@@ -528,7 +712,10 @@ sub scrusites { # Users Sites Display
    $p->print('<tr>');
    $p->print('<td>&nbsp;&nbsp;&nbsp;</td>' x $r->[0]);
    if ($r->[3]) {
-      $p->print->td($hl, '<nobr>' .$p->a({-href=> $r->[3]}, $s->_img('-usite') .$p->htmlescape($r->[2])) .'</nobr>');
+      $p->print->td($hl
+      , '<nobr>' .$p->a({-href=> $r->[3] =~/^\w{3,5}:\/\// 
+                               ? $r->[3] : ($s->{-usurl} ||$s->{-uspurl} ||$s->{-uspurf}) .'/' .$r->[3]}
+                       , $s->_img('-usite') .$p->htmlescape($r->[2])) .'</nobr>');
    }
    else {
       $p->print->th($hl, '<nobr>' .$s->_img('-udir') .$p->htmlescape($r->[2]) .'</nobr>');
@@ -603,14 +790,17 @@ sub scrsetup {  # setup screen
  $s->print->hidden('_run' =>'SETUP');
  $s->print->hidden('_run1'=>'SETUP');
  $s->print('<table width="100%"><tr><td>');
- $s->print->h1($s->lng(0, 'Setup') .' - ' .$s->parent->user)
-          ->text($s->lng(1, 'Setup') .$g->br);
- $s->print('</td>');
- $s->print->td({-valign=>'top',-align=>'right'}
+ $s->print->h1($s->lng(0, 'Setup') .' - ' .$s->parent->user);
+ if (!$aa && !scalar(@$ua)) {
+    $s->print($s->lng(1, 'Setup', $s->parent->user) .'</td>')
+          ->td({-valign=>'top',-align=>'right'}
               ,$g->submit(-name =>'save'
                          ,-value=>$s->lng(0, 'Save')
                          ,-title=>$s->lng(1, 'Save')))
-     if !$aa && !scalar(@$ua);
+ }
+ else {
+    $s->print('</td><td align="left" valign="bottom">' .$s->lng(1, 'Setup', $s->parent->user) .'</td>');
+ }
  $s->print('</tr></table>');
 
  foreach my $p (qw(upws_urlh upws_frmrows upws_frmcols upws_usfhome urole)) {
@@ -732,6 +922,8 @@ sub evaluate {  # execute workspace
  my $c =$s->qparam('login')  ? 'LOGIN' 
        :$s->qparam('logout') ? 'LOGOUT'
        :$s->qparam('usites') ? 'USITES'
+       :$s->qparam('search') ? 'SEARCH'
+       :$s->qparam('query')  ? 'SEARCH'
        :($s->qrun ||'');
  $s->userauthopt() if $c ne 'LOGIN';
  if    ($c eq 'LEFT')   { $s->scrleft  }
@@ -741,6 +933,7 @@ sub evaluate {  # execute workspace
  elsif ($c eq 'LOGIN')  { $s->parent->userauth($s->qurl)}
  elsif ($c eq 'LOGOUT') { $s->parent->uauth->logout($s->qurl)}
  elsif ($c eq 'USITES') { $s->scrusites}
+ elsif ($c eq 'SEARCH') { $s->search   }
  else                   { $s->scrtop   }
 }
 

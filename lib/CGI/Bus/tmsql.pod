@@ -410,6 +410,8 @@ Short form may be used to describe
 or 'popup_menu'.
 C<-htmlopt> => 1 attribute causes to use data as HTML if 
 HTML formatting detected with C<ishtml> L<CGI::Bus|CGI/Bus> method.
+'htmltextarea' URLs display behaviour is extended with 
+special URL protocol 'fsurl://' to be translated to C<fsurl> value.
 See also L<CGI::Bus|CGI/Bus> for 'htmltextfield' and 'htmltextarea'
 attributes.
 
@@ -659,6 +661,11 @@ C<set>(C<-acd>=>{C<-read>, C<-readsub>, C<-sread>, C<-write>, C<-swrite>, C<-osw
 Substitution for 'c' slot (see below)
 and 'C' command ('i'nsert, 'u'pdate, 'd'elete).
 Array ref is treated as usernames are used for insert, fieldnames otherwise.
+
+
+=item -htaccess
+
+Force to generate '.htaccess' files without Apache - boolean or sub{} condition
 
 
 =item -oswrite
@@ -1451,6 +1458,38 @@ C<qparam> call with C<-pxsw> prefixed param names.
 =head1 VERSION
 
 =over
+
+
+=head2 17/04/2003
+
+=item Fixed:
+
+C<acltest> - fixed record read delegation via C<-readsub>:
+it processes further only array refs from C<acl> now, 
+false values will be ignored in loop, true - returned.
+
+
+=head2 31/03/2003
+
+=item New:
+
+C<-htaccess> subslot of C<-acd>
+
+
+=head2 17/11/2002
+
+=item New:
+
+'thead' and 'tbody' HTML tags in C<cmdlst>.
+
+
+=head2 31/10/2002
+
+=item Changed:
+
+C<-inp> C<Field Description>: 'htmltextarea' URLs display behaviour 
+is extended with special URL protocol 'fsurl://' to be translated 
+to C<fsurl> value.
 
 
 =head2 31/08/2002

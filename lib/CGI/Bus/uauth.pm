@@ -363,7 +363,7 @@ sub signset {   # Set authentication
  my $c =[$u, $ENV{REMOTE_ADDR}||'', time];
  my $d =$s->parent->udata->param; $d->{-ses} ={} if !$d->{-ses};
  foreach my $k (sort {$a <=> $b} keys %{$d->{-ses}}) {
-    delete $d->{-ses}->{$k} if (time -$k) >(60*60*12);
+    delete $d->{-ses}->{$k} if (time -$k) >(60*60*24);
  }
  $d->{-ses}->{$c->[2]} ={-key=> $s->_signrand
                         ,-time=>$s->parent->strtime($c->[2])

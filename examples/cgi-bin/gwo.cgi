@@ -5,7 +5,7 @@
 # Initial Settings
 #
 use vars qw($s);
-$s = do("config.pl");
+$s = do("../config.pl");
 $s->set('-htmlstart')->{-title} =$s->server_name() .' - Groupware Organizer';
 #
 # Form Description
@@ -113,7 +113,8 @@ $s->tmsql->set(
  ,{-flg=>'a"',  -fld=>'rrole'
         ,-lbl=>'Reader', -cmt=>'Reader Role, Group of Readers of the Record'
         ,-crt=>sub{$_}, -null=>'', -inp=>{-maxlength=>60}
-        ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Open Users'},-lst=>,$_[0]->pxsw('LIST'),'Users','$_')}
+        ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Open Users'},-lst=>,$_[0]->pxsw('LIST')
+                      ,$_ ? ('AllActual','rrole'=>$_) : ('Users'), '$_')}
         ,-inphtml=>sub{'$_' .$_[0]->htmlddlb('auser_',sub{$_[0]->uglist({})}, qw(puser prole auser arole rrole), "\tmailto")}}
  ,''
  ,{-flg=>'a"',  -fld=>'mailto'
@@ -151,19 +152,25 @@ $s->tmsql->set(
         ,-lbl=>'Finish', -cmt=>'Time to order records by'
         ,-col=>"IF(gwo.status = 'edit' OR (gwo.status = 'do' AND "
         ."(stime IS NULL OR stime <='" .$s->strtime('yyyy-mm-dd')."') "
-        ."), 'do', gwo.utime)"
+        ."), 'do', COALESCE(gwo.etime, gwo.utime))"
         ,-clst=>sub{'<nobr>' .($_ =~/^([^\s]+)[\s0:]*$/ ? $1 : $_) .'</nobr>'}
         }
  ,{-flg=>'a"',  -fld=>'record'
         ,-lbl=>'Record', -cmt=>'Record type'
         ,-crt=>sub{$_}, -null=>''
-        ,-inp=>{-values=>['', qw(note log incident problem experim --- draft paper manual --- object change upgrade install move delete serve --- msg contact address)]}}
+        ,-inp=>{-values=>['', qw(note log --- incident problem experim --- object query change upgrade install move delete serve --- draft paper manual --- msg contact address)]}}
+ ,{-flg=>'"', -fld=>'record_s', -col=>"IF(record='object',0, IF(record='address', 1, IF(record='query', 2, 10)))"
+        ,-lbl=>'Record', -cmt=>'Record type sort order'
+        ,-lbl_ru=>'Запись', -cmt_ru=>'Порядок сортировки записей'
+        }
  ,''
  ,{-flg=>'a"',  -fld=>'object'
         ,-lbl=>'Object', -cmt=>'Object or keyword, related to Record'
         ,-crt=>sub{$_}, -null=>'', -inp=>{-maxlength=>60}
         ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Open Objects'},-lst=>$_[0]->pxsw('LIST')
-                      ,$_ ? ('AllActual','object'=>$_) : ('Objects'), '$_')}
+                      ,$_ 
+                      ? ('AllActual','object'=>$_, $s->tmsql->pxsw('ORDER_BY'),'record_s asc, otime desc, ctime desc') 
+                      : ('Objects'), '$_')}
         ,-inphtml=>sub{'$_' .$_[0]->htmlddlb('object_','Objects','object')}}
  ,''
  ,{-flg=>'a"',  -fld=>'doctype'
@@ -186,7 +193,7 @@ $s->tmsql->set(
         ,-width=>30
         }
  ,{-flg=>'a"',  -fld=>'comment'
-        ,-lbl=>'Comment', -cmt=>'Comment text'
+        ,-lbl=>'Comment', -cmt=>'Comment text or HTML code; host:// or fsurl:// URLs may be used; query condition within <where></where> tags'
         ,-crt=>sub{$_}, -null=>''
         ,-inp=>{-cols=>68,-arows=>3,-maxlength=>4*1024,-hrefs=>1,-htmlopt=>1}
         ,-colspan=>10}
@@ -204,6 +211,10 @@ $s->tmsql->set(
  ,'AllActual'=>   {-lbl=>,'All Actual', -cmt=>'All actual records available'
                   ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'ftime desc, ctime desc'
+                  ,-where=>"status NOT IN('deleted','template') AND gwo.idnv is NULL"}
+ ,'AllNews'=>     {-lbl=>,'All News', -cmt=>'All actual records available, by modification time'
+                  ,-fields=>[qw(ftime status subject_v alist_v)]
+                  ,-orderby=>'utime desc, ctime desc'
                   ,-where=>"status NOT IN('deleted','template') AND gwo.idnv is NULL"}
  ,'AllTimeline'=> {-lbl=>,'All Timeline', -cmt=>'Timeline chart for all actual records'
                   ,-fields=>[qw(status subject_v alist_v)]
@@ -224,6 +235,12 @@ $s->tmsql->set(
                   ,-filter=>sub{"status NOT IN('deleted','template') AND gwo.idnv is NULL"
                    .$_[0]->aclsel('-','-and',qw(puser prole auser arole),$_[0]->unames,qw(cuser uuser))
                    }}
+ ,'OurNews'=>     {-lbl=>'Our News', -cmt=>('Records ' .$s->user .' involved in, by modification time')
+                  ,-fields=>[qw(ftime status subject_v alist_v)]
+                  ,-orderby=>'utime desc, ctime desc'
+                  ,-filter=>sub{"status NOT IN('deleted','template') AND gwo.idnv is NULL"
+                   .$_[0]->aclsel('-','-and',qw(puser prole auser arole),$_[0]->unames,qw(cuser uuser))
+                   }}
  ,'OurToday'=>    {-lbl=>'Our Today', -cmt=>('Records ' .$s->user .' involved in today')
                   ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'otime desc, ftime desc, ctime desc'
@@ -241,6 +258,12 @@ $s->tmsql->set(
  ,'PersActual'=>  {-lbl=>'Pers Actual', -cmt=>('Personally ' .$s->user .' records')
                   ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'ftime desc, ctime desc'
+                  ,-filter=>sub{"status NOT IN ('deleted','template') AND gwo.idnv is NULL"
+                    .$_[0]->aclsel('-','-and',$_[0]->ugnames,qw(auser puser cuser uuser),$_[0]->unames,qw(arole prole))
+                   }}
+ ,'PersNews'=>    {-lbl=>'Pers News', -cmt=>('Personally ' .$s->user .' records, by modification time')
+                  ,-fields=>[qw(ftime status subject_v alist_v)]
+                  ,-orderby=>'utime desc, ctime desc'
                   ,-filter=>sub{"status NOT IN ('deleted','template') AND gwo.idnv is NULL"
                     .$_[0]->aclsel('-','-and',$_[0]->ugnames,qw(auser puser cuser uuser),$_[0]->unames,qw(arole prole))
                    }}
@@ -268,7 +291,7 @@ $s->tmsql->set(
  ,'Objects'=>     {-lbl=>'List Objects', -cmt=>'List of Objects'
                   ,-fields=>[qw(object)], -key=>[qw(object)]                  
                   ,-orderby=>'object', -groupby=>'object'
-                  ,-href=>[undef,undef,'-lst',$s->tmsql->pxsw('LIST'),'AllActual']
+                  ,-href=>[undef,undef,'-lst',$s->tmsql->pxsw('LIST'),'AllActual',$s->tmsql->pxsw('ORDER_BY'),'record_s asc, otime desc, ctime desc']
                   ,-where=>"status NOT IN ('deleted','template') AND gwo.idnv is NULL"}
  ,'DocTypes'=>    {-lbl=>'List DocTypes', -cmt=>'List of DocTypes'
                   ,-fields=>[qw(doctype)], -key=>[qw(doctype)]                
@@ -340,11 +363,14 @@ $s->tmsql->set(
  ,-write =>[qw(auser arole puser prole uuser cuser)]       # writer fields
  ,-read  =>[qw(auser arole puser prole uuser cuser rrole)] # reader fields
  ,-readsub => sub {             # read right lookup sub
-     my @c; my $idrr =$s->qparam('idrr');
-     push @c, 'gwo.idrr=' .$s->dbi->quote($idrr) if $idrr;
-     push @c, 'gwo.id='   .$s->dbi->quote($idrr) if $idrr;
-     push @c, 'gwo.idrr=' .$s->dbi->quote($s->qparam('id'));
-     $_[0]->cmdscan1('-!q','AllActual', join(' OR ', @c));
+     my @c; my $idrr =$s->qparam('idrr'); my $idrm =$s->qparam('idrm');
+   # push @c, 'gwo.id='   .$s->dbi->quote($idrr) if $idrr;   # root
+   # push @c, 'gwo.id='   .$s->dbi->quote($idrm) if $idrm;   # master: responces view
+   # push @c, 'gwo.idrr=' .$s->dbi->quote($idrr) if $idrr;   # siblings all
+   # push @c, 'gwo.idrm=' .$s->dbi->quote($idrm) if $idrm;   # siblings direct
+     push @c, 'gwo.idrr=' .$s->dbi->quote($s->qparam('id')); # replies  all:    root   ptr
+     push @c, 'gwo.idrm=' .$s->dbi->quote($s->qparam('id')); # replies  direct: master ptr
+     scalar(@c) && $_[0]->cmdscan1('-!q','AllActual', join(' OR ', @c));
    }
  });
 #
@@ -362,8 +388,11 @@ $s->tmsql->set(-cmdfrm =>sub{  # view related records in record form
     if ($s->cmd('-sel')) {
        $s->print->hr;
        $s->cmdlst('-gxm!q','AllActual'
-         ,'gwo.idpr=' .$s->dbi->quote($s->qparam('id'))
-         .' OR gwo.idrm=' .$s->dbi->quote($s->qparam('id')))
+         ,join(' OR '
+              ,(map {"$_=" .$s->dbi->quote($s->qparam('id'))} 'gwo.idpr', 'gwo.idrm')
+              ,($s->qparam('comment')||'') !~/^<where>(.+?)<\/where>/ ? () : ("($1)")
+              )
+         )
     }
 });
 #
@@ -384,7 +413,7 @@ $s->tmsql->set(-rowsav1=>sub { # mail send
        ,$s->start_html($s->parent->{-htmlstart})  # $s->htpgstart()
        ,$s->htmlself(-sel=>'id'=>$s->param('id'),$subj),'<BR>'
        ,$s->{-fields}->{'comment'}->{-htmlopt} && $s->ishtml($s->param('comment'))
-        ? $s->param('comment') : $s->htmlescape($s->param('comment'))
+        ? $s->param('comment') : $s->htmlescapetext($s->param('comment'))
        ,$s->htpgend()
        );
     $s

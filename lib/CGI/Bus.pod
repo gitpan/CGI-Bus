@@ -642,6 +642,13 @@ C<CGI::escapeHTML> call.
 See also C<urlescape>.
 
 
+=item htmlescapetext (text) -> escaped 
+
+Alike C<htmlescape>, but with
+text area formatting improved with '&nbsp;' signs and '<code>' tags as needed,
+'<br />' and '<a href=' tags
+
+
 =item htmlfsdir ( name, edit?, allow edit?, files path, URL, ?filesystemURL, ?rows, ?cols )
 
 Generate filesystem directory editor HTML.
@@ -1028,6 +1035,7 @@ See also C<-userauth>, L<CGI::Bus::uauth|CGI/Bus/uauth>
 
 Authenticate current user if guest and required
 by '_auth' or '_login' L<CGI|CGI> param.
+Otherwise avoid '_*(login|auth|a|ntlm)' IIS impersonated script subURL with redirection.
 Uses C<userauth>.
 
 
@@ -1083,6 +1091,105 @@ See also C<Error and Message processing>, L<CGI::Carp|CGI/Carp>
 =head1 VERSION
 
 =over
+
+
+
+=head2 24/04/2003
+
+Version 0.55 released
+
+
+=head2 17/04/2003
+
+C<htmlescapetext>() method introduced, 'gwo' and 'notes' examples changed.
+
+L<CGI::Bus::tm|CGI/Bus/tm> 
+'cmdfrm' text area formatting improved with '&nbsp;' signs and '<code>' tags as needed.
+
+L<CGI::Bus::tmsql|CGI/Bus/tmsql> 
+'acltest' - fixed record read delegation via '-readsub':
+it processes further only array refs from 'acl' now, 
+false values will be ignored in loop, true - returned.
+'gwo' and 'notes' examples changed.
+
+
+=head2 07/04-31/03/2003
+
+C<microtest>, C<microenv> increased using L<getlogin()|perlfunc> or L<Win32::LoginName()|Win32>.
+
+
+L<CGI::Bus|CGI/Bus>, L<CGI::Bus::upws::search|CGI/Bus/upws> changed: '_*(login|auth|a|ntlm|search|guest)' special IIS subURLs introduced:
+
+/cgi-bin/cgi-bus - may be common unimpersonated URL under IUSR_xxx user, and moreover
+
+/cgi-bin/login/cgi-bus - common impersonated virtual URL of /cgi-bin/cgi-bus,
+
+/cgi-bin/search/cgi-bus - common guest access unimpersonated virtual URL of /cgi-bin/cgi-bus under IUSR_xxx_1 user
+
+
+C<userauthopt> changed:
+avoiding '_*(login|auth|a|ntlm|search|guest)' IIS impersonated script subURL 
+with authentication or redirection as needed.
+
+
+L<CGI::Bus::psp|CGI/Bus/psp> modified:
+[filename, base] filename syntax may now be used to generate '<base href...>' tag
+
+
+L<CGI::Bus::tmsql|CGI/Bus/tmsql> modified:
+new '-htaccess' subslot of '-acd'
+
+
+=head2 25/11/2002
+
+L<CGI::Bus::tm|CGI/Bus/tm> fixed: 
+C<cmdfrm> lost line breacks when displaying text areas with embedded URLs
+
+
+=head2 18-19/11/2002
+
+L<CGI::Bus::wg|CGI/Bus/wg> changed: 'fsdir' displays now filesystem URLs 
+only in edit mode. Files URLs supplied with '_blank' option.
+
+
+=head2 17/11/2002
+
+L<CGI::Bus::tmsql|CGI/Bus/tmsql> changed: new 'thead' and 'tbody' HTML tags in C<cmdlst>.
+
+
+=head2 08/11/2002
+
+gwo.cgi changed: 'otime' field SQL formula changed from '..., gwo.utime)' to
+'..., COALESCE(gwo.etime, gwo.utime)'.
+
+gwo.cgi new: 'All News', 'Our News', 'Pers News' views.
+
+
+=head2 31/10/2002
+
+L<CGI::Bus::wg|CGI/Bus/wg> changed:
+C<textarea>: special URL protocols may be used and translated in the text: 
+'host://'  -> '/'.
+
+L<CGI::Bus::tmsql|CGI/Bus/tmsql> changed:
+C<-inp> C<Field Description>: 'htmltextarea' URLs display behaviour 
+is extended with special URL protocol 'fsurl://' to be translated 
+to C<fsurl> value.
+
+
+=head2 20/10/2002
+
+L<CGI::Bus::upws|CGI/Bus/upws> new:
+C<-search>, C<-searchms> slots. 
+Problem: Microsoft Index Server calls should be impersonalisated
+to obtain rightly ACL checked results.
+
+
+
+
+=head2 14/10/2002
+
+Version 0.54 released
 
 
 =head2 21/08/2002 - 31/08/2002 - 12-13/09/2002 - 16/09/2002

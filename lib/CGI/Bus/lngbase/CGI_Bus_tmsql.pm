@@ -59,7 +59,7 @@ sub lngbase {
  ,'File Store'     =>['File Store',   'File attachments store settings']
  ,'-fsd-url'       =>['',             'File store root']
  ,'-fsd-vsurl'     =>['',             'Old versions store root']
- ,'-fsd-vsd-e'     =>['Edit state',   'Editing of files attached allowed only while \'edit\' record state $_']
+ ,'-fsd-vsd-e'     =>['Edit state',   'Editing of files attached allowed only while record stored with \'edit\' state $_']
  ,'-fsd-vsd-ei'    =>['Templates usage','Use \'edit\' $_ -> \'Insert\' transaction to create record from template and immediately edit files attached']
  );
  @msg

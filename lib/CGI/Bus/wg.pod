@@ -65,7 +65,9 @@ when view mode.
 
 Like C<CGI::textarea> call, but with additional attributes:
 -arows=>min autosizes widget to it's content.
--hrefs=>1 searches HTML hyperlinks in content and displays them.
+-hrefs=>1 searches HTML hyperlinks in content and displays them,
+special URL protocols may be used and translated: 
+'host://'  -> '/'.
 -htmlopt=>1 is to autodetect and use in view mode HTML data format,
 it is ignored (deleted).
 
@@ -85,6 +87,22 @@ Like C<CGI::textfield> call, but with additional attributes:
 =head1 VERSION
 
 =over
+
+=head2 18-19/11/2002
+
+=item Changed:
+
+C<fsdir> displays now filesystem URLs only in edit mode.
+Files URLs supplied with '_blank' option.
+
+
+=head2 31/10/2002
+
+=item Changed:
+
+C<textarea>: special URL protocols may be used and translated in the text: 
+'host://'  -> '/'.
+
 
 =head2 30/01/2002
 

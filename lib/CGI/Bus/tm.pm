@@ -75,8 +75,8 @@ sub initialize {
  #,-ftext  =>undef    ## Full-text search expression template
  #,-formtgf=>undef     # Form Target Frame: '_BLANK', '', undef
  #,-lists  =>undef     # Data views description
-  ,-listrnm=>250      ## View Rows Number Default Margin
-  ,-lboxrnm=>1000     ## Listbox Rows Number Margin
+  ,-listrnm=>256      ## View Rows Number Default Margin
+  ,-lboxrnm=>1024     ## Listbox Rows Number Margin
  #,-filter =>undef    ## Data filter string or sub
  #,-fltsel =>undef    ## Select filter string or sub
  #,-fltlst =>undef    ## List filter string or sub
@@ -576,6 +576,8 @@ sub _htmlbare { # Transaction batton bar element
        : $u ? $g->a({-href=>$u,%a,-title=>$t
                   # ,-style=>"{border-color:buttonface;border-width:thin;border-style:outset;background-color:buttonface}"
                   # ,-style=>"{background-color:buttonface;border-style:outset;border-width:thin}"
+                  # ,-style=>"behavior:url(#default#behaviorName)"
+                  # ,-style=>"behavior:url(behaviorFile.htc)"
                     }
                    , $p->{-iurl} && $img{$b} 
                    ? '<img src="' .$p->{-iurl} .'/' .$img{$b} .'" border=0 align=bottom />' .'<font size=-1>' .$p->htmlescape($v) .'</font>'
@@ -887,7 +889,7 @@ sub cmdhtm { # Common HTML
   $s->{-cmde} =undef if $s->{-rowedt} && $s->{-cmde}   && !&{$s->{-rowedt}}($s);
 
   &{shift @_}(@_) if ref($_[0]) eq 'CODE';
-  $s->print($s->htmlbar);
+  $s->print($s->htmlbar) if ($s->qparamsw('MIN')||'')  !~/b/;
   $s->print($s->htmlhid);
   $s
 }
@@ -984,21 +986,23 @@ sub cmdfrm { # Record form for Query or Edit
             $wgp .=$v
          }
          elsif ($f->{-inp}->{-hrefs}) {
+            $wgp .='<code>' if $v =~/ {2,}/;
             while ($v =~/\b(\w{3,5}:\/\/[^\s\t,()<>\[\]"']+[^\s\t.,;()<>\[\]"'])/) {
                my $r =$1;
                $v    =$';
-               $wgp .=$p->htmlescape($`)
-                    . $g->a({-href=>$r},$p->htmlescape($r));
+               my $w =$p->htmlescape($`); $w =~s/( {2,})/'&nbsp;' x length($1)/ge; $w =~s/\n/<br \/>\n/g; $w =~s/\r//g;
+               $wgp .=$w;
+               $r    =~s/^host:\///;
+               $r    =~s/^fsurl:\//$s->fsurl||$s->fsurf/e;
+               $wgp .=$g->a({-href=>$r, -target=>'_blank'}, $p->htmlescape($r));
             }
-            $v =$p->htmlescape($v);
-            $v =~s/\n/<br \/>/g;
-            $v =~s/\r//g;
+            $v =$p->htmlescape($v); $v =~s/( {2,})/'&nbsp;' x length($1)/ge; $v =~s/\n/<br \/>\n/g; $v =~s/\r//g;
             $wgp .=$v;
+            $wgp .='</code>' if $wgp =~/<code>/;
          }
          elsif (exists($f->{-inp}->{-arows}) ||exists($f->{-inp}->{-rows}) ||exists($f->{-inp}->{-cols})) {
-            $v =$p->htmlescape($v);
-            $v =~s/\n/<br \/>/g;
-            $v =~s/\r//g;
+            $v =$p->htmlescape($v); $v =~s/( {2,})/'&nbsp;' x length($1)/ge; $v =~s/\n/<br \/>\n/g; $v =~s/\r//g;
+            $v ="<code>$v</code>" if $v =~/&nbsp;&nbsp/;
             $wgp .=$v;
          }
          elsif ($f->{-inp}->{-labels}) {

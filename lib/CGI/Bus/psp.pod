@@ -51,7 +51,7 @@ None
 
 =over
 
-=item eval (?-opt, perl text, ?filename,...) -> HTML page printed
+=item eval (?-opt, perl text, ? filename||[filename, base],...) -> HTML page printed
 
 Evaluate Perl text.
 'e' option is to produce embeddable HTML without headers.
@@ -60,14 +60,14 @@ C<CGI::Bus::evalsub>(application object, options string, filename,...)
 
 
 
-=item evalf (?-opt, filename,...) -> HTML page printed
+=item evalf (?-opt, filename||[filename, base],...) -> HTML page printed
 
 Evaluate HTML/Perl script file.
 Uses C<parse> and C<eval>.
 
 
 
-=item parse (?-opt, html/perl text, ?filename,...) -> Perl text
+=item parse (?-opt, html/perl text, ?filename||[filename, base],...) -> Perl text
 
 Parse HTML/Perl script file to Perl text.
 'e' option is to produce embeddable HTML without headers.
@@ -78,6 +78,13 @@ Parse HTML/Perl script file to Perl text.
 =head1 VERSION
 
 =over
+
+=head2 02/04/2003
+
+=item New:
+
+[filename, base] filename syntax may now be used to generate '<base href...>' tag
+
 
 =head2 16/09/2002
 
