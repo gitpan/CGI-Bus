@@ -518,6 +518,13 @@ at the begin of the name.
 
 =over
 
+=item -cmdCCC
+
+Transacion command 'CCC' hook subroutine reference. 
+Commands and default operation are described in L<CGI::Bus::tm|CGI/Bus/tm>,
+see TRANSACTION SEQUENCE and -cmdCCC slot.
+
+
 =item -cmt
 
 =item -cmt_LNG

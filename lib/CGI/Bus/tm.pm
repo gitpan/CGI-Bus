@@ -349,13 +349,23 @@ sub cmd {      # Transaction command schema
     return $_[0]->{-cmd}
  }
  elsif ( $_[1] eq '-cmd') {     # Run all defined
+    my $l =$_[0]->cmd('-lst') && $_[0]->qlst && $_[0]->{-lists}->{$_[0]->qlst};
     foreach my $c (qw(-chk -ins -upd -del -sel -crt -qry -htm -frm -lst -hlp)) {
-       next if !$_[0]->cmd($c);
-       my $cmd ='cmd' .substr($c,1);
-       if ($_[0]->{"-$cmd"}) { &{$_[0]->{"-$cmd"}}($_[0],$c) }
-       else  {$_[0]->$cmd()}
+	next if !$_[0]->cmd($c);
+	my $cmd ='cmd' .substr($c,1);
+	if ($l && $l->{"-$cmd"}) {
+		&{$l->{"-$cmd"}}($_[0],$c);
+		last	if 	$c eq '-htm'
+			&&	!$_[0]->parent->{-cache}->{-htmlstart};
+	}
+	elsif    ($_[0]->{"-$cmd"}) { 
+		&{$_[0]->{"-$cmd"}}($_[0],$c) 
+	}
+	else  {
+		$_[0]->$cmd()
+	}
     }
-    return 1
+    return (1)
  }
  my $c =$_[0]->{-cmd};          # Used command
  my $f =$_[0]->{-opflg};        # Allow flags
@@ -538,25 +548,33 @@ sub htmlbar {  # Transaction batton bar html
     $r .=$s->_htmlbare(-qry =>$s->htmlurl($s->qurl,$s->pxcb('-cmd')=>'-qry'))
 			       if $o =~/[aq]/  && !$s->{-formtgf} && ($vm || $o =~/!v/);
 
+    local $s->{-keyval} =$s->keyval	# !!! single field keys only
+			if $s->{-keyfld} && ($s->{-vsd} ||$s->{-fsd})
+			&& !$s->cmdg('-crt');
+
     $r .=$s->_htmlbare('-prn'=>$s->htmlurl($s->qurl,$s->pxcb('-cmd')=>'-sel'
-			,$s->keyfld=>$s->keyval,
+			,$s->keyfld=>$s->{-keyval},
 			,'_tsw_MIN'=>'bhpvr'
 			))	if $vm && $o =~/[aeu]/
-				&& $s->{-keyfld} && ($s->{-vsd} ||$s->{-fsd});
-    # !!! single field keys only
+				&& $s->{-keyval};
+				
     $r .=$s->_htmlbare('-sel') if $o =~/[aev]/ && $s->cmdg eq '-sel' && $o !~/!s/ && !$guest;
     $r .=$s->_htmlbare('-edt') if $o =~/[av]/  && $s->cmdg eq '-sel' && $o !~/!v/ && $vm && !$guest;
-    # !!! '-sel' may be useful; '-edt' does not saves changes; see 'cmd' -sel transition
 
+    delete $s->{-keyval};
     $r .=$s->_htmlbare('-frm') if $o =~/[aeu]/ && $s->cmdg ne '-del' && !$vm;
     $r .=$s->_htmlbare('-upd') if $o =~/[aeu]/ && $s->cmdg eq '-sel' && !$vm;
     $r .=$s->_htmlbare('-ins') if $o =~/[aci]/ && $s->cmdg ne '-del' && !$vm;
     $r .=$s->_htmlbare('-del') if $o =~/[ad]/  && $s->cmdg eq '-sel';
  }
  if ($o =~/[aci]/ && !$s->cmdg('-qry')) {
-    if (!$s->{-formtgf}) {$r .=$s->_htmlbare('-crt')}
+    local $s->{-keyval} =$s->keyval	# !!! single field keys only
+			if $s->{-keyfld} && ($s->{-vsd} ||$s->{-fsd});
+    if (!$s->{-formtgf}) {
+	$r .=$s->_htmlbare('-crt')
+    }
     else {
-    $r .=$s->_htmlbare('-crt'
+	$r .=$s->_htmlbare('-crt'
                       ,$s->htmlurl($s->qurl, $s->pxcb('-cmd')=>'-crt')
                       ,-target=>$s->{-formtgf})
     }
@@ -589,7 +607,7 @@ sub _htmlbare { # Transaction batton bar element
  my ($v, $t);
     ($v, $t) =($s->lng(0,$b), $s->lng(1,$b)) if !ref($b) && $s->lng($b);
  my $h = ref($b) ? join('</td><td valign="middle">', @$b)
-       : $u ? $g->a({-href=>$u,%a,-title=>$t
+       : $u ? $g->a({-href=>$u,-title=>$t,%a
                   # ,-style=>"border-color: buttonface; border-width: thin; border-style: outset; background-color: buttonface;"
                   # ,-style=>"background-color: buttonface; border-style: outset; border-width: thin;"
                   # ,-style=>"behavior: url(#default#behaviorName);"
@@ -609,7 +627,8 @@ sub _htmlbare { # Transaction batton bar element
                        ,-accesskey=>substr($v,0,1)
                        ,-title=>$v .'. ' .$t
                        , %a) 
-                       .$g->a({href=>$s->qurl('',$s->pxnme(-pxcb=>'-cmd')=>$b),-title=>$t, -onClick=>'{' .$s->pxnme(-pxcb=>'-cmdi') .'.value="'.$b .'"; submit(); return(false)}'}, '<font size=-1>' .$p->htmlescape($v) .'</font>')
+                       .$g->a({href=>$s->qurl('',$s->pxnme(-pxcb=>'-cmd')=>$b, !$s->{-keyval} ? () : ($s->keyfld=>$s->{-keyval}))
+				,-title=>$t, -onClick=>'{' .$s->pxnme(-pxcb=>'-cmdi') .'.value="'.$b .'"; submit(); return(false)}'}, '<font size=-1>' .$p->htmlescape($v) .'</font>')
                      # !!! variants below does not works, -cmdi hidden variable added for above !!!
                      # .'<font size=-1>' .$g->a({href=>$s->qurl('',$s->pxnme(-pxcb=>'-cmd')=>$b), -onClick=>'{var o=new submit; o.name="' .$s->pxnme(-pxcb=>$b) .'"; o.value="1"; forms[0].submit(); return(false)}'}, $p->htmlescape($v)) .'</font>'
                      # .'<font size=-1>' .$g->a({href=>$s->qurl('',$s->pxnme(-pxcb=>'-cmd')=>$b), -onClick=>'{' .$s->pxnme(-pxcb=>$b).'.click(); return(false)}'}, $p->htmlescape($v)) .'</font>'
@@ -665,7 +684,6 @@ sub htmlhid {   # Transaction hidden html
        ||$ENV{HTTP_REFERER}
        ||$s->burl)
       ,-override=>1) ."\n";
-
  if ($s->cmd(-sel)) {       # -sel: save previos values after record selection
     foreach my $p ($g->param) {
       next if substr($p, 0, $lp) eq $s->{-pxpv};
@@ -691,24 +709,30 @@ sub htmlhid {   # Transaction hidden html
  }
 
  if ($s->cmd(-lst)) {       # -lst: set -pxqc, preserve other fields
-    foreach my $p ($g->param) {
-      next if substr($p, 0, $lq) eq $s->{-pxqc};
-      next if substr($p, 0, $lb) eq $s->{-pxcb};
-      next if $p eq $s->pxnme(-pxsw=>'FRMCOUNT');
-      next if $p eq $s->pxnme(-pxsw=>'EDIT');
-      $r .=$g->hidden(-name=>$s->pxnme(-pxqc=>$p)
-                     ,-value=>$g->param($p),-override=>1) ."\n";
-      $r .=$g->hidden(-name=>$p
-                     ,-value=>$g->param($p),-override=>1) ."\n"
+    unless ($s->{-lists} 
+	&& $s->qlst 
+	&& $s->{-lists}->{$s->qlst} 
+	&& $s->{-lists}->{$s->qlst}->{-cmdhtm}) {
+	foreach my $p ($g->param) {
+		next if substr($p, 0, $lq) eq $s->{-pxqc};
+		next if substr($p, 0, $lb) eq $s->{-pxcb};
+		next if $p eq $s->pxnme(-pxsw=>'FRMCOUNT');
+		next if $p eq $s->pxnme(-pxsw=>'FTEXT');
+		next if $p eq $s->pxnme(-pxsw=>'EDIT');
+		# $r .=$g->hidden(-name=>$s->pxnme(-pxqc=>$p)	# pxqc off
+		# 	,-value=>$g->param($p),-override=>1) ."\n";
+		$r .=$g->hidden(-name=>$p
+			,-value=>$g->param($p),-override=>1) ."\n"
+	}
     }
  }
  else {                     # preserve -pxqc when data edit
-    foreach my $p ($g->param) {
-      next if substr($p, 0, $lq) ne $s->{-pxqc};
-      next if substr($p, 0, $lb) eq $s->{-pxcb};
-      $r .=$g->hidden(-name=>$p 
-                     ,-value=>$g->param($p),-override=>1) ."\n"
-    }
+    # foreach my $p ($g->param) {	# pxqc off
+    #   next if substr($p, 0, $lq) ne $s->{-pxqc};
+    #   next if substr($p, 0, $lb) eq $s->{-pxcb};
+    #   $r .=$g->hidden(-name=>$p 
+    #                  ,-value=>$g->param($p),-override=>1) ."\n"
+    # }
     $r .=$g->hidden(-name=>$s->pxnme(-pxsw=>'FRMCOUNT')
                    ,-value=>($g->param($s->pxnme(-pxsw=>'FRMCOUNT'))||0) +1
                    ,-override=>1) ."\n"
@@ -739,27 +763,36 @@ sub htmlres {   # Transaction command result msg html
  if (!$s->parent->{-cache} ||!$s->parent->{-cache}->{-httpheader}) {
     $r =$s->parent->htpgstart;
  }
+
  if (!$c) {
-    my $h =$s->lng(0,'Failure') ." '" .$s->lng(0,$s->{-cmd}) ."': ";
-    my $e =$s->htmlescape($m);
-  # $r .='<span class="_ErrorMessage">' .$g->hr ."<font color=red><strong>$h</strong></font>" .$e ."</span>\n";
-    $r .='<span class="_ErrorMessage">' .$g->hr ."<h1>$h</h1>" .$e ."</span>\n";
-    $r .='<span class="_FooterArea">' .$g->hr;
+    my $h=$s->lng(0,'Failure') ." '" .$s->lng(0,$s->{-cmd}) ."': ";
+    my $e=$s->htmlescape($m);
+    $r	.='<span class="_FooterArea" onclick="{_tsw_FooterArea.style.display=(_tsw_FooterArea.style.display==\'none\' ? \'inline\' : \'none\')}" style="cursor: hand; ">';
+  # $r	.='<span class="_ErrorMessage">' .$g->hr ."<font color=red><strong>$h</strong></font>" .$e ."</span>\n";
+    $r	.='<span class="_ErrorMessage">' .$g->hr ."<h1>$h</h1>" .$e ."</span>\n";
+    $r	.=$g->hr;
  }
  elsif ((grep {$s->{-cmd} eq $_} qw(-sel -ins -upd -del)) ||$t) {
-    $r .='<span class="_FooterArea">' .$g->hr .'<strong>'
-       .($s->cmd('-lst') && $s->{-genlstm} ? $s->{-genlstm}
-        : ($s->lng(0,'Success') ." '" .$s->lng(0,$s->{-cmd}) ."'"))
-       ."</strong>\n";
-    $r.=$s->htmlescape($s->parent->set('-problem')) ."\n" if $s->parent->set('-problem')
+    $r	.='<span class="_FooterArea" onclick="{_tsw_FooterArea.style.display=(_tsw_FooterArea.style.display==\'none\' ? \'inline\' : \'none\')}" style="cursor: hand; ">'
+	.$g->hr 
+	.'<strong>'
+	.($s->cmd('-lst') && $s->{-genlstm} 
+		? $s->{-genlstm}
+		: ($s->lng(0,'Success') ." '" .$s->lng(0,$s->{-cmd}) ."'"))
+	."</strong>\n";
+    $r .=$s->htmlescape($s->parent->set('-problem')) ."\n" if $s->parent->set('-problem')
  }
- if ($r && (!$c || ($s->parent->{-debug} ||0) >0)) {
+ if ($r && (!$c || ($s->parent->{-debug}) >0)) {
     my $r1 =join(";<br />\n"
 		, map { $_ =~/^((?:WARN|WARNING|ERROR|DIE)[:.,\s]+)(.*)$/i
 			? "<strong>$1</strong>" .$s->htmlescape($2)
 			: $s->htmlescape($_)
 			} @{$s->pushmsg});
-    $r1  ="<font size=-1>\n" .$r1 .'</font>' if $r1;
+    $r1  ='<span id="_tsw_FooterArea" style="'
+	.(($s->parent->{-debug} ||0) >1 ? 'display: inline; ' : 'display: none; ')
+	.'font-size: smaller; ">'
+	.$r1
+	.'</span>';
     $r  .="<br />\n" .$r1
  }
  if (!$c) {
@@ -801,7 +834,7 @@ sub evaluate { # Execution of tm
  $s->userauthopt;
  $s->pushmsg($p->{-cache}->{-RevertToSelf}) 
 	if $p->{-cache}->{-RevertToSelf}
-	&& $p->{-debug} && $p->{-debug} >1;
+	&& $p->{-debug} && $p->{-debug} >2;
  $s->cmd;
  $s->{-cmdhtm} =sub{$s->cmdhtm(sub{;
  my $rfr =!$s->cmd('-lst') ? 0 
@@ -832,7 +865,7 @@ sub evaluate { # Execution of tm
  $p->print->htpfstart(undef, {-class=>'_Help', %{$p->{-htpgstart}}}) 
 		if $s->cmd('-hlp');
  $s->eval();
- $p->print->htpfend;
+ $p->print->htpfend if $p->{-cache}->{-htmlstart} ||!$s->cmd('-lst');
 }
 
 
@@ -982,9 +1015,10 @@ sub cmdfrm { # Record form for Query or Edit
    elsif (defined($f->{-lblhtml})) {
       my $l =$f->{-lblhtml};
          $l =&$l($s) if ref($l) eq 'CODE';
-      $l =~s/< *input[^<>]*>//ig if $vm;
+      $l =~s/< *input\b[^<>]*>//ig	if $vm;
+      $l =~s/<[\/\s]*a\b[^>]*>//ig	if $mp;
       $l =~s/\$_/$lbl/;
-      $lbl =$l
+      $lbl =$l;
    }
    $p->print($lbl =~/<t[dh]\b/i ? $lbl 
                   : $p->th({-align=>'left',-valign=>'top'},$lbl))
@@ -996,10 +1030,11 @@ sub cmdfrm { # Record form for Query or Edit
    }
 
    my $wgh;
-   if (!$hide && defined($f->{-inphtml})) {
+   if (!($hide||$excl) && defined($f->{-inphtml})) {
       $wgh =$f->{-inphtml};
       $wgh =&$wgh($s) if ref($wgh) eq 'CODE';
-      $wgh =~s/< *input[^<>]*>//ig if $vm;
+      $wgh =~s/< *input\b[^<>]*>//ig	if $vm;
+      $wgh =~s/<[\/\s]*a\b[^>]*>//ig	if $mp;
    }
 
    my $wgp ='';
@@ -1079,7 +1114,7 @@ sub cmdfrm { # Record form for Query or Edit
              my $fi =$f->{-inp};
              $fi->{-values} =&{$fi->{-values}}($s) if ref($fi->{-values}) eq 'CODE';
              $fi->{-labels} =&{$fi->{-labels}}($s) if ref($fi->{-labels}) eq 'CODE';
-             $fi->{-values} =[sort map {$fi->{-labels}->{$a} cmp $fi->{-labels}->{$b}} keys %{$fi->{-labels}}]
+             $fi->{-values} =[sort {lc($fi->{-labels}->{$a}) cmp lc($fi->{-labels}->{$b})} keys %{$fi->{-labels}}]
                             if !$fi->{-values};
              $wgp .=$p->popup_menu(-name=>$f->{-fld},%{$f->{-inp}},-title=>$cmt)
          }
@@ -1094,7 +1129,14 @@ sub cmdfrm { # Record form for Query or Edit
    }
    if (defined($wgh)) {
       $wgh =~s/\$_/$wgp/;
-      $wgp =$wgh
+      $wgp =$wgh;
+      if ($mp || ($wgp =~/< *input[^<>]*>/i)) {}
+      elsif ($wgp !~/<\/t[dh]\b/i) {
+		$wgp .=$g->hidden(-name=>$f->{-fld})
+      }
+      else {
+		$wgp =~s/(<\/t[dh]\b)/$g->hidden(-name=>$f->{-fld}) .$1/ie;
+      }
    }
 
    $wgp ='<td valign="top" align="left" '

@@ -33,7 +33,7 @@ sub ddlb {     # Drop-Down List Box - Input helper
     if (ref($ds) eq 'HASH') {
        $dl =$ds;
        $ds =[sort {lc($ds->{$a}) cmp lc($ds->{$b})} keys %$ds];
-       foreach my $k (keys %$dl) {$dl->{$k} =substr($dl->{$k},0,60)}
+       foreach my $k (keys %$dl) {$dl->{$k} =substr($dl->{$k},0,60) .'...' if length($dl->{$k}) >60}
     }
     $r .=$g->scrolling_list(-name=>($n .'_L')
                            ,-values=>$ds
@@ -79,7 +79,9 @@ sub ddlb {     # Drop-Down List Box - Input helper
            ."k=prompt('Enter search string',''); if(!k){return(false)}"
            .'k=k.toLowerCase();'
            .'for (var i=0; i <l.length; ++i) {'
-           .'if (l.options.item(i).value.toLowerCase().indexOf(k)==0){'
+	   .($g->user_agent('MSIE')
+	    ?'if (l.options.item(i).value.toLowerCase().indexOf(k)==0 || l.options.item(i).innerText.toLowerCase().indexOf(k)==0){'
+	    :'if (l.options.item(i).value.toLowerCase().indexOf(k)==0){')
            .'l.selectedIndex =i; return(false); break;}}};'
          );
     $r .=$g->submit(-name=>($n .'_C'), -value=>$s->lng(0,'ddlbclose'), -title=>$s->lng(1,'ddlbclose'));
@@ -110,9 +112,50 @@ sub textarea { # Text Area with autorowing and hrefs
  my $s =shift;
  my %a =@_;
  my $r ='';
+ my $r1='';
  my $v =exists($a{-default}) ? $a{-default} : $s->qparam($a{-name});
     $v ='' if !defined($v);
- delete $a{-htmlopt};
+ if ($a{-htmlopt}) {
+	delete $a{-htmlopt};
+	my $n =$a{-name};
+#	$r1 .="<input type=\"submit\" name=\"${n}__b\" value=\"R\" "
+#		."title=\"Rich/Text edit: ^Bold, ^Italic, ^Underline, ^Link, Enter/shift-Enter, ^(shift)T ident, ^Z undo, ^Y redo.\nSwitch to 'T'ext before saving!!!\" "
+#		."style=\"font-style: italic;\" "
+#			# ; font-weight: bold; font-family: fantasy
+#		."onclick=\"{if(${n}__b.value=='R') {${n}__b.value='T'; ${n}__r.DocumentHTML=$n.value ? $n.value : ''; $n.style.display='none'; ${n}__r.style.display='inline'; ${n}__r.width='100%'; ${n}__r.height=250 }\n"
+#		."else {var r; ${n}__b.value='R'; r=${n}__r.DocumentHTML.match(/&lt;BODY&gt;[\\s]*([\\s\\S]*)[\\s]*&lt;\\/BODY&gt;/); "
+#		."$n.value=r ? r[1] : ${n}__r.DocumentHTML; ${n}__r.style.display='none'; $n.style.display='inline';};\n"
+#		." return(false)}\" />\n"
+#		."<object classid=\"clsid:2D360201-FFF5-11d1-8D03-00A0C959BC0A\" id=${n}__r height=\"100%\" width=\"250\" style=\"display: none;\" name=\"${n}__r\" title=\"DHTML Editing Component\"></object>\n"
+#		#DHTML Edit Control for IE5, DHTML Editing Component, HTMLRichtextElement:
+#		#http://msdn.microsoft.com/archive/default.asp?url=/archive/en-us/dnaredcom/html/dhtmledit.asp
+#		if $n && ($ENV{HTTP_USER_AGENT}||'') =~/MSIE/;
+#	$r1 .="<input type=\"submit\" name=\"${n}__b\" value=\"R\" "
+#		."title=\"Rich/Text edit: ^Bold, ^Italic, ^Underline, ^Link, Enter/shift-Enter, ^(shift)T ident, ^Z undo, ^Y redo.\nSwitch to 'T'ext before saving!!!\" "
+#		."style=\"font-style: italic;\" "
+#			# ; font-weight: bold; font-family: fantasy
+#		."onclick=\"{if(${n}__b.value=='R') {$n.rows='1'; ${n}__b.value='T'; "
+#		."\n var r; r =document.createElement('<object classid=&quot;clsid:2D360201-FFF5-11d1-8D03-00A0C959BC0A&quot; id=&quot;${n}__r&quot; height=&quot;250&quot; width=&quot;100%&quot; name=&quot;${n}__r&quot; title=&quot;DHTML Editing Component&quot ></object>'); ${n}__b.parentNode.appendChild(r);\n"
+#		."r.normalize; r.Refresh; r.DocumentHTML=$n.value ? $n.value : '';}\n"
+#		."else {var r; ${n}__b.value='R'; r=${n}__r.DocumentHTML.match(/&lt;BODY&gt;[\\s]*([\\s\\S]*)[\\s]*&lt;\\/BODY&gt;/); "
+#		."$n.value=r ? r[1] : ${n}__r.DocumentHTML; ${n}__r.removeNode(true); $n.rows='6'};\n"
+#		." return(false)}\" />\n"
+#		#DHTML Edit Control for IE5, DHTML Editing Component, HTMLRichtextElement:
+#		#http://msdn.microsoft.com/archive/default.asp?url=/archive/en-us/dnaredcom/html/dhtmledit.asp
+#		if $n && ($ENV{HTTP_USER_AGENT}||'') =~/MSIE/;
+	$r1 .="<input type=\"submit\" name=\"${n}__b\" value=\"R\" "
+		."title=\"Rich/Text edit: ^Bold, ^Italic, ^Underline, ^hyperlinK, Enter/shift-Enter, ^(shift)T ident, ^Z undo, ^Y redo.\" "
+		."style=\"font-style: italic;\" "
+			# ; font-weight: bold; font-family: fantasy
+		."onclick=\"{if(${n}__b.value=='R') {${n}__b.value='T'; $n.style.display='none'; "
+		."\n var r; r =document.createElement('<span contenteditable=true id=&quot;${n}__r&quot; title=&quot;MSHTML Editing Component&quot; ondeactivate=&quot;{$n.value=${n}__r.innerHTML}&quot;></span>'); ${n}__b.parentNode.insertBefore(r,$n);\n"
+		# r.execCommand('Font', 1)
+		."r.contentEditable='true'; r.style.borderStyle='inset'; r.style.borderWidth='thin'; r.normalize; r.innerHTML =$n.value ? $n.value : ' ';}\n"
+		."else {${n}__b.value='R'; $n.value=${n}__r.innerHTML ? ${n}__r.innerHTML : ''; ${n}__r.removeNode(true); $n.style.display='inline';};\n"
+		." return(false)}\" />\n"
+		#MSHTML Edit Control for IE5.5
+		if $n && ($ENV{HTTP_USER_AGENT}||'') =~/MSIE/;
+ }	
  if ($a{-arows}) {
     my $h =0;
     $a{-cols} =20 if !$a{-cols};
@@ -146,7 +189,9 @@ sub textarea { # Text Area with autorowing and hrefs
     $r .='<br />' if $r;
     delete $a{-hrefs};
  }
- $r .$s->cgi->textarea(%a)
+ $r .=$s->cgi->textarea(%a);
+ $r .=$r1;
+ $r
 }
 
 
@@ -158,19 +203,13 @@ sub fsdir {	# Filesystem dir field
  my $r =$p->cgi->a({-href=>$fr||$fu,-target=>'_blank',-title=>$p->htmlescape($s->lng(1,'Files'))}
 		, $p->{-iurl}
 		? ('<img border="0" src="' .$p->{-iurl} .'/folder.open.gif" />')
-		: ('<strong>' .$p->htmlescape($s->lng(0,'Files')) ."&nbsp;&nbsp;&nbsp;</strong>")) ."\n";
+		: ('<strong>' .$p->htmlescape($s->lng(0,'Files')) ."&nbsp;&nbsp;&nbsp;</strong>")
+		) ."\n";	
  my $fo=undef;
 	$s->_fsclose($fp, [$p->cgi->param($nmc)])
 		if $ed && $p->cgi->param($nmc);
 	$fo = $ed && ($p->cgi->param($nmc)||$p->cgi->param($nmo)) && $s->_fsopens($fp,{});
  if (1 && $p->urfcnd && $ed && $fr) {
-    my $fs ='';
-    if ($fr =~/^file:(.*)/i) {
-        $fs =$1;
-        $fs =~s/\//\\/g;
-    }
-    $r .='<font size=-1> ( ' .$p->htmlescape($fs) ." )</font>\n"
-		if $fs;
     $r .=$p->cgi->submit(-name=>$nmo, -value=>$s->lng(0,'fsopens'), -title=>$s->lng(1,'fsopens')) ."\n"
 		if !$fo && $^O eq 'MSWin32';
     $r .="<br />"
@@ -181,6 +220,19 @@ sub fsdir {	# Filesystem dir field
 		)
         .$p->cgi->submit(-name=>$nma, -value=>$s->lng(0,'fsclose'), -title=>$s->lng(1,'fsclose')) ."\n"
 		if $fo;
+    if ($ed && $fr && $fr =~/^file:(.*)/i) {
+	my $fs =$1; $fs =~s/\//\\/g;
+	$r .=' <font size=-1><sub>' 
+	.'<span '
+	#.' onclick="window.event.srcElement.select" '
+	#.' ondblclick="{window.clipboardData.setData(\'Text\',' .$p->htmlescape($fs) .'\'); return(false)}" '
+	# window.event.srcElement
+	# document.selection.empty(); 
+	.' title="' .$p->htmlescape($s->lng(1,'Files') .' ') .'" '
+	.'>' 
+	.$p->htmlescape($fs) ."</span></sub></font>"
+    }
+    $r .="<br />\n";
   # !!! filefield may be useful to attach files, but file creation time will not be saved !!!
   # $r .=$p->cgi->filefield(-name=>$nmu);
   # $s->_fsdirupload($nmu, $fp) if $ea && $p->cgi->param($nmu);
@@ -227,7 +279,16 @@ sub fsdir {	# Filesystem dir field
 		, ref($fo) eq 'HASH' ? (-labels=>$fo) : ()
 		) ."\n"
 		if $fo;
-    $r .="\n&nbsp;&nbsp;&nbsp;\n";
+    if ($ed && $fr && $fr =~/^file:(.*)/i) {
+	my $fs =$1; $fs =~s/\//\\/g;
+	$r .=' <font size=-1><sub>' 
+	.'<span '
+	.' title="' .$p->htmlescape($s->lng(1,'Files') .' ') .'" '
+	.'>' 
+	.$p->htmlescape($fs) ."</span></sub></font>"
+    }
+    $r .="<br />\n"; # $r .="\n&nbsp;&nbsp;&nbsp;\n";
+    
     foreach my $fn (eval{$p->fut->globn("$fp/*")}) {
        $r .=$p->cgi->a({-href=>"$fb/$fn", -target=>'_blank'}
            ,$p->cgi->checkbox(-name=>$nml, -value=>$fn, -label=>$fn, -title=>$s->lng(1,'fsdelmrk')))
@@ -264,7 +325,7 @@ sub _fsopens {	# opened files (`net file`; NetFileEnum; IADsResource, IADsFileSe
  return(undef) if $^O ne 'MSWin32';
  my $rc	=$_[2]||[];
  my $mask =$_[1]||''; $mask =~s/\//\\/ig;
- my $o =eval('use Win32::OLE; Win32::OLE->GetObject("WinNT://'
+ my $o =eval('use Win32::OLE; Win32::OLE->Option("Warn"=>0); Win32::OLE->GetObject("WinNT://'
 	.(eval{Win32::NodeName()}||$ENV{COMPUTERNAME}) .'/lanmanserver")');
  return(undef) if !$o;
  if (ref($rc) eq 'HASH') {
@@ -289,7 +350,7 @@ sub _fsclose {	# close opened files (`net file /close`)
  return(0) if $^O ne 'MSWin32';
  my $mask =$_[1]||''; $mask =~s/\//\\/ig;
  my $list =$_[2]||[];
- my $o =eval('use Win32::OLE; Win32::OLE->GetObject("WinNT://'
+ my $o =eval('use Win32::OLE; Win32::OLE->Option("Warn"=>0); Win32::OLE->GetObject("WinNT://'
 	.(eval{Win32::NodeName()}||$ENV{COMPUTERNAME}) .'/lanmanserver")');
  return(0) if !$o;
  foreach my $f (grep {$_ && (eval{$_->{Path}}||'')=~/^\Q$mask\E/i

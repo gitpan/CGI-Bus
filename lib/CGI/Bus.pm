@@ -13,7 +13,7 @@ use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
 
 
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $AUTOLOAD);
-$VERSION = '0.57';
+$VERSION = '0.58';
 
 use vars qw($SELF);
 
@@ -67,6 +67,7 @@ sub initialize {
     -classes    =>{}              # Classes to autocreate Objects
   #,-import     =>{}              # add Classes or Methods & Packages
    ,-reset      =>{}              # Slotes to destroy on reuse
+   ,-endh	=>{}		  # End handlers, used in 'reset'
   #,-reimport   =>{}              # add Classes {} or Slotes [] to reset
    ,-debug      =>0               # Debug Mode
    ,-problem    =>undef           # Current problem set by problem()
@@ -222,16 +223,22 @@ sub set {
 sub reset {
  my $s =shift;
  local $SELF =$s;
- my $v =!scalar(@_) ? $s->{-reset} 
-        :ref($_[0]) eq 'ARRAY' ? {map {$_=>1} @{$_[0]}}
-        :$_[0];
+ my $v =!scalar(@_)
+	? $s->{-reset}
+	:ref($_[0]) eq 'ARRAY'
+	? {map {$_=>1} @{$_[0]}}
+	:$_[0];
+ foreach my $k (sort keys %{$s->{-endh}}) {
+	eval{&{$s->{-endh}->{$k}}($s)}
+ }
+ $s->{-endh} ={};
  foreach my $k (keys %$v) {
-    my $o =$s->{$k};
-    my $t =ref($o);
-    next if !$t || $t eq 'HASH' || $t eq 'ARRAY';
-    delete $s->{$k};
-    eval {$o->DESTROY()};
-    eval {delete $o->{'CGI::Bus'} if ref($o) && $o->isa('HASH')};
+	my $o =$s->{$k};
+	my $t =ref($o);
+	next if !$t || $t eq 'HASH' || $t eq 'ARRAY';
+	delete $s->{$k};
+	eval {$o->DESTROY()};
+	eval {delete $o->{'CGI::Bus'} if ref($o) && $o->isa('HASH')};
  }
  $SELF =undef;
  if (!scalar(@_) && $ENV{MOD_PERL}) {
@@ -330,7 +337,7 @@ sub microtest{# Microtest of the Object
  my $s =shift;
  $s->{-debug} ? $s->print->hr : $s->print->htpgstart;
 #local $s->{-debug} =0;
- if (($s->{-debug}||0) >3) {
+ if (($s->{-debug}||0) >4) {
  $s->print->h2('Methods');
  foreach my $k (qw(class request qpath qurl qrun spath surl bpath burl dpath ppath purl furl user usdomain useron usersn usercn userfn userds unames ugroups ugnames)) {
    $s->print->text("$k = " ._stringify($s->$k()))->br;
@@ -512,7 +519,7 @@ sub request {  # Web server request object
 sub dbi {      # DBI object
  if (scalar(@_) >1) {
     my $s =shift;
-    $s->{-dbi} =eval('use DBI; DBI->connect(@_)') ||$s->die("Cannot connect to database: " .eval('$DBI::errstr'))
+    $s->{-dbi} =eval('use DBI; DBI->connect(@_)') ||$s->die("Cannot connect to database\n")
  }
  elsif (!$_[0]->{-dbi} && $_[0]->{-classes}->{-dbi}) {
     my $s =shift;
@@ -832,7 +839,7 @@ sub dumpin {  # Data dump in
 
 
 sub ishtml {  # Is html code?
- ($_[1] ||'') =~m/^<(?:(?:B|BIG|BLOCKQUOTE|CENTER|CITE|CODE|DFN|EM|I|KBD|P|SAMP|SMALL|STRIKE|STRONG|STYLE|SUB|SUP|TT|U|VAR)\s*>|(?:BR|HR)\s*\/{0,1}>|(?:A|BASE|BASEFONT|DIR|DIV|DL|!DOCTYPE|FONT|H\d|HEAD|HTML|IMG|IFRAME|MAP|MENU|OL|PRE|TABLE|UL)\b)/i
+ ($_[1] ||'') =~m/^<(?:(?:B|BIG|BLOCKQUOTE|CENTER|CITE|CODE|DFN|DIV|EM|I|KBD|P|SAMP|SMALL|SPAN|STRIKE|STRONG|STYLE|SUB|SUP|TT|U|VAR)\s*>|(?:BR|HR)\s*\/{0,1}>|(?:A|BASE|BASEFONT|DIR|DIV|DL|!DOCTYPE|FONT|H\d|HEAD|HTML|IMG|IFRAME|MAP|MENU|OL|PRE|TABLE|UL)\b)/i
 }
 
 
@@ -934,12 +941,22 @@ sub unames {  # User Names
     my $s =$_[0];
     return('') if !defined($s->user);
     $s->{-cache}->{-unames} =[];
-    push @{$s->{-cache}->{-unames}}, $s->user;
-    push @{$s->{-cache}->{-unames}}, lc($s->user)   if lc($s->user)   ne $s->user;
-  # push @{$s->{-cache}->{-unames}}, $s->usercn     if lc($s->usercn) ne lc($s->user);
-  # push @{$s->{-cache}->{-unames}}, lc($s->usercn) if lc($s->usercn) ne $s->usercn;
-    push @{$s->{-cache}->{-unames}}, $s->useron     if lc($s->useron) ne lc($s->user);
-    push @{$s->{-cache}->{-unames}}, lc("$2\@$1")   if $s->useron =~/^([^\\]+)\\(.+)$/;
+    local $_;
+    foreach my $v ($_ =$s->user, $s->useron
+			# , lc($s->user), $s->usercn, lc($s->usercn)
+		#, $s->user   =~/^([^\\]+)\\(.+)$/ ? lc("$2\@$1") : ()
+		#, $s->useron =~/^([^\\]+)\\(.+)$/ ? lc("$2\@$1") : ()
+		, $s->user   =~/^([^@]+)\@(.+)$/  ? lc("$2\\$1") : ()
+		, $s->useron =~/^([^@]+)\@(.+)$/  ? lc("$2\\$1") : ()
+		, ref($s->{-unmsadd}) eq 'ARRAY'
+		? map {&$_($s)} @{$s->{-unmsadd}}
+		: ref($s->{-unmsadd})
+		? &{$s->{-unmsadd}}($s)
+		: ()
+		) {
+	push @{$s->{-cache}->{-unames}}, $v
+		if !grep /^\Q$v\E$/, @{$s->{-cache}->{-unames}};
+    }
  }
  $_[0]->{-cache}->{-unames}
 }
@@ -1165,7 +1182,7 @@ sub htmlstart {
       if (!exists($p{$k})) {$p{$k} =$s->{-htmlstart}->{$k}}
     }
  }
- $s->{-debug} && $s->{-debug} >1
+ $s->{-debug} && $s->{-debug} >2
  ? $s->{-cgi}->start_html(%p)
   .("\n<!-- " .$s->{-cgi}->escapeHTML($s->microenv) ." -->\n")
  : $s->{-cgi}->start_html(%p) 
@@ -1173,7 +1190,7 @@ sub htmlstart {
 
 
 sub htmlend {
- $_[0]->microtest if $_[0]->{-debug} && $_[0]->{-debug} >2;
+ $_[0]->microtest if $_[0]->{-debug} && $_[0]->{-debug} >3;
  $_[0]->{-cgi}->end_html
 }
 

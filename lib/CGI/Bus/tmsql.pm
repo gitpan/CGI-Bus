@@ -86,7 +86,10 @@ sub eval {     # Transaction DBI run
     }
     $r =undef
  }
- print $s->htmlres(!$e,$e) if $e ||($s->qparamsw('MIN')||'') !~/r/;
+ print $s->htmlres(!$e,$e)	if $e
+				||((($s->qparamsw('MIN')||'') !~/r/)
+				   && ($s->parent->{-cache}->{-htmlstart} ||!$s->cmd('-lst'))
+					);
  $d->{AutoCommit} =$ac if $d->{AutoCommit} ne $ac;
  $r
 }
@@ -221,7 +224,10 @@ sub keyval {  # Key value
 sub cmdchk { # Check / Calculate Data before save
  my $s =shift;
  $s->SUPER::cmdchk(@_);
- $s->cgi->delete($s->{-vsd}->{-npf}) if $s->{-vsd} && $s->{-vsd}->{-npf};
+ $s->cgi->delete($s->{-vsd}->{-npf}) 
+	if $s->{-vsd} && $s->{-vsd}->{-npf};
+ do {$s->cgi->delete($s->pxsw('EDIT')); delete $s->{-cmde}}
+	if !$s->{-vsd} || !$s->{-vsd}->{-sf} || !$s->{-vsd}->{-svd} || !$s->qparam($s->{-vsd}->{-sf}) || !($s->qparam($s->{-vsd}->{-sf}) eq $s->{-vsd}->{-svd});
  $s
 }
 
@@ -711,7 +717,10 @@ sub cmdfrm { # Record form for Query or Edit
      ."'_'  matches exactly one character, "
      ."'\\' is escape char."
      .'</font>');
-     $p->print->text('<br /><font size=-1>Self <code>URL</code> may be useful: ' .$p->cgi->self_url .'</font>');
+     $p->print->text('<br /><font size=-1>Self <code>URL</code> may be useful: ' 
+	# .$p->cgi->self_url 
+	.$p->burl() .'?' .join(';', map {$p->urlescape($_) .'=' .$p->urlescape($p->cgi->param($_))} grep {defined($p->cgi->param($_)) && $p->cgi->param($_) ne '' && $_ =~/^(_tsw|_tcb|[^_])/ && $_ !~/^(_tsw_REFERER|_tsw_FRMCOUNT|_tcb_frm)/} $p->cgi->param)
+	.'</font>');
 
      if ($s->{-acd} && eval{$s->acltest('-sys')}) { # System Actions
         print "<hr />\n<strong>System Actions:</strong> ";
@@ -1322,14 +1331,14 @@ sub acltest {    # ACL test command
     @l =qw(-swrite -write);
  }
  elsif ($cmd eq '-lst') {
-    @l =qw(-sread -swrite);
+    @l =qw(-sread);
  }
  elsif ($cmd eq '-sys') {
     @l =qw(-swrite -oswrite);
  }
  else {
     return $s->user if !grep {$s->{-acd}->{$_}} qw(-sread -read -swrite -write);
-    @l =qw(-sread -read -swrite -write -readsub);
+    @l =(qw(-sread -read -write -readsub), ($cmd eq '-sel' ? () : '-swrite'));
  }
  foreach my $cs (@l) {
    my $c =$s->{-acd}->{$cs .$op} ? ($cs .$op) : $cs;
@@ -1341,7 +1350,7 @@ sub acltest {    # ACL test command
    next      if  ref($t) ne 'ARRAY';
    foreach my $e (@$t) {return $e if grep {$e =~/(?:^|[,\s])\Q$_\E(?:[,\s]|$)/i} @$un}
  }
- return(0) if $cmd eq '-lst';           
+ return(0) if $cmd eq '-lst';
  $s->parent->userauth if $s->parent->uguest  # !!! header may be already printed
                       && (!$s->parent->{-cache} ||!$s->parent->{-cache}->{-httpheader});
  $s->die($s->lng(1,'op!acl2',$s->lng(0,$cmd)) ." '" .$s->user ."'\n");
@@ -1503,7 +1512,7 @@ sub fsacl {     # File Store ACL
        $s->oscmd('cacls', "\"$p\"", @o, (map {"\"$_\":F"} @{$s->unamesun($a)})
                 , sub{print "Y\n"});
        unshift @o, '/E';
-       foreach my $l (qw(-swrite -write -sread -read)) {
+       foreach my $l (($op ne 'w' ? () : '-swrite'), qw(-write -sread -read)) {
          my $a =$s->unamesun($s->acl($l, undef, $px));
          my $r =($l =~/write/ && $op eq 'w' ? 'F' : 'R');
          $s->oscmd('cacls', $p, @o, map {"\"$_\":$r"} @$a) if scalar(@$a);
@@ -1519,7 +1528,7 @@ sub fsacl {     # File Store ACL
     ||(($ENV{SERVER_SOFTWARE}||'') =~/Apache/i)) {
     # .htaccess
     my @a;
-    foreach my $l (qw(-oswrite -swrite -write -sread -read)) {
+    foreach my $l (qw(-oswrite -write -sread -read)) { #  -swrite
       my $a =$s->unamesun($s->acl($l, undef, $px));
       next if !scalar(@$a);
       push @a, @$a;

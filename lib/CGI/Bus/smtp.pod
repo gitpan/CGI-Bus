@@ -38,6 +38,12 @@ SMTP server name or address
 
 =over
 
+=item addrtr ( address ) -> translated
+
+Translates address given if needed.
+Removed backslashes, adds C<-domain>...
+
+
 =item mailsend ( ?from, ?\@to, row,... ) - > success
 
 Sends message, catenating rows via "\n". If 'from' or 

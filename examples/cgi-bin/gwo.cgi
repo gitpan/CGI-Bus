@@ -150,7 +150,7 @@ $s->tmsql->set(
         }
  ,{-flg=>'ls"', -fld=>'otime'
         ,-lbl=>'Finish', -cmt=>'Time to order records by'
-        ,-col=>"IF(gwo.status = 'edit' OR (gwo.status = 'do' AND "
+        ,-col=>"IF(gwo.status = 'edit' OR gwo.status = 'progress' OR (gwo.status = 'do' AND "
         ."(stime IS NULL OR stime <='" .$s->strtime('yyyy-mm-dd')."') "
         ."), 'do', COALESCE(gwo.etime, gwo.utime))"
         ,-clst=>sub{'<nobr>' .($_ =~/^([^\s]+)[\s0:]*$/ ? $1 : $_) .'</nobr>'}
@@ -244,10 +244,10 @@ $s->tmsql->set(
                   ,-orderby=>'auser, arole, stime, etime'
                   ,-where=>"status NOT IN('deleted','template') AND gwo.idnv is NULL"
                   ,-wherepar=>"stime >=SUBDATE(NOW(), INTERVAL 2 MONTH)"}
- ,'AllToDo'=>     {-lbl=>'All ToDo', -cmt=>'All records to do'
-                  ,-fields=>[qw(ftime status subject_v alist_v)]
-                  ,-orderby=>'ftime desc, ctime desc'
-                  ,-where=>"status IN('do','edit') AND gwo.idnv is NULL"}
+#,'AllToDo'=>     {-lbl=>'All ToDo', -cmt=>'All records to do'
+#                 ,-fields=>[qw(ftime status subject_v alist_v)]
+#                 ,-orderby=>'ftime desc, ctime desc'
+#                 ,-where=>"status IN('do','edit') AND gwo.idnv is NULL"}
  ,'AllToday'=>    {-lbl=>,'All Today', -cmt=>'All actual records available'
                   ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'otime desc, ftime desc, ctime desc'
@@ -272,12 +272,12 @@ $s->tmsql->set(
                     ."AND (status NOT IN ('deleted','template'))"
                     .$_[0]->aclsel('-','-and',qw(puser prole auser arole),$_[0]->unames,qw(cuser uuser))
                    }}
- ,'OurToDo'=>     {-lbl=>'Our ToDo', -cmt=>('ToDo records ' .$s->user .' involved in')
-                  ,-fields=>[qw(ftime status subject_v alist_v)]
-                  ,-orderby=>'ftime desc, ctime desc'
-                  ,-filter=>sub{"status IN('do','edit') AND gwo.idnv is NULL"
-                   .$_[0]->aclsel('-','-and',qw(puser prole auser arole),$_[0]->unames,qw(cuser uuser))
-                   }}
+#,'OurToDo'=>     {-lbl=>'Our ToDo', -cmt=>('ToDo records ' .$s->user .' involved in')
+#                 ,-fields=>[qw(ftime status subject_v alist_v)]
+#                 ,-orderby=>'ftime desc, ctime desc'
+#                 ,-filter=>sub{"status IN('do','edit') AND gwo.idnv is NULL"
+#                  .$_[0]->aclsel('-','-and',qw(puser prole auser arole),$_[0]->unames,qw(cuser uuser))
+#                  }}
  ,'PersActual'=>  {-lbl=>'Pers Actual', -cmt=>('Personally ' .$s->user .' records')
                   ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'ftime desc, ctime desc'
@@ -290,12 +290,12 @@ $s->tmsql->set(
                   ,-filter=>sub{"status NOT IN ('deleted','template') AND gwo.idnv is NULL"
                     .$_[0]->aclsel('-','-and',$_[0]->ugnames,qw(auser puser cuser uuser),$_[0]->unames,qw(arole prole))
                    }}
- ,'PersToDo'=>    {-lbl=>'Pers ToDo', -cmt=>('Personally ' .$s->user .' records to do')
-                  ,-fields=>[qw(ftime status subject_v alist_v)]
-                  ,-orderby=>'ftime desc, ctime desc'
-                  ,-filter=>sub{"status IN('do','edit') AND gwo.idnv is NULL"
-                    .$_[0]->aclsel('-','-and',$_[0]->ugnames,qw(auser),$_[0]->unames,qw(arole))
-                   }}
+#,'PersToDo'=>    {-lbl=>'Pers ToDo', -cmt=>('Personally ' .$s->user .' records to do')
+#                 ,-fields=>[qw(ftime status subject_v alist_v)]
+#                 ,-orderby=>'ftime desc, ctime desc'
+#                 ,-filter=>sub{"status IN('do','edit') AND gwo.idnv is NULL"
+#                   .$_[0]->aclsel('-','-and',$_[0]->ugnames,qw(auser),$_[0]->unames,qw(arole))
+#                  }}
  ,'PerToday_'=>   {-lbl=>'Pers Today_', -cmt=>('Personally ' .$s->user .' today records')
                   ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'otime desc, ftime desc, ctime desc'

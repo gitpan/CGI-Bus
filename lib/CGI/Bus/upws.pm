@@ -376,7 +376,7 @@ sub search {    # search screen
        } elsif ($p->{-cache}->{-RevertToSelf}) {
           $p->print->h1('Impersonation required')
        } else {
-       eval('use Win32::OLE');
+       eval('use Win32::OLE; Win32::OLE->Option("Warn"=>0)');
        my $oq =Win32::OLE->CreateObject("ixsso.Query");
        my $ou =Win32::OLE->CreateObject("ixsso.util");
        my $qs =[];
@@ -421,11 +421,11 @@ sub search {    # search screen
                                     : $oq->{$_} =~/\D/ ? '\'' . $oq->{$_} .'\''
                                     : $oq->{$_})}
                     qw (Catalog Query MaxRecords SortBy Columns LocaleID))
-                if $p->{-debug};
+                if ($p->{-debug}||0) >1;
        $p->pushmsg(map {'AddScopeToQuery = ' .$_} @$qs)
-                if $p->{-debug};
+                if ($p->{-debug}||0) >1;
        $p->pushmsg(map {'Translate = \'' .$_->[0] .'\' -> \'' .$_->[1] .'\''} @$qt)
-                if $p->{-debug} >1;
+                if ($p->{-debug}||0) >2;
 
        my $ol =$oq->CreateRecordset('sequential'); # 'nonsequential'
 

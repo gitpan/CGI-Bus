@@ -84,9 +84,14 @@ sub load {       # load user data
  my $s =shift;
  my $u =$s->parent->user;
  eval{$s->{-file}->close if $s->{-file} && $s->{-file}->opened};
- if (-f $s->keypath($u,$fname)) {    
+ if (-f $s->keypath($u,$fname)) {
     $s->{-file} =$s->keyfile($u);
-    $s->{-data} =$s->{-file}->dumpload() ||{};
+    $s->{-data} =$s->{-file}->dumpload() ||$s->{-file}->dumpload() ||$s->{-file}->dumpload();
+    if (!$s->{-data}) {
+	$s->parent->die("Bad user '$u' data file format\n");
+	$s->{-file} =undef;
+	$s->{-data} ={};
+    }	
  }
  else {
     $s->{-file} =undef;
@@ -96,7 +101,7 @@ sub load {       # load user data
  foreach my $g (sort @{$s->parent->ugroups}) {
    my $p =$s->keypath($g,$fname);
    next if !-f $p;
-   my $d =$s->parent->fut->fdumpload($p);
+   my $d =$s->parent->fut->fdumpload($p) ||{};
    foreach my $k (keys %$d) {
       if    (!exists $s->{-dataj}->{$k}) {$s->{-dataj}->{$k} =$d->{$k}}
       elsif (ref($s->{-dataj}->{$k}) eq 'HASH')  {

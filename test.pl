@@ -1,7 +1,7 @@
 #!perl -w
 use strict;
 use Test;
-BEGIN { plan tests => 24 }
+BEGIN { plan tests => 23 }
 
 if (1) {
    print "\nRequired modules:\n";
@@ -30,7 +30,7 @@ if (1 && $^O eq 'MSWin32') {
      print "use $m\t";
      skip(!eval("use $m; 1"), 1);
    }
-   foreach my $m ('cacls.exe', 'findgrp.exe') {
+   foreach my $m ('cacls.exe') {
      print "$m\t";
      skip(!(`$m /?` && 1), 1);
    }

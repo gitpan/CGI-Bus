@@ -96,7 +96,7 @@ C<new>, C<set>, C<-import>, C<-reimport>
 =item Internals
 
 C<AUTOLOAD>, C<launch>, C<-classes>, C<-cache>, C<$CGI::Bus::SELF>,
-C<reset>, C<-reset>, C<DESTROY>, 
+C<reset>, C<-reset>, C<-endh>, C<DESTROY>, 
 C<-debug>, C<microtest>
 
 
@@ -158,14 +158,14 @@ C<qparam>, C<param>, C<qparamh>, C<qrun>
 
 =item User Name
 
-C<userauth>, C<userauthopt>,
+C<userauth>, C<userauthopt>, C<-login>,
 C<user>, C<useron>, 
-C<-user>, C<-usercnv>, C<usercn>, C<usersn>, C<unames>, 
+C<-user>, C<-usercnv>, C<-unmsadd>, C<usercn>, C<usersn>, C<unames>, 
 C<uguest>, C<uadmin>, C<-uadmins>, 
 C<usdomain>, C<-usdomain>, C<userver>, C<-userver>, 
 C<ugroups>, C<-ugroups>, C<-ugrpcnv>, C<ugnames>, 
-C<uglist>, C<-uglist>,
-C<unamesun>, C<-login>
+C<uglist>, C<-uglist>, C<-udflt>, C<-unflt>, C<-ugflt>,
+C<unamesun>
 
 
 =back
@@ -222,10 +222,11 @@ L<DBI|DBI> predefined object
 =item -debug
 
 Debug Mode: add
-1 - verbose operation messages at the bottom of HTML pages, 
-2 - some debug values as HTML comment,
-3 - debug values at the bottom of HTML pages,
-4 - results of some methods calls.
+1 - verbose operation messages at the bottom of HTML pages with "display: none" style, 
+2 - verbose operation messages at the bottom of HTML pages, 
+3 - some debug values as HTML comment,
+4 - debug values at the bottom of HTML pages,
+5 - results of some methods calls.
 
 
 =item -dpath
@@ -234,6 +235,11 @@ Data path.
 Default is C<tpath>.
 Cached and used by C<dpath>.
 See also C<Locations>.
+
+
+=item -endh
+
+Delayed commands hash ref, executed in C<reset>, cleaned after execution.
 
 
 =item -fcgicount
@@ -415,6 +421,20 @@ sub{} to check current user as administrator.
 Used by C<uadmin>
 
 
+=item -udflt
+
+User domains filter optional sub{} to be evaluated against each domain name in $_.
+Considered in L<CGI::Bus::uauth|CGI/Bus/uauth> windows specific codes.
+See also C<-unflt>, C<-ugflt>.
+
+
+=item -ugflt
+
+User groups filter optional sub{} to be evaluated against each group name in $_.
+Considered in C<ugroups> and C<uglist> default code.
+See also C<-unflt>.
+
+
 =item -uglist
 
 Users and groups list optional sub{}.
@@ -435,6 +455,22 @@ to be returned by C<ugroups>, C<uglist>.
 Example:
 
  $g->set(-ugrpcnv=>sub{$_[0]->usersn})
+
+
+=item -unflt
+
+User names filter optional sub{} to be evaluated against each name in $_.
+Considered in C<uglist> default code.
+See also C<-ugflt>.
+
+
+=item -unmsadd
+
+Additional user names research sub{},
+used by C<unames>.
+Example:
+
+ $g->set(-unmsadd=>sub{$_[0]->usercn})
 
 
 =item -urfcnd
@@ -961,10 +997,11 @@ What names are managed by current user?
 
 =item uglist ( ?'-ug' ) -> [users and groups list]
 
-=item uglist ( ?'-ug', {}, ?label width ) -> {name => label,...}
+=item uglist ( ?'-ug<>', {}, ?label width ) -> {name => label,...}
 
 List all users and groups.
-Options are 'u'sers, 'g'roups.
+Options are 'u'sers, 'g'roups, '<>' force comment notation,
+default are '-ug'.
 See also C<-uglist>
 
 
@@ -1103,6 +1140,99 @@ See also C<Error and Message processing>, L<CGI::Carp|CGI/Carp>
 =head1 VERSION
 
 =over
+
+
+=head2 10/10/2004
+
+Version 0.58, improvement release.
+
+
+
+=head2 09/10/2004
+
+C<-udflt> slot added.
+
+
+=head2 27/09/2004
+
+'<>' C<uglist> option added.
+
+
+=head2 21/09/2004
+
+C<-unflt> and C<-ugflt> slots added.
+
+
+=head2 14/09/2004
+
+L<Win32::OLE|Win32/OLE>->Option("Warn"=>0) used anywere
+(in L<CGI::Bus::wg|CGI/Bus/wg>, L<CGI::Bus::upws|CGI/Bus/upws>, L<CGI::Bus::uauth|CGI/Bus/uauth>).
+
+C<-endh> slote developed for L<CGI::Bus::uauth|CGI/Bus/uauth> ADSI data buffering.
+
+L<CGI::Bus::uauth|CGI/Bus/uauth> evoluted to buffer ADSI data inside C<dpath>
+for faster access and Apache usage.
+
+
+=head2 30/08/2004
+
+L<CGI::Bus::tmsql|CGI/Bus/tmsql> - C<-swrite> does not grant read right,
+C<-sread> should be used instead.
+Changes in 'acltest' (C<-swrite> excluded for '-lst','-sel') 
+and 'fsacl' (filesystem - excluded when read, '.htaccess' - excluded).
+
+
+=head2 26-28/08/2004
+
+L<CGI::Bus::uauth|CGI/Bus/uauth>
+- migration to base on Windows ADSI,
+other Windows intarfaces (and 'findgrp.exe') used at last,
+C<-adsi> slot ignored.
+
+C<-debug> levels shifted, 
+new level '1' produces debug output with "display: none" style,
+operation rezult should be clicked to access.
+This is useful to view SQL.
+
+
+=head2 23-25/08/2004
+
+L<CGI::Bus::tm|CGI/Bus/tm>
+- record ID added to some command button URLs if available.
+
+L<CGI::Bus::tm|CGI/Bus/tm>
+- some record view/edit form corrections.
+
+L<CGI::Bus::tm|CGI/Bus/tm>
+- C<-pxqc> fields commented out as unused in transaction sequences.
+
+L<CGI::Bus::tmsql|CGI/Bus/tmsql>
+- switch to view mode after insert/update/delete when versioning.
+
+L<CGI::Bus::tmsql|CGI/Bus/tmsql> and L<CGI::Bus::tm|CGI/Bus/tm>
+- '-cmdCCC' view description slots implemented.
+
+L<CGI::Bus::smtp|CGI/Bus/smtp>
+- C<addrtr> method added.
+
+
+
+=head2 19/08/2004
+
+'DHTML Edit Control for IE5' replaced with 'MSHTML Edit Control for IE5.5'
+in L<CGI::Bus::wg|CGI/Bus/wg>.
+
+L<CGI::Bus::tm|CGI/Bus/tm> and L<CGI::Bus::tmsql|CGI/Bus/tmsql> little corrections.
+
+
+=head2 24/06/2004
+
+C<unames> code rewritten, 
+lowercases removed (C<-usercnv> may be used), 
+C<-unmsadd> slot added.
+
+'DHTML Edit Control for IE5' experimentally used in L<CGI::Bus::wg|CGI/Bus/wg>.
+
 
 =head2 09/06/2004
 
