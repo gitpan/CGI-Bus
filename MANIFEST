@@ -1,18 +1,13 @@
 MANIFEST
 Makefile.PL
 readme
+test.pl
 
-examples/adduser.sql
-examples/cgi-bus-httpd-s.conf
+examples/install-db.pl
 examples/cgi-bus-httpd.conf
 examples/config.pl
 examples/gwo.cgi
-examples/gwo.sql
-examples/gwo-u01.sql
-examples/instSQL.pl
 examples/notes.cgi
-examples/notes.sql
-examples/notes-u01.sql
 examples/uauth.cgi
 examples/upws.cgi
 

@@ -95,6 +95,10 @@ sub initialize {
  #,-fsd    =>undef    ## File Store Definition
  #,-acd    =>undef    ## Access Control Definition
 
+ #,-htmlts =>undef     # HTML table start for form or view, default is <table>
+ #,-htmlte =>undef     # HTML table end   for form or view, default is </table>
+ #,-width  =>undef     # HTML table width for form or view, default is window width
+
  #,-gensel =>undef    ## Generated SQL Select
  #,-genlstm=>undef    ## Genetared SQL Select List Message
  #,-genedt =>undef    ## Generated SQL Insert | Update | Delete
@@ -761,25 +765,33 @@ sub eval {     # Transaction run
 
 sub evaluate { # Execution of tm
  my $s =shift;
+ my $p =$s->parent;
  $s->userauthopt;
  $s->cmd;
+ my $rfr =!$s->cmd('-lst') ? 0 
+         :(($s->{-lists} && $s->qlst ? $s->{-lists}->{$s->qlst}->{-refresh} : 0) 
+          ||$s->{-refresh});
  $s->{-cmdhtm} =sub{$s->cmdhtm(sub{;
- $s->print->htpgstart(undef, $s->cmd('-lst')|| $s->cmd('-hlp') ? $s->parent->{-htpgstart} : $s->parent->{-htpfstart});
-#$s->print->htpgstart(undef, $s->parent->hmerge($s->cmd('-lst')|| $s->cmd('-hlp') ? $s->parent->{-htpgstart} : $s->parent->{-htpfstart}, -style=>"BODY {margin-top:0px;} H1 {font-size: 100%; }"));
-#$s->print->htpgstart(undef, $s->parent->hmerge($s->cmd('-lst')|| $s->cmd('-hlp') ? $s->parent->{-htpgstart} : $s->parent->{-htpfstart}, -style=>"BODY {margin-top:0px;}"));
-    # -style =>"H1 {  font-size: 100%;  }"
-    # "{margin-top:0px;-margin-left:1px}"
-    # '<table bgcolor="buttonface" border=1 style="{cursor:hand;border-style:ridged}"><tr>' .$r .'</tr></table>';
+ $p->print->htpgstart(undef
+           , $rfr
+           ? {$p->{-htpgstart} ? %{$p->{-htpgstart}} :()
+             ,-head=>(($p->{-htpgstart} && $p->{-htpgstart}->{-head}) 
+                    ||($p->{-htmlstart} && $p->{-htmlstart}->{-head})
+                    ||'')
+             ."<meta http-equiv=\"refresh\" content=$rfr>"}
+           : $s->cmd('-lst') ||$s->cmd('-hlp')
+           ? $p->{-htpgstart}
+           : $p->{-htpfstart});
  # !!!Multipart forms should be escaped as possible: used only for file uploads
- $s->print( $s->{-fsd} && $s->{-fsd}->{-url} && !($ENV{MOD_PERL} && $s->cgi->user_agent =~/Lotus-Notes|StarOffice/i)
-          ? $s->start_multipart_form(-action=>$s->qurl)
-          : $s->startform(-action=>$s->qurl));
+ $p->print( $s->{-fsd} && $s->{-fsd}->{-url} 
+          && $s->cmdg !~/lst|qry/i
+          && !($ENV{MOD_PERL} && $p->cgi->user_agent =~/Lotus-Notes|StarOffice/i)
+          ? $s->start_multipart_form(-method=>$rfr ? 'get' : 'post', -action=>$s->qurl, -acceptcharset=>$p->{-httpheader} ?$p->{-httpheader}->{-charset} :undef)
+          : $s->startform(-method=>$rfr ? 'get' : 'post', -action=>$s->qurl, -acceptcharset=>$p->{-httpheader} ?$p->{-httpheader}->{-charset} :undef));
  })} if !$s->{-cmdhtm};
- $s->print->htpfstart(undef,$s->parent->{-htpgstart}) if $s->cmd('-hlp');
-#$s->print->htpfstart(undef,$s->parent->hmerge($s->parent->{-htpgstart}, -style=>"BODY {margin-top:0px;} H1 {font-size: 100%; }")) if $s->cmd('-hlp');
-#$s->print->htpfstart(undef,$s->parent->hmerge($s->parent->{-htpgstart}, -style=>"BODY {margin-top:0px;}")) if $s->cmd('-hlp');
+ $p->print->htpfstart(undef, $p->{-htpgstart}) if $s->cmd('-hlp');
  $s->eval();
- $s->print->htpfend;
+ $p->print->htpfend;
 }
 
 
@@ -887,7 +899,11 @@ sub cmdfrm { # Record form for Query or Edit
  my $rskip =1;
  $p->print->strong($p->htmlescape($p->{-htmlstart}->{-title}||$p->{-htpgstart}->{-title}||''));
  $p->print->hr;
- $p->print('<table><tr>');
+ $p->print($s->{-htmlts} ? $s->{-htmlts} : '<table>', "\n<tr>\n");
+ $p->print('<th colspan=20><nobr>' 
+          ,('&nbsp;' x $s->{-width}) 
+          ,"</nobr></th></tr>\n<tr>\n"
+          ) if $s->{-width};
  foreach my $f (@{$s->{-form}}) {
    if    ($f eq '')          {$rskip =1; next}
    elsif ($f eq "\t")        {
@@ -948,6 +964,7 @@ sub cmdfrm { # Record form for Query or Edit
    }
    elsif ($view) {
          my $v =$p->param($f->{-fld});
+            $v ='' if !defined($v);
          $wgp .=$g->hidden(-name=>$f->{-fld});
          if (ref($f->{-inp}) eq 'ARRAY') {
             my $t  =$f->{-inp}->[0];
@@ -973,7 +990,7 @@ sub cmdfrm { # Record form for Query or Edit
             $v =~s/\r//g;
             $wgp .=$v;
          }
-         elsif (exists$f->{-inp}->{-arows} ||exists($f->{-inp}->{-rows}) ||exists($f->{-inp}->{-cols})) {
+         elsif (exists($f->{-inp}->{-arows}) ||exists($f->{-inp}->{-rows}) ||exists($f->{-inp}->{-cols})) {
             $v =$p->htmlescape($v);
             $v =~s/\n/<br \/>/g;
             $v =~s/\r//g;
@@ -1030,14 +1047,15 @@ sub cmdfrm { # Record form for Query or Edit
       $wgp =$wgh
    }
 
-   $wgp ='<td valign="top" ' 
+   $wgp ='<td valign="top" align="left" '
         .($f->{-colspan} ? ' colspan=' .$f->{-colspan} :'')
+        .($f->{-width} && $f->{-width} =~/\D/ ? ' width='   .$f->{-width}   :'')
         .'>' .$wgp .'</td>' 
         if $wgp !~/<t[dh]\b/i && !($hide && $f->{-hidel});
-   $p->print($wgp);
+   $p->print($wgp, "\n");
    $rskip =undef;
  }
- $p->print('</tr></table>');
+ $p->print("\n</tr>\n", $s->{-htmlte} ? $s->{-htmlte} : "\n</table>\n");
  $s
 }
 
@@ -1063,9 +1081,10 @@ sub cmdhlp { # Help Command
     print '<table><tr><td valign="middle">'
   # , $s->{-formtgf} ? '' :$g->button(-value=>'<-',-onClick=>'window.history.back();',-title=>$s->lng(1,'-bck'))
     , $s->{-formtgf} ? '' :$s->_htmlbare(-bck=> $p->{-iurl} && $img{-bck} ? $p->qurl : 0, -onClick=>'{window.history.back(); return(false)}')
-    , '</td><th valign="middle">'
+    , '</td><th valign="middle"><strong>'
+  # , $s->_img('-hlp')
     , $s->htmlescape($s->lng(0, $sh) .($t ? " - $t" : ''))
-    , "</th></tr></table><hr />\n";
+    , "</strong></th></tr></table><hr />\n";
  }
  if ($o =~/[fo]/ && $s->{-form}) {
     $sh ='Fields';

@@ -123,8 +123,8 @@ sub htmlddlb {  # HTML Drop-Down List Box - Input Helper
         my $rc =0;
         while ($r =$c->fetch) {
            if    ($df) {&$df($s,$ds,$r)}
-           elsif (ref($dc) eq 'ARRAY') {push @$ds, $r->[0]}
-           else                   {$ds->{$r->[0]} =$r->[1]}
+           elsif (ref($dc) eq 'ARRAY') {push @$ds, defined($r->[0]) ? $r->[0] : ''}
+           else                   {$ds->{defined($r->[0]) ? $r->[0] : ''} =defined($r->[1]) ? $r->[1] : ''}
            last if ++$rc >=$lr;
         }
         $s->pushmsg($rc <=$lr ? $s->lng(1,'rfetch',$rc) : $s->lng(1,'rfetchf',$lr));
@@ -753,6 +753,20 @@ sub _cmdfrmv {# List Record's Versions
 }
 
 
+sub _explain {
+ my ($s, $sql) =@_;
+ return if !$s->parent->{-debug};
+ eval {
+    my $c =$s->dbi->prepare("explain $sql");
+       $c->execute;
+    my $r;
+    while ($r =$c->fetchrow_hashref) {
+      $s->pushmsg('EXPLAIN: ' .join('; ', map {"$_=" .($r->{$_}||'null')} @{$c->{NAME}}));
+    }
+ }
+}
+
+
 sub cmdlst { # List Data
  my $s    =shift;
  my $opt  =defined($_[0]) && substr($_[0],0,1) eq '-' ?shift :'-gx'; 
@@ -898,8 +912,9 @@ sub cmdlst { # List Data
     if ($vwfa) {
        for (my $i =0; $i <=$#$vwfa; $i++) {
            if (!defined($sfdl->[$i])) {
-            # $sfdl->[$i] ={-fld=>$vwfa->[$i], -colns=>$vwfa->[$i]};
-              $sfdl->[$i] ={-colns=>$vwfa->[$i]};
+              $sfdl->[$i] =$vwfa->[$i] =~/[()]/
+                          ?{-colns=>$vwfa->[$i]}
+                          :{-fld=>$vwfa->[$i], -colns=>$vwfa->[$i]};
               push @$ufnl, $i if $vwfk && grep {$_ eq $vwfa->[$i]} @$vwfk;
            }                             
        }
@@ -956,7 +971,9 @@ sub cmdlst { # List Data
           .(!$lr ? '' : eval{$s->dbi->{Driver}->{Name} eq 'mysql'} ? (' LIMIT ' .($lr+1) .' ') : '')
           ;
     $s->{-genselg} =$vw && $vw->{-gant1}
-         ? 'SELECT MIN(' .$vw->{-gant1} .'), MAX(' .$vw->{-gant2} .') ' .$s->{-gensel}
+         ? 'SELECT MIN(' .$vw->{-gant1} .'), MAX(' .$vw->{-gant2} .')' 
+          .     ', MAX(' .$vw->{-gant1} .'), MIN(' .$vw->{-gant2} .')' 
+          .' ' .$s->{-gensel}
          : '';
     $s->{-gensel} =
            'SELECT ' .$sfs .($vw && $vw->{-gant1} ? ', ' .join(', ', $vw->{-gant1}, $vw->{-gant2}) : '')
@@ -987,20 +1004,28 @@ sub cmdlst { # List Data
        if ($s->{-genselg}) {
           eval('use POSIX');
           $s->pushmsg($s->{-genselg});
+          $s->_explain($s->{-genselg});
           $c =$s->dbi->prepare($s->{-genselg});
           $c->execute;
           if ($gt2 =$c->fetchrow_arrayref) {
-             $gt1 =$gt2->[0];
-             $gt2 =$gt2->[1];
-             $gm1 =int($gt1 =~/(\d+)-(\d+)-(\d+)\s*(\d*):(\d*):(\d*)/ && (POSIX::mktime($6, $5, $4, $3, $2-1, $1 -1900)/86400));
-             $gm2 =int($gt2 =~/(\d+)-(\d+)-(\d+)\s*(\d*):(\d*):(\d*)/ && (POSIX::mktime($6, $5, $4, $3, $2-1, $1 -1900)/86400));
-             $gs0 =$vw && $vw->{-htmlg1}
-                  ?$vw->{-htmlg1}
-                  :'<td valign=top bgcolor=gray>-</td>';
-             $s->pushmsg("$gm1, $gm2 gant margins retrieved")
+             $gt1  =defined($gt2->[3]) && $gt2->[3] lt $gt2->[0] ? $gt2->[3] : $gt2->[0];
+             $gt2  =defined($gt2->[2]) && $gt2->[2] gt $gt2->[1] ? $gt2->[2] : $gt2->[1];
+             if ($gt1 ||$gt2) {
+                $gm1 =int($gt1 =~/(\d+)-(\d+)-(\d+)\s*(\d*):(\d*):(\d*)/ && (POSIX::mktime($6, $5, $4, $3, $2-1, $1 -1900)/86400)) +1;
+                $gm2 =int($gt2 =~/(\d+)-(\d+)-(\d+)\s*(\d*):(\d*):(\d*)/ && (POSIX::mktime($6, $5, $4, $3, $2-1, $1 -1900)/86400)) +1;
+                $gs0 =$vw && $vw->{-htmlg1}
+                     ?$vw->{-htmlg1}
+                     :'<td valign=top bgcolor=gray>#</td>';
+                if ($gm1 >$gm2) {
+                   $c =$gt1; $gt1 =$gt2; $gt2 =$c;
+                   $c =$gm1; $gm1 =$gm2; $gm2 =$c;
+                }
+                $s->pushmsg("Gant margins retrieved: $gt1 (" .gmtime($gm1*86400) ."), $gt2 (" .gmtime($gm2*86400) .")");
+             }
           }
        }
        $s->pushmsg($s->{-gensel});
+       $s->_explain($s->{-gensel});
        $c =$s->dbi->prepare($s->{-gensel});
        $c->execute;
     }
@@ -1018,45 +1043,63 @@ sub cmdlst { # List Data
     my $mr =$#{$vfnl};
        $mh =$mr if $mh <0;
     local $_;
-    print $vw && $vw->{-htmlts}
-        ? $vw->{-htmlts}
-        : $s->{-genselg}
-        ? "<font size=-1>\n<table rules=rows frame=void>\n"
-        : "<table>\n";
+    print $vw && $vw->{-htmlts} ? $vw->{-htmlts}
+        : $s->{-htmlts}         ? $s->{-htmlts}
+        : $gm2 ? "<font size=-1>\n<table rules=all border=1 cellspacing=0 frame=void style=\"{font-size=x-small}\">\n"
+                                  # rules=rows|all frame=void
+      # : "<table>\n";
+        : "<table cellpadding=\"3%\">\n";
+      # : "<table cellpadding=3>\n";
+      # : "<table rules=all border=1 cellspacing=0 frame=void>\n";
     if ($opt !~/m/) {
-       print '<tr>';
-       print map {
-             $g->th({-align=>'left',-valign=>'top'}
-                     # ,-style=>"{border-bottom-style:groove;border-width:thin}"
-                     # ;border-color:buttonshadow
-          # ,$p->htmlescape($sfdl->[$_]->{-lbl}||$sfdl->[$_]->{-fld}||''));
-            ,$p->htmlescape($sfdl->[$_]->{-lbl}||''));
+       print '<tr>'
+            ,map {
+             my $v =$sfdl->[$_]->{-lbl}||''; # ||$sfdl->[$_]->{-fld}
+             ('<th align="left" valign="top"'
+             ,!$sfdl->[$_]->{-width}
+              ? ('>', $p->htmlescape($v))
+              : $sfdl->[$_]->{-width} =~/\D/
+              ? (' width=', $sfdl->[$_]->{-width}, '>')
+              : $sfdl->[$_]->{-width} >=length($v)
+              ? ('><nobr>', $p->htmlescape($v), '&nbsp;' x($sfdl->[$_]->{-width} -length($v)), '</nobr>')
+              : ('>', $p->htmlescape($v), '<br /><nobr>', '&nbsp;' x $sfdl->[$_]->{-width} ,'</nobr>')
+             ,"</th>\n")
            } @$vfnl;
-       if ($s->{-genselg}) {
+       if ($gm2) {
         # print $g->td({-align=>'left',-valign=>'top',-colspan=>20}, $gt1 =~/^([^\s]+)/ ?$1 :$gt1);
-          my $r ='';
+          my $r ='<th>&nbsp;</th><th>&nbsp;</th>';
+          my $gf='';
           for (my $gt=$gm1; $gt <=$gm2; $gt +=1) {
              my @gt =gmtime($gt*86400);
              $r .= $gt[3] ==1 
-                 ? $g->td({-align=>'left',-valign=>'bottom', -colspan=>20}, $p->strtime('|yyyy-mm-dd',@gt)) 
+                 ? $gf =$g->td({-align=>'left',-valign=>'bottom', -colspan=>25}, $p->strtime('|yyyy-mm-dd',@gt) .' (' .gmtime($gt*86400) .')') 
+                 : $gt[3] <=25 && $gf
+                 ? ''
                  : '<td></td>';
           }
-          print $r;
-          print "</tr><tr>\n", '<th></th>' x ($#{$vfnl}+1);
-          $r ='';
+          $r .="</tr><tr>\n" .'<th colspan=' .($#{$vfnl}+3) .'><nobr>' 
+              .('&nbsp;' x($vw && $vw->{-width} ? $vw->{-width} 
+                         : $s->{-width}         ? $s->{-width}
+                         : (29*($#{$vfnl}+3))))
+              .'</nobr></th>';
+          $gf ='';
           for (my $gt=$gm1; $gt <=$gm2; $gt +=1) {
              my @gt =gmtime($gt*86400);
              $r .= $gt[6] ==0 ||$gt[6] ==6
                  ? $g->td({-align=>'left',-valign=>'top'},'s')
                  : $gt[6] ==1
-                 ? $g->td({-align=>'left',-valign=>'top',-colspan=>3}, sprintf('%02d',$gt[3]))
-                 : $gt[6] ==2 || $gt[6] ==3
+                 ? $gf =$g->td({-align=>'left',-valign=>'top',-colspan=>3}, sprintf('%02d',$gt[3]))
+                 : $gt[6] <=3 && $gf
                  ? ''
-                 : '<td></td>';
+                 : '<td>&nbsp;</td>';
           }
           print $r;
        }
-       print "</tr><tr></tr>\n";
+       elsif ($s->{-width} || $vw && $vw->{-width}) {
+          print "</tr><tr>\n" .'<th colspan=' .($#{$vfnl}+1) .'><nobr>' 
+                .('&nbsp;' x ($s->{-width} ||$vw->{-width})) .'</nobr></th>';
+       }
+       print "</tr>\n";
     }
     if (!$dsub) {
        $r =[];
@@ -1091,21 +1134,24 @@ sub cmdlst { # List Data
               :$g->escapeHTML($_);
            ('<td valign=top>', (!defined($_) ? '&nbsp;' : $_), '</td>');
          } @$vfnl[$mh+1..$mr])
-        ,($gi2
-         && ($gv1 =int($r->[$gi1] =~/(\d+)-(\d+)-(\d+)\s*(\d*):(\d*):(\d*)/ && (POSIX::mktime($6, $5, $4, $3, $2-1, $1 -1900)/86400)))
-         && ($gv2 =int($r->[$gi2] =~/(\d+)-(\d+)-(\d+)\s*(\d*):(\d*):(\d*)/ && (POSIX::mktime($6, $5, $4, $3, $2-1, $1 -1900)/86400)))
-         ? ('<td></td>' x($gv1 -$gm1 +1)
-           , $gs0 x($gv2 -$gv1))
+        ,($gm2
+         && ($gv1 =int($r->[$gi1] =~/(\d+)-(\d+)-(\d+)\s*(\d*):(\d*):(\d*)/ && (POSIX::mktime($6, $5, $4, $3, $2-1, $1 -1900)/86400))+1)
+         && ($gv2 =int($r->[$gi2] =~/(\d+)-(\d+)-(\d+)\s*(\d*):(\d*):(\d*)/ && (POSIX::mktime($6, $5, $4, $3, $2-1, $1 -1900)/86400))+1)
+         ? ( '<td valign=top><nobr>', $r->[$gi1] =~/^([^\s]+)/, '</nobr></td>'
+           , '<td valign=top><nobr>', $r->[$gi2] =~/^([^\s]+)/, '</nobr></td>'
+           , '<td></td>' x(abs(($gv1 <$gv2 ? $gv1 : $gv2) -$gm1) +0)
+           , $gs0 x(abs($gv2 -$gv1) +1)
+           , '<td></td>' x($gm2 -($gv1 <$gv2 ? $gv2 : $gv1))
+           )
          : ())
         ,"</tr>\n";
        if (++$rc >=$lr) {
           last
        }
     }
-    print $vw && $vw->{-htmlte}
-        ? $vw->{-htmlte}
-        : $s->{-genselg}
-        ? "</table></font>\n"
+    print $vw && $vw->{-htmlte} ? $vw->{-htmlte}
+        : $s->{-htmlte}         ? $s->{-htmlte}
+        : $gm2                  ? "</table></font>\n"
         : "</table>\n";
     $s->pushmsg($s->{-genlstm} =$rc <=$lr ? $s->lng(1,'rfetch',$rc) : $s->lng(1,'rfetchf',$lr));
     $c->finish if $c;
@@ -1293,7 +1339,7 @@ sub aclsel {     # ACL Where Select Clause
         ||'-t'; 
  my $a =(defined($_[0]) && ($_[0] eq '' ||substr($_[0],0,1) eq '-') ? shift : '');
  my $n =(defined($_[0]) && ($_[0] eq '' ||substr($_[0],0,1) eq '-') ? shift : '');
- return('') if $o =~/t/ && $s->{-acd} && $s->acltest('-lst'); # 't'est if needed
+ return('') if $o =~/t/ && $s->{-acd} && $s->acltest('-lst'); ## !'t'est if needed
  my @r;
  if (scalar(@_)) {
     @r =map {ref($_) ? $_ : $s->{-fields}->{$_}->{-colns}} @_

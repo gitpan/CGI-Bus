@@ -217,6 +217,15 @@ See also C<usdomain>.
 
 =over
 
+
+=head2 13/06/2002
+
+=item Changed
+
+C<ugroups> on Win32 returns global group names prefixed with 
+domain name for users from foreign domains.
+
+
 =head2 16/05/2002
 
 =item Changed

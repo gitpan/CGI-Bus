@@ -233,7 +233,7 @@ sub scrtopr  {  # top right screen (frame)
 #$s->print->htpgstart();
 #$s->print->htpgstart(undef, $s->parent->hmerge($s->parent->{-htpnstart}, -style=>"{margin-top:0px}"));
  $s->print->htpgstart(undef, $s->parent->{-htpnstart});
- $s->print->startform(-action=>$s->qurl);
+ $s->print->startform(-action=>$s->qurl, -acceptcharset=>$s->parent->{-httpheader} ?$s->parent->{-httpheader}->{-charset} :undef);
  $s->print->htpfend();
 }
 

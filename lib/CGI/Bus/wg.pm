@@ -185,7 +185,7 @@ sub fsdir {    # Filesystem dir field
         $fd =$s->parent->fut->fload('-b',$fd);
         $fd =$' if $fd =~m/<body\b[^>]*>/i;
         $fd =$` if $fd =~m/<\/body\b/i;
-        $fd ='<base href="' .($fb) .'/" />' .$fd if $fd !~/<base\b/i; # !!! May be a problem
+        $fd ='<base href="' .($fb) .'/" />' .$fd if $fd !~m/<base\b/i; # !!! May be a problem
         $r .='<hr />' .$fd .'<br />';
     }
  }

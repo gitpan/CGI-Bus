@@ -10,6 +10,8 @@
 #    require valid-user  
 #</Location>
 #
+#'cgi-bin/cgi-bus/a/uauth.cgi' / Security / Edit... / Authenticated access
+#
 use vars qw($s);
  $s =do("config.pl");
  $s->set(-login=>undef);               # login script is this script

@@ -93,19 +93,28 @@ sub ugroups { # User groups
     $u =$s->parent->udata->param('uauth_groups') ||[]
  }
  elsif ($^O eq 'MSWin32') {
-    my ($n, $d, $a, $ad, $au, @g);
+    my ($n, $d, $h, $f, $gd, $a, $ad, $au, @g);
     $n =$s->parent->useron ||$s->parent->user;
     $d =$s->parent->usdomain;
+    $h =$ENV{COMPUTERNAME} || ($ENV{COMPUTERNAME} =eval{Win32::NodeName()});
+    $h =$h ? "\\\\$h" : $d;
     $n ="$d\\$n" if index($n,'\\') <0;
+    $f =($n =~/^$d\\/i ? '/q' : '');
+    $gd=(!$f && $n =~/^([^\\]+)/ ? $1 : '');
     if ($n =~/([^\\]+)\\([^\\]+)/) {$ad =$1, $au =$2} else {$ad =$d; $au =$n}
     if (0) {}
-    elsif (!$s->{-adsi} && $w32afg <1 && scalar((@g =`findgrp.exe $d $n /q`))) { 
+    elsif (!$s->{-adsi} && $w32afg <1 && scalar((@g =`findgrp.exe $h $n $f`))) { 
      # !!! Command above is from Windows Resource Kit !!!
-     # $s->pushmsg('ugroups via findgrp.exe');
+     # $s->pushmsg("ugroups via findgrp.exe '$n','$d','$f'");
+       my $gd1;
        foreach my $v (@g) {
-          next if !$v || $v =~/^\s*$/ || $v =~/^\s*(User|Findgrp)[:]*\s/i;
-          $v =$1 if $v =~/^\s*([^\n]+)/;
-          push @$u,$v
+          next if !$v || $v =~/^\s*$/;
+          if ($v =~/^[^\s]/) {
+             $gd1 =$gd if !$f && $v=~/^User\s/i && $v=~/\sGlobal\s/i;
+             next;
+          }
+          $v =$1 if $v =~/^[\s]*([^\n]+)/;         
+          push @$u, $gd1 ? "$gd1\\$v" : $v
        }
     }
     elsif ($s->{-adsi} && $w32afg <2 && [Win32::GetOSVersion()]->[1]>=5
@@ -114,25 +123,25 @@ sub ugroups { # User groups
      # !!! local groups for user from trusted domain !!!
      # $s->pushmsg('ugroups via adsi');
        $w32afg =1;
-       foreach my $e (Win32::OLE::in($a->Groups)) {push @$u, $e->{Name}}
+       foreach my $e (Win32::OLE::in($a->Groups)) {push @$u, $gd ? "$gd\\" .$e->{Name} : $e->{Name}}
     }
     else {
      # !!! failure Win32API::Net::UserGetGroups
-     # $s->pushmsg('ugroups via Win32API::Net');
+     # $s->pushmsg("ugroups via Win32API::Net");
        $w32afg =2;
        my %g;
-       my $srv =$s->parent->userver;
+       my $srv =$ENV{COMPUTERNAME} ||eval{Win32::NodeName()};
        eval('use Win32API::Net');
        return $u if $@;
-       map {$g{$_} =1} @g    # !!! failure function !!!
-         if Win32API::Net::UserGetGroups($srv, $n, \@g);
-       map {$g{$_} =1} @g 
-         if Win32API::Net::UserGetLocalGroups($srv, $n, \@g);
-       my @gl;
-       Win32API::Net::LocalGroupEnum($srv, \@gl);
-       foreach my $gm (@gl) {
-         Win32API::Net::LocalGroupGetMembers($srv, $gm, \@g);
-         grep {$g{$_} && ($g{$gm} =1)} @g 
+       if (Win32API::Net::UserGetGroups($s->parent->userver, $n, \@g)) {
+          $gd ? (map {$g{"$gd\\$_"} =1} @g) : (map {$g{$_} =1} @g)
+       } else { 
+          $s->pushmsg("Win32API::Net::UserGetGroups('" .$s->parent->userver ."', '$n')-> " .Win32::GetLastError() ." $^E");
+       }
+       if (Win32API::Net::UserGetLocalGroups($srv, $n, \@g, Win32API::Net::LG_INCLUDE_INDIRECT())) {
+          map {$g{$_} =1} @g 
+       } else { 
+          $s->pushmsg("Win32API::Net::UserGetLocalGroups('$srv', '$n')-> " .Win32::GetLastError() ." $^E");
        }
        delete $g{'None'};
        $u =[sort {lc($a) cmp lc($b)} keys(%g)];

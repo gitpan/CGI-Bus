@@ -12,9 +12,9 @@ $s->set('-htmlstart')->{-title}  =$s->server_name() .' - WorkSpace';
 
 $s->upws->set(-logo   =>undef            # logotype
              ,-index  =>'/index.html'    # site index
-             ,-uspath =>$s->hpath        # users sites base path, autodetect
-             ,-usurl  =>$s->hurl         # users sites base URL
-             ,-uspurf =>$s->hurf         # users sites publish filesystem URL
+           # ,-uspath =>$s->hpath        # users sites base path, autodetect
+           # ,-usurl  =>$s->hurl         # users sites base URL
+           # ,-uspurf =>$s->hurf         # users sites publish filesystem URL
              ,-usfirst=>sub{/manager/i}  # dirs to sort first
              );
 

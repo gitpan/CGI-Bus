@@ -31,7 +31,7 @@ $s->tmsql->set(
  ,{-flg=>'vqis"',  -fld=>'ctime'
         ,-lbl=>'Created', -cmt=>'When was created the Note'
         ,-crt=>sub{$_[0]->strtime}, -ins=>sub{$_[0]->strtime}
-        ,-clst=>sub{"<FONT SIZE=-1>$_</FONT>"}
+        ,-clst=>sub{"<font size=-1><nobr>$_</nobr></font>"}
         ,-lblhtml=>'',-inphtml=>'<nobr>$_</nobr>'
         }
  ,{-flg=>'vqis"',  -fld=>'idnv'
@@ -48,7 +48,7 @@ $s->tmsql->set(
  ,{-flg=>'avqiu"',-fld=>'utime'
         ,-lbl=>'Updated', -cmt=>'When was updated the Note'
         ,-crt=>'', -sav=>sub{$_[0]->strtime}
-        ,-clst=>sub{"<FONT SIZE=-1>$_</FONT>"}
+        ,-clst=>sub{"<font size=-1><nobr>$_</nobr></font>"}
         ,-lblhtml=>'',-inphtml=>'<nobr>$_</nobr>'
         }
  ,{-flg=>'a"',     -fld=>'idrm'
@@ -68,8 +68,8 @@ $s->tmsql->set(
         ,-lbl=>'PRole', -cmt=>'Principal Role, Group of Principals'
         ,-crt=>sub{
              return($_) if $_ ||($_ =$_[0]->udata->param('urole'));
-             foreach my $u (@{$_[0]->ugroups}) {return $u if $u =~/^[o]/};
-             foreach my $u (@{$_[0]->ugroups}) {return $u if $u =~/^[g]/};
+             foreach my $u (@{$_[0]->ugroups}) {return $u if $u =~/(^[o]|\\[o])/};
+             foreach my $u (@{$_[0]->ugroups}) {return $u if $u =~/(^[g]|\\[g])/};
              $_[0]->param('cuser')
           }
         ,-null=>'', -inp=>{-maxlength=>60}
@@ -82,9 +82,9 @@ $s->tmsql->set(
         ,-crt=>sub{$_}, -null=>'', -inp=>{-maxlength=>60}
         }
  ,"\t","\t"
- ,{-flg=>'ce"',  -fld=>'mailto'
-        ,-lbl=>'eMailTo', -cmt=>'Receipients of e-mail about this record, not stored in database'
-        ,-hide=>sub{!$_ ||!$_[0]->{-cmde}}
+ ,{-flg=>'a"',  -fld=>'mailto'
+        ,-lbl=>'eMailTo', -cmt=>'Receipients of e-mail about this record'
+        ,-hide=>sub{!$_}
         ,-null=>'', -inp=>{-asize=>20, -maxlength=>255}, -colspan=>10
         }
  ,{-flg=>'am"', -fld=>'subject'

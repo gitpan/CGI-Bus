@@ -13,7 +13,7 @@ use CGI::Carp qw(fatalsToBrowser);
 
 
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $AUTOLOAD);
-$VERSION = '0.52';
+$VERSION = '0.53';
 
 use vars qw($SELF);
 
@@ -128,17 +128,21 @@ sub initialize {
    );
  }
  $s->set(@_);
+ if ($ENV{MOD_PERL}) {
+    Apache->push_handlers("PerlCleanupHandler"
+           ,sub{eval{$s->reset}; eval('Apache::DECLINED;')}); # or '$s->reset' at the bottom of scripts
+ }
  if (!$s->{-cgi}) {
     eval('use CGI::Fast') if $s->{-fcgimax};
     eval('use CGI');
   # $CGI::POST_MAX =-1;                                 # default in CGI.pm 
-    $MultipartBuffer::INITIAL_FILLUNIT =1024*4;         # default in CGI.pm 
-    $MultipartBuffer::INITIAL_FILLUNIT =1024*16;        # !!! fix CGI.pm???
+  # $MultipartBuffer::INITIAL_FILLUNIT =1024*4;         # default in CGI.pm 
     local $ENV{CONTENT_TYPE} ='multipart/form-data'     # !!! fix CGI.pm: $boundary = "--$boundary" unless CGI::user_agent('MSIE\s+3\.0[12];\s*Mac')
       if ($ENV{CONTENT_TYPE}||'') =~m|^multipart/form-data|
       && !$ENV{MOD_PERL}; # !!! beter to read boundary from input, but CGI.pm BUG: This won't work correctly under mod_perl
   # $s->pushmsg($ENV{CONTENT_TYPE});
-    $s->{-cgi} =!$s->{-fcgimax} ? (CGI->new ||$s->die("CGI object failure\n")) : (CGI::Fast->new ||exit);
+    $s->{-cgi} =(!$s->{-fcgimax} ? eval('CGI->new') : eval('CGI::Fast->new'))
+               ||CGI::Carp::croak("'CGI->new' failure: $@\n");
 #CGI quote:
 #die "Malformed multipart POST: "
 #.'boundary: ' .$self->{BOUNDARY} ."***\n"
@@ -146,10 +150,6 @@ sub initialize {
 #." start=$start; selflen=" .$self->{LENGTH} .'; '
 #.join(',', map {($_=>$ENV{$_}||'')} qw (REQUEST_METHOD REQUEST_URI CONTENT_TYPE CONTENT_LENGTH))
 #unless ($start >= 0) || ($self->{LENGTH} > 0);
- }
- if ($ENV{MOD_PERL}) {
-    Apache->push_handlers("PerlCleanupHandler"
-           ,sub{eval{$s->reset}; eval('Apache::DECLINED;')}); # or '$s->reset' at the bottom of scripts
  }
  $s
 }
@@ -972,6 +972,9 @@ sub ugroups { # User groups
        }
        $s->{-cache}->{-ugroups} =[sort {lc($a) cmp lc($b)} @$ga];
     }
+    else {
+       $s->{-cache}->{-ugroups} =[sort {lc($a) cmp lc($b)} @{$s->{-cache}->{-ugroups}}];
+    }
  }
  $_[0]->{-cache}->{-ugroups}
 }
@@ -1157,8 +1160,8 @@ sub htpfstart {
  my $s =shift;
  $s->htpgstart($_[0],$_[1]) ."\n" 
  .((($ENV{HTTP_USER_AGENT} ||'') =~m{^[^/]+/(\d)} ? $1 >=3 : 0)
-  ? $s->{-cgi}->start_multipart_form($_[2]||{-action=>$s->{-cgi}->url(-absolute=>1,-path=>1)})
-  : $s->{-cgi}->start_form($_[2]||{-action=>$s->{-cgi}->url(-absolute=>1,-path=>1)})
+  ? $s->{-cgi}->start_multipart_form($_[2]||{-action=>$s->{-cgi}->url(-absolute=>1,-path=>1), -acceptcharset=>$s->{-httpheader} ?$s->{-httpheader}->{-charset} :undef})
+  : $s->{-cgi}->start_form($_[2]||{-action=>$s->{-cgi}->url(-absolute=>1,-path=>1), -acceptcharset=>$s->{-httpheader} ?$s->{-httpheader}->{-charset} :undef})
   ) ."\n"
 }
 
@@ -1297,8 +1300,8 @@ sub htpfstart {
  $_[0]->htpgstart($_[1],$_[2]);
  $_[0]->[0]->print("\n" 
  .((($ENV{HTTP_USER_AGENT} ||'') =~m{^[^/]+/(\d)} ? $1 >=3 : 0)
-  ? $_[0]->[0]->{-cgi}->start_multipart_form($_[3]||{-action=>$_[0]->[0]->{-cgi}->url(-absolute=>1,-path=>1)})
-  : $_[0]->[0]->{-cgi}->start_form($_[3]||{-action=>$_[0]->[0]->{-cgi}->url(-absolute=>1,-path=>1)})
+  ? $_[0]->[0]->{-cgi}->start_multipart_form($_[3]||{-action=>$_[0]->[0]->{-cgi}->url(-absolute=>1,-path=>1), -acceptcharset=>$_[0]->[0]->{-httpheader} ?$_[0]->[0]->{-httpheader}->{-charset} :undef})
+  : $_[0]->[0]->{-cgi}->start_form($_[3]||{-action=>$_[0]->[0]->{-cgi}->url(-absolute=>1,-path=>1), -acceptcharset=>$_[0]->[0]->{-httpheader} ?$_[0]->[0]->{-httpheader}->{-charset} :undef})
  ) ."\n")
 }
 

@@ -29,4 +29,7 @@ HOW TO BUILD AND INSTALL
     Or:
 	copy ./lib/CGI/* into perl/site/lib/CGI
 
-    See examples, which should be configured and installed manually.
+    See examples, which should be configured and installed manually:
+     - Edit and run 'install-db.pl' to create/upgrade applications database.
+     - Place '*.cgi' and 'config.pl' to something like 'cgi-bin/cgi-bus'.
+     - Edit 'config.pl' in accordance with comments and documentation.

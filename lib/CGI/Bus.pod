@@ -1084,20 +1084,56 @@ See also C<Error and Message processing>, L<CGI::Carp|CGI/Carp>
 
 =over
 
+=head2 19/05/2002 - 01-06/06/2002 - 13/06/2002 - 19/06/2002
+
+=item Changed
+
+ - gwo.cgi - fields 'subject_v' and 'alist_v' used in all views,
+   perconal views filters changed
+ - uauth.pm - 'ugroups' on Win32 returns global group names prefixed 
+   with domain name for users from foreign domains. '-ugrpcnv' 
+   should be commented out. 'gwo.cgi' and 'notes.cgi' default group 
+   detection condition changed
+ - gwo.cgi - fields 'subject_v', 'plist_v', 'alist_v' added to use 
+   in views, timeline view changed using this fields
+ - timeline view supplied with predefined date margin columns from 
+   '-gant1' and '-gant2', so 'gwo.cgi' changed
+
+=item New
+
+ - IE6 with IIS problem detected - on 'post' requests browser brings 
+   IIS to authentication/impersonalisation of the script to be not 
+   impersonalisated, but placed in the same directory as requiring web 
+   server authentication 'uauth.cgi'
+ - tm.pm, tmsql.pm: '-refresh' view and common slots
+ - tm.pm, tmsql.pm: '-htmlts', '-htmlte', '-width' common slots; 
+   '-width' field slot
+ - cache-control http header mentioned in 'config.pl'
+ - form tag generation with '-acceptcharset' attribute given from 
+   '-httpheader'
+ - notes.cgi - 'mailto' field added
+ - install-db.pl script to install or upgrade applications database
+ - tmsql.pm: '-width' view attribute
+ - tmsql.pm: 'explain select...' 'pushmsg' when listing data
+
+
 =head2 07/05/2002 - 18/05/2002
 
 
 =item New
 
- - tmsql.pm- '-htmlts', '-htmlte', '-gant1', '-gant2', '-htmlg1' view slots.
+ - tmsql.pm: '-htmlts', '-htmlte', '-gant1', '-gant2', '-htmlg1' 
+   view slots.
  - tmsql.pm: '-rowsav1' and '-rowsav2' events.
 
 
 =item Changed
 
- - gwo.cgi - timeline chart view using '-gant1' and '-gant2' view slots.
+ - gwo.cgi - timeline chart view using '-gant1' and '-gant2' 
+   view slots.
  - gwo.cgi - mailsend code improved using '-rowsav1' event.
- - uauth.pm - filtered rows with space chars only 'findgrp.exe' may return.
+ - uauth.pm - filtered rows with space chars only 'findgrp.exe' 
+   may return.
  - tm.pm - textarea fields displays linebreaks when viewed
  - tm.pm - 'Select' command turns to view mode from edit mode, 
            'Edit' command removed from edit mode; 
@@ -1122,15 +1158,18 @@ entered by user. 'Edit' may be also associated with 'Select' when record editing
 =item New & Changed
 
  - tmsql.pm - MySQL 'LIMIT rows' clause generation
- - uauth.pm - attempting to use a Windows2000 ADSI, see issues in source code
+ - uauth.pm - attempting to use a Windows2000 ADSI, 
+   see issues in the source code
  - uauth.pm, wg.pm - case insensitive sorting
  - notes.cgi - update for indexes
  - gwo.cgi   - update for indexes, may be not useful
  - Bus.pm -debug slot levels
  - Bus.pm -iurl  slot added
  - upws.pm  - using icons based on -iurl slot value
- - all printed HTML tags and attributes are lowercase as from CGI module
- - tm.pm - image toolbar using -iurl slot, uncomment at the beginning of the source to disable
+ - all printed HTML tags and attributes are lowercase as from 
+   CGI module
+ - tm.pm - image toolbar using -iurl slot, uncomment at the 
+   beginning of the source to disable
 
 
 

@@ -89,11 +89,15 @@ $s->tmsql->set(
         ,-lbl=>'PRole', -cmt=>'Principal Role, Group of Principals'
         ,-crt=>sub{
              return($_) if $_ ||($_ =$_[0]->udata->param('urole'));
-             foreach my $u (@{$_[0]->ugroups}) {return $u if $u =~/^[o]/};
-             foreach my $u (@{$_[0]->ugroups}) {return $u if $u =~/^[g]/};
+             foreach my $u (@{$_[0]->ugroups}) {return $u if $u =~/(^[o]|\\[o])/};
+             foreach my $u (@{$_[0]->ugroups}) {return $u if $u =~/(^[g]|\\[g])/};
              $_[0]->param('puser')
           }
         , -null=>'', -colspan=>10, -inp=>{-maxlength=>60}}
+ ,{-flg=>'"', -fld=>'plist_v', -col=>"CONCAT_WS(' / ', puser, prole)"
+        ,-lbl=>'Principals', -cmt=>'Principals of record - Principal and PRole'
+        ,-clst=>sub{'<nobr>' .$s->htmlescape($_) .'</nobr>'}
+        }
  ,{-flg=>'a"',  -fld=>'auser'
         ,-lbl=>'Actor', -cmt=>'Actor User'
         ,-crt=>sub{$_[0]->param('puser')}, -null=>'', -inp=>{-maxlength=>60}}
@@ -102,6 +106,10 @@ $s->tmsql->set(
         ,-lbl=>'ARole', -cmt=>'Actor Role, Group of Actors'
         ,-crt=>sub{$_ ||$_[0]->param('prole')}
         , -null=>'',-inp=>{-maxlength=>60}, -colspan=>10}
+ ,{-flg=>'"', -fld=>'alist_v', -col=>"CONCAT_WS(' / ', auser, arole)"
+        ,-lbl=>'Actors', -cmt=>'Actors of record - Actor and ARole'
+        ,-clst=>sub{'<nobr>' .$s->htmlescape($_) .'</nobr>'}
+        }
  ,{-flg=>'a"',  -fld=>'rrole'
         ,-lbl=>'Reader', -cmt=>'Reader Role, Group of Readers of the Record'
         ,-crt=>sub{$_}, -null=>'', -inp=>{-maxlength=>60}
@@ -121,30 +129,30 @@ $s->tmsql->set(
         ,-inp=>{-values=>[qw(ok no --- do goal progress --- edit deleted template), '']}
         ,-clst=>sub{$_ =~/^(do|edit|deleted)/ ? "<B><FONT COLOR=\"red\">$_</FONT></B>" : $_}}
  ,''
- ,{-flg=>'a"',  -fld=>'etime'
-        ,-lbl=>'End', -cmt=>'End or Due time of Record described by'
-        ,-crt=>sub{$_[0]->strtime}, -null=>'', -inp=>{-maxlength=>20}
-        ,-inphtml=>'<nobr>$_</nobr>'
-        ,-clst=>sub{$_ =~/^([^\s]+)[\s0:]*$/ ? $1 : $_}
-        }
- ,''
  ,{-flg=>'a"',  -fld=>'stime'
         ,-lbl=>'Start', -cmt=>'Start time of Record described by'
         ,-null=>'', -inp=>{-maxlength=>20}
         ,-inphtml=>'<nobr>$_</nobr>'
+        ,-clst=>sub{'<nobr>' .($_ =~/^([^\s]+)[\s0:]*$/ ? $1 : $_) .'</nobr>'}
+        }
+ ,''
+ ,{-flg=>'a"',  -fld=>'etime'
+        ,-lbl=>'End', -cmt=>'End or Due time of Record described by'
+        ,-crt=>sub{$_[0]->strtime}, -null=>'', -inp=>{-maxlength=>20}
+        ,-clst=>sub{'<nobr>' .($_ =~/^([^\s]+)[\s0:]*$/ ? $1 : $_) .'</nobr>'}
         ,-clst=>sub{$_ =~/^([^\s]+)[\s0:]*$/ ? $1 : $_}
         }
  ,{-flg=>'ls"', -fld=>'ftime'
         ,-lbl=>'Finish', -cmt=>'Time finished or to finish or edited'
         ,-col=>'COALESCE(gwo.etime, gwo.utime)'
-        ,-clst=>sub{$_ =~/^([^\s]+)[\s0:]*$/ ? $1 : $_}
+        ,-clst=>sub{'<nobr>' .($_ =~/^([^\s]+)[\s0:]*$/ ? $1 : $_) .'</nobr>'}
         }
  ,{-flg=>'ls"', -fld=>'otime'
-        ,-lbl=>'Ord', -cmt=>'Time to order records by'
+        ,-lbl=>'Finish', -cmt=>'Time to order records by'
         ,-col=>"IF(gwo.status = 'edit' OR (gwo.status = 'do' AND "
         ."(stime IS NULL OR stime <='" .$s->strtime('yyyy-mm-dd')."') "
         ."), 'do', gwo.utime)"
-        ,-clst=>sub{$_ =~/^([^\s]+)[\s0:]*$/ ? $1 : $_}
+        ,-clst=>sub{'<nobr>' .($_ =~/^([^\s]+)[\s0:]*$/ ? $1 : $_) .'</nobr>'}
         }
  ,{-flg=>'a"',  -fld=>'record'
         ,-lbl=>'Record', -cmt=>'Record type'
@@ -170,7 +178,12 @@ $s->tmsql->set(
         ,-inp=>{-asize=>89, -maxlength=>255}, -colspan=>10
         ,-lblhtml=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*((\w{3,5}:\/\/|\/).+)/ ? $_[0]->a({-href=>$3,-target=>$2,-title=>'Open URL'},'$_') : '$_'}
       # ,-inphtml=>'<STRONG>$_</STRONG>'
-        ,-clst=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*((\w{3,5}:\/\/|\/).+)/ ? $_[0]->a({-href=>$3,-target=>$2},$_[0]->htmlescape($1)) : $_[0]->htmlescape($_)}
+        ,-clst=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*((\w{3,5}:\/\/|\/).+)/ ? $_[0]->a({-href=>$3,-target=>$2},$s->htmlescape($1)) : $s->htmlescape($_)}
+        }
+ ,{-flg=>'"', -fld=>'subject_v', -col=>"CONCAT_WS(' ', record, object, subject)"
+        ,-lbl=>'Subject', -cmt=>'Subject following Record and Object'
+        ,-clst=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*((\w{3,5}:\/\/|\/).+)/ ? $_[0]->a({-href=>$3,-target=>$2},$s->htmlescape($1)) : $s->htmlescape($_)}
+        ,-width=>30
         }
  ,{-flg=>'a"',  -fld=>'comment'
         ,-lbl=>'Comment', -cmt=>'Comment text'
@@ -186,33 +199,33 @@ $s->tmsql->set(
 $s->tmsql->set(
 -lists =>{
   'AllVersions'=> {-lbl=>'All Versions', -cmt=>'All records available, including old versions and deleted'
-                  ,-fields=>[qw(utime idnv status record object subject)]
+                  ,-fields=>[qw(utime idnv status subject_v alist_v)]
                   ,-orderby=>'utime desc, ctime desc'}
  ,'AllActual'=>   {-lbl=>,'All Actual', -cmt=>'All actual records available'
-                  ,-fields=>[qw(ftime status record object subject)]
+                  ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'ftime desc, ctime desc'
                   ,-where=>"status NOT IN('deleted','template') AND gwo.idnv is NULL"}
  ,'AllTimeline'=> {-lbl=>,'All Timeline', -cmt=>'Timeline chart for all actual records'
-                  ,-fields=>[qw(status record object subject auser arole), "DATE_FORMAT(stime,'%Y-%m-%d')", "DATE_FORMAT(etime,'%Y-%m-%d')"]
+                  ,-fields=>[qw(status subject_v alist_v)]
                   ,-gant1=>'stime', -gant2=>'etime'
                   ,-orderby=>'auser, arole, stime, etime'
                   ,-where=>"status NOT IN('deleted','template') AND gwo.idnv is NULL"}
  ,'AllToDo'=>     {-lbl=>'All ToDo', -cmt=>'All records to do'
-                  ,-fields=>[qw(ftime status record object subject)]
+                  ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'ftime desc, ctime desc'
                   ,-where=>"status IN('do','edit') AND gwo.idnv is NULL"}
  ,'AllToday'=>    {-lbl=>,'All Today', -cmt=>'All actual records available'
-                  ,-fields=>[qw(ftime status record object subject)]
+                  ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'otime desc, ftime desc, ctime desc'
                   ,-where=>"status NOT IN('deleted','template') AND gwo.idnv is NULL"}
  ,'OurActual'=>   {-lbl=>'Our Actual', -cmt=>('Records ' .$s->user .' involved in')
-                  ,-fields=>[qw(ftime status record object subject)]
+                  ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'ftime desc, ctime desc'
                   ,-filter=>sub{"status NOT IN('deleted','template') AND gwo.idnv is NULL"
                    .$_[0]->aclsel('-','-and',qw(puser prole auser arole),$_[0]->unames,qw(cuser uuser))
                    }}
  ,'OurToday'=>    {-lbl=>'Our Today', -cmt=>('Records ' .$s->user .' involved in today')
-                  ,-fields=>[qw(ftime status record object subject)]
+                  ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'otime desc, ftime desc, ctime desc'
                   ,-filter=>sub{
                      "gwo.idnv is NULL "
@@ -220,37 +233,37 @@ $s->tmsql->set(
                     .$_[0]->aclsel('-','-and',qw(puser prole auser arole),$_[0]->unames,qw(cuser uuser))
                    }}
  ,'OurToDo'=>     {-lbl=>'Our ToDo', -cmt=>('ToDo records ' .$s->user .' involved in')
-                  ,-fields=>[qw(ftime status record object subject)]
+                  ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'ftime desc, ctime desc'
                   ,-filter=>sub{"status IN('do','edit') AND gwo.idnv is NULL"
                    .$_[0]->aclsel('-','-and',qw(puser prole auser arole),$_[0]->unames,qw(cuser uuser))
                    }}
  ,'PersActual'=>  {-lbl=>'Pers Actual', -cmt=>('Personally ' .$s->user .' records')
-                  ,-fields=>[qw(ftime status record object subject)]
+                  ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'ftime desc, ctime desc'
                   ,-filter=>sub{"status NOT IN ('deleted','template') AND gwo.idnv is NULL"
-                    .$_[0]->aclsel('-','-and',$_[0]->ugnames,qw(auser puser),$_[0]->unames,qw(arole prole))
+                    .$_[0]->aclsel('-','-and',$_[0]->ugnames,qw(auser puser cuser uuser),$_[0]->unames,qw(arole prole))
                    }}
  ,'PersToDo'=>    {-lbl=>'Pers ToDo', -cmt=>('Personally ' .$s->user .' records to do')
-                  ,-fields=>[qw(ftime status record object subject)]
+                  ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'ftime desc, ctime desc'
                   ,-filter=>sub{"status IN('do','edit') AND gwo.idnv is NULL"
-                    .$_[0]->aclsel('-','-and',$_[0]->ugnames,qw(auser puser),$_[0]->unames,qw(arole prole))
+                    .$_[0]->aclsel('-','-and',$_[0]->ugnames,qw(auser),$_[0]->unames,qw(arole))
                    }}
  ,'PerToday_'=>   {-lbl=>'Pers Today_', -cmt=>('Personally ' .$s->user .' today records')
-                  ,-fields=>[qw(ftime status record object subject)]
+                  ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'otime desc, ftime desc, ctime desc'
                   ,-filter=>sub{
                      "gwo.idnv is NULL "
                     ."AND (status NOT IN ('deleted','template'))"
-                    .$_[0]->aclsel('-','-and',$_[0]->ugnames,qw(auser puser),$_[0]->unames,qw(arole prole))
+                    .$_[0]->aclsel('-','-and',$_[0]->ugnames,qw(auser),$_[0]->unames,qw(arole))
                    }}
  ,'PersReqs'=>    {-lbl=>'Pers Reqs', -cmt=>('Records by ' .$s->user .' to others')
-                  ,-fields=>[qw(ftime status record object subject)]
+                  ,-fields=>[qw(ftime status subject_v alist_v)]
                   ,-orderby=>'ftime desc, ctime desc'
                   ,-filter=>sub{"status NOT IN ('deleted','template') AND gwo.idnv is NULL"
                    .$_[0]->aclsel('-','-and',qw(puser prole),$_[0]->unames,qw(uuser cuser))
-                   .$_[0]->aclsel('-','-and','-not',qw(auser arole))
+                   .$_[0]->aclsel('-','-and','-not',qw(auser))
                    }}
  ,'Objects'=>     {-lbl=>'List Objects', -cmt=>'List of Objects'
                   ,-fields=>[qw(object)], -key=>[qw(object)]                  
@@ -282,7 +295,7 @@ $s->tmsql->set(
  ,'Templates'=>   {-lbl=>'Templates', -cmt=>['Templates to create Records with'
                          ,'Open template, choose Status, invoke Insert action.'
                          ,'For file attachments editing new Status should be \'edit\'.']
-                  ,-fields=>[qw(record object subject)]
+                  ,-fields=>[qw(subject_v alist_v)]
                   ,-orderby=>'record, object, subject'
                   ,-where=>"status='template' AND gwo.idnv is NULL"}
  });
