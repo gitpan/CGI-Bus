@@ -302,6 +302,13 @@ View rows number default margin.
 Margin of the number of the rows returned by C<-lst> operation
 
 
+=item -logo
+
+Logotype to place at the left of the toolbar. 
+May be image URL or HTML.
+See also C<-tbarl>
+
+
 =item -opflg
 
 Operations allowed letters:
@@ -590,6 +597,18 @@ C<qparam> call with C<-pxsw> prefixed param names.
 =head1 VERSION
 
 =over
+
+
+=head2 13/09/2002
+
+=item New:
+
+C<-logo> slot
+
+=item Changed:
+
+C<htmlbar> and C<cmdhlp> behaviour for '<' C<-opflg>.
+
 
 
 =head2 05/06/2002

@@ -30,7 +30,7 @@ sub lngbase {
  ,'FramesetURLs'=>['OverviewURLs', '\'Overview\' frameset URLs, one URL per row, or \'Overview\' page HTML; this page may be opened as the first too']
  ,'FramesetRows'=>['FramesetRows', 'Heights of the frames, digits with % signs, delimited with commas']
  ,'FramesetCols'=>['FramesetCols', 'Widths of the frames, digits with % signs, delimited with commas']
- ,'FavoriteURLs'=>['FavoriteURLs', 'URLs for navigation pane, one URL per row as \'label|URL\' or \'label|_blank|URL\' or HTML']
+ ,'FavoriteURLs'=>['FavoriteURLs', 'URLs for navigation pane, one URL per row as \'label|URL\', \'label|_blank|URL\', \'label|_parent|URL\', \'label|URL|_target|URL\', or HTML']
  ,'PrimaryRole' =>['PrimaryRole',  'Favorite, most oftenly used group user belongs to']
  ,'Read'        =>['Read',         'Read data']
  ,'Save'        =>['Save',         'Store data']

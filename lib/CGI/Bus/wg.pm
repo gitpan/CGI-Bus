@@ -126,6 +126,7 @@ sub textarea { # Text Area with autorowing and hrefs
        }
     }
     $a{-rows} =($a{-arows} >$h ? $a{-arows} : $h);
+    $a{-rows} =30 if $a{-rows} >30;
     delete $a{-arows}
  }
  if (defined($a{-hrefs})) {

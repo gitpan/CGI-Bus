@@ -878,7 +878,7 @@ sub cmdlst { # List Data
              if ($p =~/^ *\(/) { # expr
                $swps .=$p
              }
-             elsif ($p =~/^ *([><=]|not|in|is|like)\b/i) { # translate expr
+             elsif ($p =~/^ *([><=]|not\b|in\b|is\b|like\b)/i) { # translate expr
                $p     =~s/(\&|\|\band\b|\bor\b|\() *([=><]|\bnot\b|\bin\b|\bis\b|\blike\b)/$1 $fm $2/ig;
                $swps .="($fm $p)"
              }
@@ -1232,9 +1232,9 @@ sub cmdhlp {    # Help Command
        my $f =$s->{-fields}->{$s->{-vsd}->{$n}};
        next if !$f || ref($f) ne 'HASH' || !$f->{-fld} || !$f->{-cmt};
        print '<tr>';
-       print $g->td($ta, $s->htmlescape('[' .$f->{-flg} .']'));
+       print $g->td($ta, '<code>' .$s->htmlescape('[' .$f->{-flg} .']') .'</code>');
        print $g->th($ta, $s->htmlescape($f->{-lbl}||$f->{-fld}));
-       print $g->td($ta, $s->htmlescape($f->{-fld}));
+       print $g->td($ta, '<code>' .$s->htmlescape($f->{-fld}) .'</code>');
        print $g->td($ta, $s->htmlescape($f->{-cmt}));
        print "</tr>\n";
     }
@@ -1250,9 +1250,9 @@ sub cmdhlp {    # Help Command
     $sh =$s->lng(1, $sh);
     print $g->p($s->htmlescape($sh)),"\n" if $sh;
     print "<table>\n";
-    print '<tr>', $g->th($ta, $s->htmlescape("'" .($s->{-fsd}->{-urf} ||$s->{-fsd}->{-url}) ."'"))
+    print '<tr>', $g->th($ta, '<code>' .$s->htmlescape("'" .($s->{-fsd}->{-urf} ||$s->{-fsd}->{-url}) ."'") .'</code>')
         , $g->td($ta, $s->htmlescape($s->lng(1,'-fsd-url'))),   '</tr>' if $s->{-fsd}->{-url};
-    print '<tr>', $g->th($ta, $s->htmlescape("'" .($s->{-fsd}->{-vsurf} ||$s->{-fsd}->{-vsurl}) ."'"))
+    print '<tr>', $g->th($ta, '<code>' .$s->htmlescape("'" .($s->{-fsd}->{-vsurf} ||$s->{-fsd}->{-vsurl}) ."'") .'</code>')
         , $g->td($ta, $s->htmlescape($s->lng(1,'-fsd-vsurl'))), '</tr>' if $s->{-fsd}->{-vsurl};
     my $sf =$s->{-vsd} ? $s->{-vsd}->{-sf} : ''; 
     if ($sf) {
@@ -1324,7 +1324,8 @@ sub acltest {    # ACL test command
    my $t =$s->acl($c,$cmd,$px);
    next      if !defined($t);
    return $t if !ref($t) && $t;
-   foreach my $e (@$t) {return $e if grep {lc($_) eq lc($e)} @$un}
+ # foreach my $e (@$t) {return $e if grep {lc($_) eq lc($e)} @$un}
+   foreach my $e (@$t) {return $e if grep {$e =~/(?:^|[,\s])\Q$_\E(?:[,\s]|$)/i} @$un}
  }
  return(0) if $cmd eq '-lst';           
  $s->parent->userauth if $s->parent->uguest  # !!! header may be already printed
@@ -1342,7 +1343,7 @@ sub aclsel {     # ACL Where Select Clause
  return('') if $o =~/t/ && $s->{-acd} && $s->acltest('-lst'); ## !'t'est if needed
  my @r;
  if (scalar(@_)) {
-    @r =map {ref($_) ? $_ : $s->{-fields}->{$_}->{-colns}} @_
+    @r =map {ref($_) ? $_ : ($s->{-fields}->{$_}->{-colns}||$_)} @_
  }
  else {
    return('') if !$s->{-acd};
@@ -1357,11 +1358,24 @@ sub aclsel {     # ACL Where Select Clause
  return('') if !scalar(@r);
  my $u =$s->ugnames;
  my $r ='';
+ my $m =undef;
  foreach my $e (@r) {
-   if (ref($e)) {$u =$e; next}
-   $r .=(!$r ? '' : $n ? ' AND ' : ' OR ') .$e 
-      .(scalar(@$u) ==1 ? (($n ? '<>' : '=') .$s->dbi->quote($u->[0]))
-       : (($n ? ' NOT' : '') .' IN(' .join(',', map {$s->dbi->quote($_)} @$u) .')'))
+   if (ref($e))           {ref($e) eq 'CODE' ? $m =$e : $u =$e; next}
+   if (index($e,'$_')>=0) {$m =$e; next}
+   $r .=(!$r ? '' : $n ? ' AND ' : ' OR ') 
+      . (!$m 
+      ? ($e 
+        .(scalar(@$u) ==1 
+         ? (($n ? '<>' : '=') .$s->dbi->quote($u->[0]))
+         : (($n ? ' NOT' : '') .' IN(' .join(',', map {$s->dbi->quote($_)} @$u) .')')))
+      : ref($m)
+      ? &{$m}($s,$e,$u)
+      : $m =~/^\$_(r\w+)$/i
+      ? ($e ." $1 " .$s->dbi->quote('[[:<:]](' .join('|',@$u) .')[[:>:]]'))
+      : join($n ? ' AND ' : ' OR '
+            ,map {my $q =$m; $q=~s/\$_f/$e/g; $q=~s/\$_u{0,1}/$s->dbi->quote($_)/ge; $q} @$u)
+      );
+   $m =undef
  }
  return('') if !$r;
  ($a ? ' AND' : '') .'(' .$r .')'

@@ -72,6 +72,9 @@ sub parse {           # PerlScript Parse Source
  my $o   ='';
  my ($ol,$or) =('','');
  my ($ts,$tl,$ta,$tc) =('','','','');
+ if ($i =~/<(!DOCTYPE|html|head)/i && $`) {
+     $i ='<' .$1 .$'
+ }
  if ($_[1] && $i =~m{(<body[^>]*>)}i) {
      my ($i0,$i1) =($` .$1 ,$');
      $i =$i0

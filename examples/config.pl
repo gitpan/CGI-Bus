@@ -5,7 +5,7 @@ BEGIN {}
 #
 # Common configuration for all CGI::Bus applications
 #
-# use findgrp.exe on WinNT !!!
+# use findgrp.exe on Windows NT !!!
 #
 use CGI::Bus;
 use vars qw($s);
@@ -50,7 +50,7 @@ $s =CGI::Bus->new($s);
                      {-dbi => sub{$s->dbi("DBI:mysql:cgibus","cgibus","d95nfmJR971Yv3gVI40")}});
 
 $s->set(-httpheader=>{                          # common http header
-          -charset        => 'windows-1251'
+       #  -charset        => 'windows-1251'
        # ,'-cache-control'=> 'no-cache'         # must-revalidate, max-age=sss
          ,-expires        => 'now'
        }

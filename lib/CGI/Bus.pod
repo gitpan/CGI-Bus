@@ -1084,6 +1084,49 @@ See also C<Error and Message processing>, L<CGI::Carp|CGI/Carp>
 
 =over
 
+
+=head2 21/08/2002 - 31/08/2002 - 12-13/09/2002 - 16/09/2002
+
+L<CGI::Bus::psp|CGI/Bus/psp> changed:
+C<parse> omits text given before m/<(!DOCTYPE|html|head)/i,
+so mixed CGI/HTML page files may be parsed. 
+Synopsis changed to reflect this feature.
+
+
+L<CGI::Bus::tm|CGI/Bus/tm> new:
+C<-logo> slot
+
+L<CGI::Bus::tm|CGI/Bus/tm> changed:
+C<htmlbar> and C<cmdhlp> behaviour for '<' C<-opflg>.
+
+
+L<CGI::Bus::upws|CGI/Bus/upws> changed: 
+C<scrleft> discards duplicate rows to display.
+'label|URL|_target|URL' syntax added to deal with a complex pages.
+Logotype (C<-logo>) enclosed within URL filling the current browser window 
+with C<scrleft>.
+
+L<CGI::Bus::upws|CGI/Bus/upws> new: 
+'USITES' CGI param for C<scrusites> identifier or number
+- to use multiple sets of users home pages, empty parameter
+means default page set
+
+
+L<CGI::Bus::tmsql|CGI/Bus/tmsql> changed:
+
+C<cmdlst> - fixed parsing of query condition parameters with 
+leading '<>=' operators
+
+C<acltest> - field may contain several user names delimited with commas with 
+spaces allowed. Regular expression is used instead of 'eq' comparison.
+
+C<aclsel> - sub{}, m/^\$_(regexp|rlike)$/i, m/.*\$_.*/ 
+special parameters introduced 
+for the field name followed
+
+
+
+
 =head2 19/05/2002 - 01-06/06/2002 - 13/06/2002 - 19/06/2002
 
 =item Changed

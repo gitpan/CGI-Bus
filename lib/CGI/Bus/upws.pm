@@ -26,6 +26,7 @@ my %img =(-logo     =>'portal.gif'        # portal  world1
          ,'Setup'   =>'small/patch.gif'
          ,_blank    =>'small/dir.gif'     # generic dir
          ,_top      =>'small/back.gif'    # back    transfer
+         ,_parent   =>'small/back.gif'    # _top
          ,-href     =>'small/text.gif'    # doc     text     generic forward blank
          ,-hgen     =>'small/generic.gif'
          ,-host     =>'small/comp2.gif'   # comp2 comp1
@@ -42,7 +43,8 @@ my %img =(-logo     =>'portal.gif'        # portal  world1
 
 sub _img {
  $_[0]->parent->{-iurl} && $img{$_[1]} 
- ? ('<img src="' .$_[0]->parent->{-iurl} .'/' .$img{$_[1]} .'" alt="" border=0 />')
+ ? ('<img src="' .$_[0]->parent->{-iurl} .'/' .$img{$_[1]} 
+   .'" alt="" border=0 title="' .(defined($_[2]) ? $_[2] : $_[0]->lng(1,$_[1])) .'" />')
  : ''
 }
 
@@ -106,7 +108,7 @@ sub urltop {    # topmost url to open first
  my $u =$s->urls->[0];
  if    ($u =~/ +href *= *"([^"\s>]+)"/i) { $u =$1 }
  elsif ($u =~/^([^|]+)\|+(.+)$/)         { $u =$2 }
- $u
+ $u !~/^([\/]|\w+:\/\/)/ ? $s->burl($u) : $u
 }
 
 
@@ -130,15 +132,15 @@ sub scrtop {    # top screen (top frameset)
           .' - '
           .$s->lng(0,'WorkSpace')
           .'</title></head>');
- $s->print("<frameset cols=\"15%,*\">\n");
+ $s->print("<frameset cols=\"15%,*\" name=\"TOP\">\n");
  $s->print("<frame name=\"LEFT\" src=\""
           .$s->qurl('', '_run'=>'LEFT') .'"'
           .' onfocus="{var e; try {self.document.title = self.LEFT.document.title;} catch(e){}};"'
           ." target=\"RIGHT\" />\n");
- $s->print("<frameset rows=\"0%,*\">\n") if $ft; # 5%
- $s->print("<frame name=\"TOPR\" src=\""
-          .$s->qurl('', '_run'=>'TOPR') .'"'
-          ." target=\"RIGHT\" />\n") if $ft;
+#$s->print("<frameset rows=\"0%,*\">\n") if $ft; # 5%
+#$s->print("<frame name=\"TOPR\" src=\""
+#         .$s->qurl('', '_run'=>'TOPR') .'"'
+#         ." target=\"RIGHT\" />\n") if $ft;
  $s->print('<frame name="RIGHT" src="'
           .$s->urltop .'"'
           .' onfocus ="{var e; try {self.document.title = (self.RIGHT.document && self.RIGHT.document.title) || &quot;'
@@ -160,19 +162,28 @@ sub scrtop {    # top screen (top frameset)
 sub scrleft {   # left screen (urls)
  my $s =shift;
  my $p =$s->parent;
-#$s->print->htpgstart(undef, $p->hmerge($p->{-htpnstart},-target=>'RIGHT',-style=>"{margin-top:0px}"));
- $s->print->htpgstart(undef, $p->hmerge($p->{-htpnstart},-target=>'RIGHT'));
- $s->{-logo} =$s->a({-href=>$s->qurl('', '_run'=>'LEFT'), -target=>'_blank'}
-                   #{-href=>$s->surl, -target=>'_parent'}
-                   ,$s->{-logo} ? '<img src="' .$s->{-logo} .'" alt="" border=0 />' : $s->_img('-logo'))
-            if (!defined($s->{-logo}) && $img{-logo} && $p->{-iurl})
-            || ($s->{-logo} && $s->{-logo} !~/</);
- $s->{-logo} ='<img src="/icons/portal.gif" alt="" border=0 />' 
-            if !defined($s->{-logo}) && $ENV{SERVER_SOFTWARE} =~/Apache/i;
-            # /icons/apache_pb.gif; world1.gif
- $s->{-logo} ='<img src="/web.gif" alt="" border=0 />' 
-            if !defined($s->{-logo}) && $ENV{SERVER_SOFTWARE} =~/IIS/;
- $s->print($s->{-logo}) if $s->{-logo};
+ my $tf=$s->qparam('_target');
+
+ $s->print->htpgstart(undef, $p->hmerge($p->{-htpnstart},-target=>$tf||'RIGHT'));
+
+ { my $li=$s->{-logo};
+   my $lt=$tf ? 1 : 0;
+   $li =$img{-logo} && $p->{-iurl}        ? $s->_img('-logo','')
+       :$ENV{SERVER_SOFTWARE} =~/Apache/i ? $s->_img('-logo','')
+       :$ENV{SERVER_SOFTWARE} =~/IIS/i    ? '/web.gif'
+       :undef
+       if !defined($li);
+   $li =$s->a({-href  => $lt ? $s->qurl : $s->qurl('', '_run'=>'LEFT','_target'=>'RIGHT')
+              ,-target=> $lt ? '_self' : '_parent'}
+              ,!$li  ? $s->_img('-logo','') 
+              : $li =~/</ ? $li
+              : '<img src="' .$li .'" alt="" border=0 />'
+              )
+       if (!defined($li) && $img{-logo} && $p->{-iurl})
+       || ($li && $li !~/<a /i);
+   $s->print($li) if $li;
+ }
+
  $s->print->strong($s->user)->br;
 #$s->print->strong($s->a({-href=>$s->uauth->authurl($s->qurl), -target=>'_parent'}, $s->user))->br;
  $s->print('<NOBR>');
@@ -185,33 +196,44 @@ sub scrleft {   # left screen (urls)
  }
 
  my $l =$s->urls;
+ my $d ='1';
  foreach my $e (@$l) {
-   if ($e =~/<\w/i || $e eq '') {
+   next if ($e||'') eq ($d||'');
+   if ($e =~/^ *$/ || $e =~/^<\w/i) {
       $s->print((!$e ||$e =~/<img\s|<hr|<br/i ? '' : $s->_img('-hgen')) .$e .$s->cgi->br ."\n");
    }
-   elsif ($e =~/^([^|]+)\|(_blank)\|(.+)$/i) {
-      my ($c,$t,$u) =($1, $2, $3);
-      $s->print->a({-href=>$u, -target=>$t,-title=>$e}
-                  , $s->_img('_blank') .$s->htmlescape($c) .'&nbsp;&nbsp;&nbsp;')->br;
-   }
-   elsif ($e =~/^([^|]+)\|(_top|_parent)\|(.+)$/i) {
-      my ($c,$t,$u) =($1, $2, $3);
-      $s->print->a({-href=>$u, -target=>$t,-title=>$e}
-                  ,$s->_img('_top') .$s->htmlescape($c) .'&nbsp;')->br;
+   elsif ($e =~/^([^|]+)(\|.+){0,1}?\|(_blank|_top|_parent)\|(.+)$/i) {
+      my ($c,$i,$t,$u) =($1,$2,$3,$4);
+      $t =lc($t);
+      if ($i) {
+         $i =($i !~/\// ? $u .'/' : '') .substr($i,1);
+         $s->print->a({-href=>$u, -target=>$t, -title=>"$c|$t|$u"}, $s->_img($t,"$c|$t|$u"))
+                  ->a({-href=>$i||$u, -title=>$i||$e}, $s->htmlescape($c))
+                  ->a({-href=>$u, -target=>$t, -title=>"$c|$t|$u"}, $p->{-iurl} ? '' : $t eq '_blank' ? '...' : '!')
+                  ->br
+      }
+      else {
+         $s->print->a({-href=>$u, -target=>$t, -title=>$e}
+                     ,$s->_img($t,$e)
+                     .$s->htmlescape($c) 
+                     .($p->{-iurl} ? '' : $t eq '_blank' ? '...' : '!'))
+                  ->br
+      }
    }
    elsif ($e =~/^([^|]+)\|+(.+)$/) {
       my ($c,$u) =($1, $2);
       $s->print->a({-href=>$u,-title=>$c}
-      , $s->_img($u !~m{\w/\w}i ? '-host' : $u =~m{\.(cgi|pl|php|asp)\b}i ? '-hcgi' : '-href') 
+      , $s->_img($u !~m{\w/\w}i ? '-host' : $u =~m{\.(cgi|pl|php|asp)\b}i ? '-hcgi' : '-href', $c) 
       . $s->htmlescape($c))->br;
    }
    else {
-      $s->print->a({-href=>$e,-title=>$e}, $s->_img('-href') .$s->htmlescape($e))->br;
+      $s->print->a({-href=>$e,-title=>$e}, $s->_img('-href',$e) .$s->htmlescape($e))->br;
    }
+   $d =$e;
  }
 
  if (!$s->parent->uguest) {
-    $s->print->br;
+    $s->print->br if $l->[$#{$l}];
     $s->print->a({-href=> $s->qurl('','_run'=>'SETUP')
                  ,-title=>$s->lng(1,'Setup')}
                 ,$s->_img('Setup') .$s->lng(0,'Setup'))->br;
@@ -452,6 +474,9 @@ sub uscollect { # Users Sites Collect
 sub scrusites { # Users Sites Display
  my $s =shift;
  my $p =$s->parent;
+ my $us=shift; 
+    $us =$us ||$p->qparam('USITES') ||'';
+    $us =~s/[^\w\-_\.]/-/gi;
  my $ha={-align=>'left',-valign=>'top'};
  my $hl={-align=>'left',-valign=>'top',-colspan=>10};
  my $lv =0;
@@ -462,11 +487,14 @@ sub scrusites { # Users Sites Display
  $p->print->htpgstart;
  $p->print->startform(-action=>$s->qurl);
 
- $p->print->hidden('_run' =>'USITES');
+ $p->print->hidden('_run'   =>'USITES');
+ $p->print->hidden('USITES' =>$us);
  $s->_usdflt;
+ local $s->{-uspfile} =[map {m/^(.+?)(\.[^\.]+)$/ ? "$1$us$2" : $_} @{$s->{-uspfile}}]
+    if $us;
  $p->print->text('<table width="100%"><tr><td>')
-   ->h1($p->htmlescape($s->lng(0, 'USites')));
- my $tf =$p->fut->mkdir($p->tpath('upws')) .'/usites.pl';
+   ->h1($p->htmlescape($s->lng(0, 'USites') .($us ? " - $us" :'')));
+ my $tf =$p->fut->mkdir($p->tpath('upws')) ."/usites$us.pl";
  if (!-f $tf || $p->param('refresh')) {
     $s->uscollect;
     $p->fut->fdumpstore($tf, $s->{-ushref});

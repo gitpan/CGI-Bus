@@ -1022,6 +1022,13 @@ View rows number default margin.
 Margin of the number of the rows returned by C<-lst> operation
 
 
+=item -logo
+
+Logotype to place at the left of the toolbar. 
+May be image URL or HTML.
+See also C<-tbarl>
+
+
 =item -opflg
 
 Operations allowed letters:
@@ -1169,7 +1176,14 @@ data or field names given.
 if condition needed (user not in C<-sread> or C<-swrite>).
 '-and' option produces ' AND' prefix before not empty condition.
 '-not' option produces 'AND ... NOT IN' behaviour.
+
 User names array ref replaces default or current user names list.
+Sub{}($self,$field,$users) will be evaluated for the field name followed.
+m/^\$_(regexp|rlike)$/i value produces 'REGEXP' or 'RLIKE' 
+MySQL-like expression on user names to match the field followed.
+m/.*\$_.*/ value is treated as a template string to be used for the field 
+followed, with '$_f' and '$_u' placeholders for field and user names.
+
 May be used in C<-fltlst>, C<-fltsel>, C<-filter>.
 
 
@@ -1437,6 +1451,21 @@ C<qparam> call with C<-pxsw> prefixed param names.
 =head1 VERSION
 
 =over
+
+
+=head2 31/08/2002
+
+=item Changed:
+
+C<cmdlst> - fixed parsing of query condition parameters with 
+leading '<>=' operators
+
+C<acltest> - field may contain several user names delimited with commas with 
+spaces allowed. Regular expression is used instead of 'eq' comparison.
+
+C<aclsel> - sub{}, m/^\$_(regexp|rlike)$/i, m/.*\$_.*/ 
+special parameters introduced 
+for the field name followed
 
 
 =head2 05/06/2002

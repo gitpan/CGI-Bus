@@ -7,7 +7,20 @@ CGI::Bus::psp - Perl Script Processor CGI::Bus subobject
 
  use CGI::Bus;
  $s =CGI::Bus->new();
+ $s->userauthopt;
  $s->psp->evalf(filename);
+
+ Or directly in mixed CGI/HTML page:
+
+ #!perl -w
+ use vars qw($s);
+ $s =do("config.pl");
+ $s->userauthopt;
+ $s->psp->evalf($0)
+ __END__
+ <!DOCTYPE html
+ ....
+
 
 =head1 DESCRIPTION
 
@@ -65,6 +78,16 @@ Parse HTML/Perl script file to Perl text.
 =head1 VERSION
 
 =over
+
+=head2 16/09/2002
+
+=item Changed:
+
+C<parse> omits text given before m/<(!DOCTYPE|html|head)/i,
+so mixed CGI/HTML page files may be parsed. 
+Synopsis changed to reflect this feature.
+
+
 
 =head2 15/10/2001 - 08/11/2001
 

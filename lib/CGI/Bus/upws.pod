@@ -178,6 +178,28 @@ are cached inside temporary directory.
 =over
 
 
+=head2 12/09/2002
+
+=item Changed:
+
+C<scrleft> discards duplicate rows to display.
+'label|URL|_target|URL' syntax added to deal with a complex pages.
+Logotype (C<-logo>) enclosed within URL filling the current browser window 
+with C<scrleft>.
+
+
+
+=head2 21/08/2002
+
+=item New:
+
+'USITES' CGI param for C<scrusites> identifier or number
+- to use multiple sets of users home pages, empty parameter
+means default page set
+
+
+
+
 =head2 28/02/2002
 
 =item New:

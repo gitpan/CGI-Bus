@@ -16,8 +16,8 @@ use vars qw(@ISA);
 
 my %img =
     (-lgn=>'small/key.gif' # small/key link
-    ,-nap=>'hand.up.gif'   # hand.up up
-    ,-nup=>'hand.up.gif'
+    ,-nap=>'portal.gif'    # portal hand.up up
+    ,-nup=>'hand.up.gif'   # hand.up up
     ,-nth=>'script.gif'
     ,-bck=>'back.gif'      # back left
     ,-lst=>'text.gif'
@@ -461,7 +461,7 @@ sub cnd    {   # Transaction command SQL condition string
 
 sub htmlbar {  # Transaction batton bar html
  my ($s, $o) =@_;
-    $o =($s->{-opflg} || '<a') if !defined($o);
+    $o =($s->{-opflg} ||($s->parent->uguest ? 'qv' : 'a!v')) if !defined($o);
  my $p =$s->parent;
  my $g =$p->cgi;
  my $r ='';
@@ -471,6 +471,11 @@ sub htmlbar {  # Transaction batton bar html
     $s->{-cmdg} ='-sel'
  }
  my $vm = !$s->{-cmde};
+ if ($s->{-logo}) {
+    $r .=$s->_htmlbare($s->{-logo} !~/<a /i 
+         ? '<a href="' .$p->surl .'">' .($s->{-logo} !~/</ ? '<img src="' .$s->{-logo} .'" alt="" border=0 title="' .$s->lng(1,'-nap') .'" />' : $s->{-logo}) .'</a>' 
+         : $s->{-logo});
+ }
  if ((!$ENV{HTTP_REFERER}
      ||eval {my $rfr =lc(($ENV{HTTP_REFERER}||'') =~/^(.+?)\/([^\/]+)$/ ? $1 : $ENV{HTTP_REFERER}) ||'';
        lc(substr($s->parent->url, 0, length($rfr))) ne $rfr}) 
@@ -479,11 +484,11 @@ sub htmlbar {  # Transaction batton bar html
     $r .=$s->_htmlbare(-lgn => $s->uauth->authurl);
  }
  if (index($o,'<') >=0) {
-    $r .=$s->_htmlbare(-nap, $g->url =~/(.+?)[\/][^\/]+/ ? $1 :$s->burl);
+    $r .=$s->_htmlbare(-nap, $p->surl) if !$s->{-logo};
     my $nth =$s->qurl;
     my $nup =$s->qparamsw('REFERER') ||$ENV{HTTP_REFERER} ||($s->burl .'/');
        $nup =$s->burl .'/' if lc(substr($nup,0,length($nth))) eq lc($nth);
-    $r .=$s->_htmlbare(-nup, $nup);
+  # $r .=$s->_htmlbare(-nup, $nup);
     $r .=$s->_htmlbare(-nth, $nth);
  }
  if ($s->{-tbarl}) {
@@ -1083,7 +1088,7 @@ sub cmdhlp { # Help Command
     , $s->{-formtgf} ? '' :$s->_htmlbare(-bck=> $p->{-iurl} && $img{-bck} ? $p->qurl : 0, -onClick=>'{window.history.back(); return(false)}')
     , '</td><th valign="middle"><strong>'
   # , $s->_img('-hlp')
-    , $s->htmlescape($s->lng(0, $sh) .($t ? " - $t" : ''))
+    , $s->htmlescape(($t ? "$t - " : '') .$s->lng(0, $sh))
     , "</strong></th></tr></table><hr />\n";
  }
  if ($o =~/[fo]/ && $s->{-form}) {
@@ -1095,9 +1100,9 @@ sub cmdhlp { # Help Command
     foreach my $f (@{$s->{-form}}) {
        next if !$f || ref($f) ne 'HASH' || !$f->{-fld} || !$f->{-cmt};
        print "<tr>";
-       print $g->td($ta, $s->htmlescape('[' .$f->{-flg} .']'));
+       print $g->td($ta, '<code>' .$s->htmlescape('[' .$f->{-flg} .']') .'</code>');
        print $g->th($ta, $s->htmlescape($f->{-lbl}||$f->{-fld}));
-       print $g->td($ta, $s->htmlescape($f->{-fld}));
+       print $g->td($ta, '<code>' .$s->htmlescape($f->{-fld}) .'</code>');
        print $g->td($ta, $s->htmlescape($f->{-cmt})
                        .($f->{-col} && $f->{-col} =~/\(/ 
                         ? ('<br /><code> = ' .$s->htmlescape($f->{-col}) .'</code>')
@@ -1145,8 +1150,9 @@ sub cmdhlp { # Help Command
     print $g->h2($s->htmlescape($s->lng(0, $sh))),"\n";
     $sh =$s->lng(1, $sh);
     print $g->p($s->htmlescape($sh)),"\n" if $sh;
-    print "<table>\n";
-    foreach my $c (qw(-nap -nup -bck -lst -qry -crt -sel -frm -ins -upd -del -hlp)) {
+    print "<table>\n"; # -nup
+    foreach my $c (index($s->{-opflg}||'','<') >=0 ? qw(-nap -nth) : ()
+                  ,qw(-bck -lst -qry -crt -sel -frm -ins -upd -del -hlp)) {
        next if !$s->lng($c);
        print "<tr>";
        print $g->th($ta

@@ -15,7 +15,7 @@ sub lngbase {
  (-lgn=>['Login',  'Login to the System']
  ,-nap=>['Top',    'The topmost level']
  ,-nup=>['Up',     'An upper level']
- ,-nth=>['This',   'This application hyperlink']
+ ,-nth=>['Reset',  'This application default']
  ,-bck=>['Back',   'Back to previous screen']
  ,-lst=>['List',   'List records under query condition']
  ,-lsr=>['List',   'List records']
