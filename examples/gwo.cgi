@@ -125,22 +125,27 @@ $s->tmsql->set(
         ,-lbl=>'End', -cmt=>'End or Due time of Record described by'
         ,-crt=>sub{$_[0]->strtime}, -null=>'', -inp=>{-maxlength=>20}
         ,-inphtml=>'<nobr>$_</nobr>'
+        ,-clst=>sub{$_ =~/^([^\s]+)[\s0:]*$/ ? $1 : $_}
         }
  ,''
  ,{-flg=>'a"',  -fld=>'stime'
         ,-lbl=>'Start', -cmt=>'Start time of Record described by'
         ,-null=>'', -inp=>{-maxlength=>20}
         ,-inphtml=>'<nobr>$_</nobr>'
+        ,-clst=>sub{$_ =~/^([^\s]+)[\s0:]*$/ ? $1 : $_}
         }
  ,{-flg=>'ls"', -fld=>'ftime'
-         ,-lbl=>'Finish', -cmt=>'Time finished or to finish or edited'
-         ,-col=>'COALESCE(gwo.etime, gwo.utime)'}
+        ,-lbl=>'Finish', -cmt=>'Time finished or to finish or edited'
+        ,-col=>'COALESCE(gwo.etime, gwo.utime)'
+        ,-clst=>sub{$_ =~/^([^\s]+)[\s0:]*$/ ? $1 : $_}
+        }
  ,{-flg=>'ls"', -fld=>'otime'
-         ,-lbl=>'Ord', -cmt=>'Time to order records by'
-         ,-col=>"IF(gwo.status = 'edit' OR (gwo.status = 'do' AND "
-         ."(stime IS NULL OR stime <='" .$s->strtime('yyyy-mm-dd')."') "
-         ."), 'do', gwo.utime)"
-         }
+        ,-lbl=>'Ord', -cmt=>'Time to order records by'
+        ,-col=>"IF(gwo.status = 'edit' OR (gwo.status = 'do' AND "
+        ."(stime IS NULL OR stime <='" .$s->strtime('yyyy-mm-dd')."') "
+        ."), 'do', gwo.utime)"
+        ,-clst=>sub{$_ =~/^([^\s]+)[\s0:]*$/ ? $1 : $_}
+        }
  ,{-flg=>'a"',  -fld=>'record'
         ,-lbl=>'Record', -cmt=>'Record type'
         ,-crt=>sub{$_}, -null=>''
@@ -163,8 +168,9 @@ $s->tmsql->set(
         ,-lbl=>'Subject', -cmt=>'Subject or Title followed by optional |URL or |_blank|URL'
         ,-crt=>sub{$_}
         ,-inp=>{-asize=>89, -maxlength=>255}, -colspan=>10
-        ,-lblhtml=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*(\w{3,5}:\/\/.+)/ ? $_[0]->a({-href=>$3,-target=>$2,-title=>'Open URL'},'$_') : '$_'}
-        ,-clst=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*(\w{3,5}:\/\/.+)/ ? $_[0]->a({-href=>$3,-target=>$2},$_[0]->htmlescape($1)) : $_[0]->htmlescape($_)}
+        ,-lblhtml=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*((\w{3,5}:\/\/|\/).+)/ ? $_[0]->a({-href=>$3,-target=>$2,-title=>'Open URL'},'$_') : '$_'}
+      # ,-inphtml=>'<STRONG>$_</STRONG>'
+        ,-clst=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*((\w{3,5}:\/\/|\/).+)/ ? $_[0]->a({-href=>$3,-target=>$2},$_[0]->htmlescape($1)) : $_[0]->htmlescape($_)}
         }
  ,{-flg=>'a"',  -fld=>'comment'
         ,-lbl=>'Comment', -cmt=>'Comment text'
@@ -185,6 +191,11 @@ $s->tmsql->set(
  ,'AllActual'=>   {-lbl=>,'All Actual', -cmt=>'All actual records available'
                   ,-fields=>[qw(ftime status record object subject)]
                   ,-orderby=>'ftime desc, ctime desc'
+                  ,-where=>"status NOT IN('deleted','template') AND gwo.idnv is NULL"}
+ ,'AllTimeline'=> {-lbl=>,'All Timeline', -cmt=>'Timeline chart for all actual records'
+                  ,-fields=>[qw(status record object subject auser arole), "DATE_FORMAT(stime,'%Y-%m-%d')", "DATE_FORMAT(etime,'%Y-%m-%d')"]
+                  ,-gant1=>'stime', -gant2=>'etime'
+                  ,-orderby=>'auser, arole, stime, etime'
                   ,-where=>"status NOT IN('deleted','template') AND gwo.idnv is NULL"}
  ,'AllToDo'=>     {-lbl=>'All ToDo', -cmt=>'All records to do'
                   ,-fields=>[qw(ftime status record object subject)]
@@ -327,8 +338,8 @@ $s->tmsql->set(
 # Filter Description
 #
 $s->tmsql->set(-fltlst =>sub{$_[0]->aclsel('-',qw(puser prole auser arole rrole),$_[0]->unames,qw(cuser uuser))});
-#$s->tmsql->set(-ftext  =>'MATCH (gwo.object, gwo.doctype, gwo.subject, gwo.comment) AGAINST ($_)');
-$s->tmsql->set(-ftext  =>'(gwo.object LIKE %$_ OR gwo.doctype LIKE %$_ OR gwo.subject LIKE %$_ OR gwo.comment LIKE %$_)');
+$s->tmsql->set(-ftext  =>'MATCH (gwo.object, gwo.doctype, gwo.subject, gwo.comment) AGAINST ($_)');
+$s->tmsql->set(-ftext  =>'(' .join(' OR ', map {"gwo.$_ LIKE \%\$_"} qw(object doctype subject comment cuser uuser puser prole auser arole rrole)) .')');
 #
 #
 #
@@ -345,10 +356,10 @@ $s->tmsql->set(-cmdfrm =>sub{  # view related records in record form
 #
 #
 #
-my $mailsend =sub {            # mail send sub
+$s->tmsql->set(-rowsav1=>sub { # mail send
     my $s =shift;
-    return if !$s->param('mailto');
-    return if  $s->param('status') =~/edit|template|deleted/;
+    return($s) if !$s->param('mailto');
+    return($s) if  $s->param('status') =~/edit|template|deleted/;
     my $subj =join(' ', map {$s->param($_)} qw(record object doctype subject));
     $s->smtp(-host=>'localhost',-domain=>$s->server_name()
      )->mailsend(
@@ -356,26 +367,14 @@ my $mailsend =sub {            # mail send sub
        ,"Subject: " .$s->cptran('1251','koi8',$subj)
        ,[split /\s*[;,]\s*/, $s->param('mailto')]
        ,"MIME-Version: 1.0"
-       ,"Content-type: text/html; charset=windows-1251"
-       ,$s->htpgstart()
+       ,"Content-type: text/html; charset=windows-1251\n"
+       ,$s->start_html($s->parent->{-htmlstart})  # $s->htpgstart()
        ,$s->htmlself(-sel=>'id'=>$s->param('id'),$subj),'<BR>'
        ,$s->{-fields}->{'comment'}->{-htmlopt} && $s->ishtml($s->param('comment'))
         ? $s->param('comment') : $s->htmlescape($s->param('comment'))
        ,$s->htpgend()
        );
-};
-#
-#
-#
-$s->tmsql->set(-cmdins =>sub { # mail send on insert
-    my $s =shift;
-  # local $_ =$s->qparam('id');
-  # my    $c =$s->{-fields}->{'id'}->{-cdbi};
-  # delete    $s->{-fields}->{'id'}->{-cdbi};
-  # $s->qparam('id', &$c($s, ''));
-    $s->cmdins(); # swap with mailsend
-    &$mailsend($s,@_);
-  # $s->{-fields}->{'id'}->{-cdbi} =$c;
+    $s
 });
 #
 #
@@ -398,13 +397,12 @@ $s->tmsql->set(-cmdupd =>sub{  # periodical records on update
        $s->cmdins  (undef,'','-pxpv');
        $s->qparam  ($sv);
        $s->qparam  ('period','');
-       sleep(1); # for proper old version key generation !!!
+       sleep(1); # !!! for proper old version key generation !!!
        $s->cmdupd('-gx!s');
     }
     else {
        $s->cmdupd()
     }
-    &$mailsend($s,@_);         # mail send on update
 });
 #
 # Run Application

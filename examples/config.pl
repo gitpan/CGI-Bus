@@ -26,6 +26,7 @@ $s =CGI::Bus->new($s);
 
  $s->udata(-path=>$s->dpath('udata'));          # users data path
 #$s->set  (-login=>$s->burl('uauth.cgi'));      # login script
+#$s->set  (-login=>$s->surl('cgi-bin/ntlm/cgi-bus/'));
  $s->set  (-login=>$s->surl('cgi-bin/cgi-bus/a/'));
  $s->set  (-usercnv=>sub{lc($_[0]->usercn($_))} # user names conversion
           ,-ugrpcnv=>sub{$_[0]->usercn($_)}     # group names conversion

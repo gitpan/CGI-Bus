@@ -74,19 +74,26 @@ $s->tmsql->set(
           }
         ,-null=>'', -inp=>{-maxlength=>60}
         ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Open Users'},-lst=>,$_[0]->pxsw('LIST'),'Users','$_')}
-        ,-inphtml=>sub{'$_' .$_[0]->htmlddlb('auser_',sub{$_[0]->uglist({})}, qw(prole rrole))}
+        ,-inphtml=>sub{'$_' .$_[0]->htmlddlb('auser_',sub{$_[0]->uglist({})}, qw(prole rrole),"\tmailto")}
         }
  ,''
  ,{-flg=>'a"',  -fld=>'rrole'
         ,-lbl=>'Reader', -cmt=>'Reader Role, Group of Readers of the Note'
         ,-crt=>sub{$_}, -null=>'', -inp=>{-maxlength=>60}
         }
+ ,"\t","\t"
+ ,{-flg=>'ce"',  -fld=>'mailto'
+        ,-lbl=>'eMailTo', -cmt=>'Receipients of e-mail about this record, not stored in database'
+        ,-hide=>sub{!$_ ||!$_[0]->{-cmde}}
+        ,-null=>'', -inp=>{-asize=>20, -maxlength=>255}, -colspan=>10
+        }
  ,{-flg=>'am"', -fld=>'subject'
         ,-lbl=>'Subject', -cmt=>'Subject or Title followed by optional |URL or |_blank|URL'
         ,-crt=>sub{$_}
         ,-inp=>{-asize=>89, -maxlength=>255}, -colspan=>10
-        ,-lblhtml=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*(\w{3,5}:\/\/.+)/ ? $_[0]->a({-href=>$3,-target=>$2,-title=>'Open URL'},'$_') : '$_'}
-        ,-clst=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*(\w{3,5}:\/\/.+)/ ? $_[0]->a({-href=>$3,-target=>$2},$_[0]->htmlescape($1)) : $_[0]->htmlescape($_)}
+        ,-lblhtml=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*((\w{3,5}:\/\/|\/).+)/ ? $_[0]->a({-href=>$3,-target=>$2,-title=>'Open URL'},'$_') : '$_'}
+      # ,-inphtml=>'<STRONG>$_</STRONG>'
+        ,-clst=>sub{$_ && /^([^\|]+)\s*\|\s*(_blank|)[\s|]*((\w{3,5}:\/\/|\/).+)/ ? $_[0]->a({-href=>$3,-target=>$2},$_[0]->htmlescape($1)) : $_[0]->htmlescape($_)}
         }
  ,{-flg=>'a"',  -fld=>'comment'
         ,-lbl=>'Comment', -cmt=>'Comment text'
@@ -204,7 +211,7 @@ $s->tmsql->set(
 # Filter Description
 #
 $s->tmsql->set(-fltlst =>sub{$_[0]->aclsel('-',qw(prole rrole),$_[0]->unames,qw(cuser uuser))});
-$s->tmsql->set(-ftext  =>'(notes.subject LIKE %$_ OR notes.comment LIKE %$_)');
+$s->tmsql->set(-ftext  =>'(' .join(' OR ', map {"notes.$_ LIKE \%\$_"} qw(subject comment cuser uuser prole rrole)) .')');
 #
 #
 #
@@ -216,6 +223,29 @@ $s->tmsql->set(-cmdfrm =>sub{  # view related records in record form
        $s->cmdlst('-gxm!q','AllActual'
          ,'notes.idrm=' .$s->dbi->quote($s->qparam('id')))
     }
+});
+#
+#
+#
+$s->tmsql->set(-rowsav1=>sub { # mail send
+    my $s =shift;
+    return($s) if !$s->param('mailto');
+    return($s) if  $s->param('status') =~/edit|template|deleted/;
+    my $subj =join(' ', map {$s->param($_)} qw(subject));
+    $s->smtp(-host=>'localhost',-domain=>$s->server_name()
+     )->mailsend(
+        "From: "    .$s->user
+       ,"Subject: " .$s->cptran('1251','koi8',$subj)
+       ,[split /\s*[;,]\s*/, $s->param('mailto')]
+       ,"MIME-Version: 1.0"
+       ,"Content-type: text/html; charset=windows-1251\n"
+       ,$s->start_html($s->parent->{-htmlstart})  # $s->htpgstart()
+       ,$s->htmlself(-sel=>'id'=>$s->param('id'),$subj),'<BR>'
+       ,$s->{-fields}->{'comment'}->{-htmlopt} && $s->ishtml($s->param('comment'))
+        ? $s->param('comment') : $s->htmlescape($s->param('comment'))
+       ,$s->htpgend()
+       );
+    $s
 });
 #
 #

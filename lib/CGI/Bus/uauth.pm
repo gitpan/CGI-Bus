@@ -103,7 +103,7 @@ sub ugroups { # User groups
      # !!! Command above is from Windows Resource Kit !!!
      # $s->pushmsg('ugroups via findgrp.exe');
        foreach my $v (@g) {
-          next if !$v || $v =~/^\s*(User|Findgrp)[:]*\s/i;
+          next if !$v || $v =~/^\s*$/ || $v =~/^\s*(User|Findgrp)[:]*\s/i;
           $v =$1 if $v =~/^\s*([^\n]+)/;
           push @$u,$v
        }

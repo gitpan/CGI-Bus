@@ -247,6 +247,20 @@ sub cmdsql { # Insert / Update / Delete Record
  my $swps =''; #           where  parameters string
  my $ipns =''; # input parameter names string
  my $ipvs =''; #                 values string
+
+ if ($opt =~/[gp]/) {         # Evaluate Form
+    foreach my $f (@{$s->{-form}}) {               # convert field values
+      next if !ref($f) || ref($f) eq 'CODE' || $f->{-tbl} || !$f->{'-cdb' .$op};
+      local $_ =$s->param($pxcv .$f->{-fld});
+      $s->param($pxcv .$f->{-fld}, &{$f->{'-cdb' .$op}}($s, $pxcv));
+    }
+
+    if ($opt =~/[x]/) {                            # assure before SQL trigger
+        $s->die($s->lng(1,'op!let',$s->lng(0,$cmd)) ."\n") 
+        if ($s->{-rowsav1} && !$pxcv && !&{$s->{-rowsav1}}($s,$cmd,$opt,$pxpv,$pxcv))
+        || ($s->{-rowsav2} &&           !&{$s->{-rowsav2}}($s,$cmd,$opt,$pxpv,$pxcv));
+    }
+ }
  
  if ($opt =~/[gp]/) {         # Parse Form
     foreach my $f (@{$s->{-form}}) { 
@@ -256,11 +270,6 @@ sub cmdsql { # Insert / Update / Delete Record
       if ($f->{-tbl}) {                            # turn on table
          $st  =$f;
          next
-      }
-
-      if ($f->{'-cdb' .$op}) {                     # convert before
-         local $_ =$s->param($pxcv .$f->{-fld});
-         $s->param($pxcv .$f->{-fld}, &{$f->{'-cdb' .$op}}($s, $pxcv));
       }
 
       if ($op =~/[iu]/ && $f->{-flg} =~/[a$op]/    # update string
@@ -348,6 +357,9 @@ sub cmdsql { # Insert / Update / Delete Record
          $s->param($pxcv .$f->{-fld}, &{$f->{'-cdb' .$op .'a'}}($s, $pxcv));
       }
     }
+
+    &{$s->{-rowsav1a}}($s,$cmd,$opt,$pxpv,$pxcv) if $s->{-rowsav1a} && !$pxcv;
+    &{$s->{-rowsav2a}}($s,$cmd,$opt,$pxpv,$pxcv) if $s->{-rowsav2a};
  }
 }
 
@@ -886,7 +898,8 @@ sub cmdlst { # List Data
     if ($vwfa) {
        for (my $i =0; $i <=$#$vwfa; $i++) {
            if (!defined($sfdl->[$i])) {
-              $sfdl->[$i] ={-fld=>$vwfa->[$i], -colns=>$vwfa->[$i]};
+            # $sfdl->[$i] ={-fld=>$vwfa->[$i], -colns=>$vwfa->[$i]};
+              $sfdl->[$i] ={-colns=>$vwfa->[$i]};
               push @$ufnl, $i if $vwfk && grep {$_ eq $vwfa->[$i]} @$vwfk;
            }                             
        }
@@ -899,7 +912,7 @@ sub cmdlst { # List Data
  if ($opt =~/[g]/) {          # Assembly SQL Select Statement
 
     # Assembly Select list
-    $sfs =join(', ',map {$_->{-colns} .' AS ' .$_->{-fld}} @$sfdl);
+    $sfs =join(', ', map {$_->{-colns} .($_->{-fld} ? ' AS ' .$_->{-fld} : '')} @$sfdl);
 
     # Assembly Where Part of SQL Select
     foreach my $v (($opt !~/!q/ ? $swps :'') 
@@ -923,6 +936,10 @@ sub cmdlst { # List Data
        $sws  .=(!$sws  ? '' : ' AND ') ."($c)";
        $swts .=(!$swts ? '' : ' AND ') ."($c)"
     }
+    if ($vw && $vw->{-gant1}) {
+       $sws  .=(!$sws  ? '' : ' AND ') 
+             .'(' .join(' AND ', map {"$_ IS NOT NULL"} $vw->{-gant1}, $vw->{-gant2}) .')'
+    }
     $s->{-genwhr}  =$sws;
     $s->{-genfrom} =$sts;
 
@@ -932,13 +949,18 @@ sub cmdlst { # List Data
     # Assembly SQL Select Statement
     my $lr =!$s->dbi ? undef : ($s->qparamsw('LIMIT') ||$s->{-listrnm});
     $s->{-gensel} =
-           'SELECT ' 
-          .$sfs .' FROM ' .$sts
+          ' FROM ' .$sts
           .($sws ? " WHERE $sws " : '')
           .($vw && $vw->{-groupby} ? ' GROUP BY ' .$vw->{-groupby} .' ' :'')
           .($sobs ? " ORDER BY $sobs " :'')
           .(!$lr ? '' : eval{$s->dbi->{Driver}->{Name} eq 'mysql'} ? (' LIMIT ' .($lr+1) .' ') : '')
           ;
+    $s->{-genselg} =$vw && $vw->{-gant1}
+         ? 'SELECT MIN(' .$vw->{-gant1} .'), MAX(' .$vw->{-gant2} .') ' .$s->{-gensel}
+         : '';
+    $s->{-gensel} =
+           'SELECT ' .$sfs .($vw && $vw->{-gant1} ? ', ' .join(', ', $vw->{-gant1}, $vw->{-gant2}) : '')
+          .$s->{-gensel};
     $s->{-genselt} =$swts;
  }
 
@@ -960,7 +982,24 @@ sub cmdlst { # List Data
        print "<hr />\n"; # if ($vw && $vw->{-cmt}) ||$s->{-genselt};
     }
     my $c;
+    my ($gt1, $gt2, $gm1, $gm2, $gi1, $gi2, $gv1, $gv2, $gs0);
     if (!$dsub) {
+       if ($s->{-genselg}) {
+          eval('use POSIX');
+          $s->pushmsg($s->{-genselg});
+          $c =$s->dbi->prepare($s->{-genselg});
+          $c->execute;
+          if ($gt2 =$c->fetchrow_arrayref) {
+             $gt1 =$gt2->[0];
+             $gt2 =$gt2->[1];
+             $gm1 =int($gt1 =~/(\d+)-(\d+)-(\d+)\s*(\d*):(\d*):(\d*)/ && (POSIX::mktime($6, $5, $4, $3, $2-1, $1 -1900)/86400));
+             $gm2 =int($gt2 =~/(\d+)-(\d+)-(\d+)\s*(\d*):(\d*):(\d*)/ && (POSIX::mktime($6, $5, $4, $3, $2-1, $1 -1900)/86400));
+             $gs0 =$vw && $vw->{-htmlg1}
+                  ?$vw->{-htmlg1}
+                  :'<td valign=top bgcolor=gray>-</td>';
+             $s->pushmsg("$gm1, $gm2 gant margins retrieved")
+          }
+       }
        $s->pushmsg($s->{-gensel});
        $c =$s->dbi->prepare($s->{-gensel});
        $c->execute;
@@ -979,20 +1018,56 @@ sub cmdlst { # List Data
     my $mr =$#{$vfnl};
        $mh =$mr if $mh <0;
     local $_;
-    print "<table>\n";
+    print $vw && $vw->{-htmlts}
+        ? $vw->{-htmlts}
+        : $s->{-genselg}
+        ? "<font size=-1>\n<table rules=rows frame=void>\n"
+        : "<table>\n";
     if ($opt !~/m/) {
        print '<tr>';
-       foreach my $i (@$vfnl) {
-         print $g->th({-align=>'left',-valign=>'top'}
+       print map {
+             $g->th({-align=>'left',-valign=>'top'}
                      # ,-style=>"{border-bottom-style:groove;border-width:thin}"
                      # ;border-color:buttonshadow
-           , $p->htmlescape($sfdl->[$i]->{-lbl}||$sfdl->[$i]->{-fld}||'(0)'));
+          # ,$p->htmlescape($sfdl->[$_]->{-lbl}||$sfdl->[$_]->{-fld}||''));
+            ,$p->htmlescape($sfdl->[$_]->{-lbl}||''));
+           } @$vfnl;
+       if ($s->{-genselg}) {
+        # print $g->td({-align=>'left',-valign=>'top',-colspan=>20}, $gt1 =~/^([^\s]+)/ ?$1 :$gt1);
+          my $r ='';
+          for (my $gt=$gm1; $gt <=$gm2; $gt +=1) {
+             my @gt =gmtime($gt*86400);
+             $r .= $gt[3] ==1 
+                 ? $g->td({-align=>'left',-valign=>'bottom', -colspan=>20}, $p->strtime('|yyyy-mm-dd',@gt)) 
+                 : '<td></td>';
+          }
+          print $r;
+          print "</tr><tr>\n", '<th></th>' x ($#{$vfnl}+1);
+          $r ='';
+          for (my $gt=$gm1; $gt <=$gm2; $gt +=1) {
+             my @gt =gmtime($gt*86400);
+             $r .= $gt[6] ==0 ||$gt[6] ==6
+                 ? $g->td({-align=>'left',-valign=>'top'},'s')
+                 : $gt[6] ==1
+                 ? $g->td({-align=>'left',-valign=>'top',-colspan=>3}, sprintf('%02d',$gt[3]))
+                 : $gt[6] ==2 || $gt[6] ==3
+                 ? ''
+                 : '<td></td>';
+          }
+          print $r;
        }
        print "</tr><tr></tr>\n";
     }
     if (!$dsub) {
        $r =[];
-       @$r[0..$#{$sfdl}] =();
+       if ($s->{-genselg}) {
+          @$r[0..($#{$sfdl}+ 2)] =();
+          $gi1 =$#{$sfdl} +1;
+          $gi2 =$#{$sfdl} +2;
+       }
+       else {
+          @$r[0..$#{$sfdl}] =();
+       }
        $c->bind_columns(undef,\(@$r));
     }
     while (!$dsub ? $c->fetch : ($r =shift @$dsub)) {  # !!! Optimize ???
@@ -1016,12 +1091,22 @@ sub cmdlst { # List Data
               :$g->escapeHTML($_);
            ('<td valign=top>', (!defined($_) ? '&nbsp;' : $_), '</td>');
          } @$vfnl[$mh+1..$mr])
+        ,($gi2
+         && ($gv1 =int($r->[$gi1] =~/(\d+)-(\d+)-(\d+)\s*(\d*):(\d*):(\d*)/ && (POSIX::mktime($6, $5, $4, $3, $2-1, $1 -1900)/86400)))
+         && ($gv2 =int($r->[$gi2] =~/(\d+)-(\d+)-(\d+)\s*(\d*):(\d*):(\d*)/ && (POSIX::mktime($6, $5, $4, $3, $2-1, $1 -1900)/86400)))
+         ? ('<td></td>' x($gv1 -$gm1 +1)
+           , $gs0 x($gv2 -$gv1))
+         : ())
         ,"</tr>\n";
        if (++$rc >=$lr) {
           last
        }
     }
-    print "</table>\n";
+    print $vw && $vw->{-htmlte}
+        ? $vw->{-htmlte}
+        : $s->{-genselg}
+        ? "</table></font>\n"
+        : "</table>\n";
     $s->pushmsg($s->{-genlstm} =$rc <=$lr ? $s->lng(1,'rfetch',$rc) : $s->lng(1,'rfetchf',$lr));
     $c->finish if $c;
  }

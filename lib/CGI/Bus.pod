@@ -1084,6 +1084,39 @@ See also C<Error and Message processing>, L<CGI::Carp|CGI/Carp>
 
 =over
 
+=head2 07/05/2002 - 18/05/2002
+
+
+=item New
+
+ - tmsql.pm- '-htmlts', '-htmlte', '-gant1', '-gant2', '-htmlg1' view slots.
+ - tmsql.pm: '-rowsav1' and '-rowsav2' events.
+
+
+=item Changed
+
+ - gwo.cgi - timeline chart view using '-gant1' and '-gant2' view slots.
+ - gwo.cgi - mailsend code improved using '-rowsav1' event.
+ - uauth.pm - filtered rows with space chars only 'findgrp.exe' may return.
+ - tm.pm - textarea fields displays linebreaks when viewed
+ - tm.pm - 'Select' command turns to view mode from edit mode, 
+           'Edit' command removed from edit mode; 
+           '!s'elect command button '-opflg' flag
+ - Bus.pm - '-debug=>3' recurse loop corrected
+
+=item Issue on tm.pm record 'Select' and 'Edit' command buttons
+
+'Select' command may to be removed, 
+'Edit' command may to be restricted to appear when record viewing only.
+'Select' may be replaced with 'refresh' browser action when record viewing.
+'Select' may be useful to reject changes, but it is not very required.
+'Select' may be useful to select record when it's key is available, so some flag
+in '-opflg' should be used to turn it on or off.
+'Edit' command when editing loses changes and may be useful only to preview HTML
+entered by user. 'Edit' may be also associated with 'Select' when record editing.
+
+
+
 =head2 05/04/2002 - 06/05/2002
 
 =item New & Changed

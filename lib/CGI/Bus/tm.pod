@@ -297,11 +297,14 @@ Margin of the number of the rows returned by C<-lst> operation
 =item -opflg
 
 Operations allowed letters:
-'<' leftmost left navigation action bar from C<htmlbar>,
-'a'll,
-'c'reate,'e'dit,'v'iew record, '!v'iew record mode,
-'i'nsert,'u'pdate,'d'elete,'s'elect record,
-'l'ist records,'q'uery condition
+'<' leftmost left navigation action bar from C<htmlbar>;
+'a'll:
+'c'reate/'i'nsert,
+'e'dit/'u'pdate,
+'d'elete record;
+'s'elect record (?), '!s'elect record button;
+'v'iew record, '!v'iew record mode;
+'l'ist records, 'q'uery condition
 
 
 
@@ -352,6 +355,24 @@ C<-rowupd> and C<-rowdel> (and C<-rowsav> in this cases)
 are to evaluate when previous values
 of fields are fetched to C<-pxpv> parameters.
 Partially RESERVED.
+
+
+=item -rowsav1
+
+=item -rowsav2
+
+=item -rowsav1a
+
+=item -rowsav2a
+
+Like C<-rowsav>, but immediatelly before or 'a'fter database (SQL) command
+generation and execution.
+Actual field values to be used for or 'a'fter database command are 
+available as L<CGI|CGI> params.
+C<-rowsav1> is used for edited record only 
+(new value fieldnames not prefixed).
+C<-rowsav2> is used for each database command 
+(new value fieldnames may be prefixed).
 
 
 =item -tbarl
@@ -550,6 +571,22 @@ C<qparam> call with C<-pxsw> prefixed param names.
 =head1 VERSION
 
 =over
+
+=head2 16/05/2002
+
+=item New
+
+C<-rowsav1> and C<-rowsav2> events inside C<cmdsql>.
+
+
+=head2 07/05/2002
+
+=item Changed
+
+ - textarea fields displays linebreaks when viewed
+ - 'Select' and 'Edit' command buttons appearance
+ - '!s'elect record button '-opflg' value
+
 
 =head2 05/04/2002 - 06/05/2002
 

@@ -217,6 +217,12 @@ See also C<usdomain>.
 
 =over
 
+=head2 16/05/2002
+
+=item Changed
+
+Filtered rows with space chars only 'findgrp.exe' may return.
+
 
 =head2 28/04/2002
 

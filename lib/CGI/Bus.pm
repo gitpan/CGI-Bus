@@ -13,7 +13,7 @@ use CGI::Carp qw(fatalsToBrowser);
 
 
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $AUTOLOAD);
-$VERSION = '0.51';
+$VERSION = '0.52';
 
 use vars qw($SELF);
 
@@ -343,6 +343,7 @@ sub microtest{# Microtest of the Object
  $s->print->text($s->htmlescape("\$0  = '$0'"))->br;
  $s->print->text($s->htmlescape("\$^V = '$^V'"))->br;
  $s->print->text($s->htmlescape("\$^X = '$^X'"))->br if $^X;
+ local $s->{-debug} =0;
  $s->print->htpgend();
 }
 

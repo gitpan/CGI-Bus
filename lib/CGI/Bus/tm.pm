@@ -85,6 +85,8 @@ sub initialize {
  #,-rowsel =>undef     # Row Select to view allow
  #,-rowedt =>undef     # Row Edit mode allow
  #,-rowsav =>undef    ## Row Save allow
+ #,-rowsav1=>undef    ## Row Save allow before SQL for edited record
+ #,-rowsav2=>undef    ## Row Save allow before each SQL
  #,-rowins =>undef    ## Row Insert allow
  #,-rowupd =>undef    ## Row Update allow
  #,-rowdel =>undef    ## Row Delete allow
@@ -305,6 +307,9 @@ sub cmd {      # Transaction command schema
        last if $s->{-cmdg} && !grep {$s->{-cmdg} eq $_} qw(-frm -ins -upd);
        $s->{-cmdg} =$v
     }
+    if (($s->{-opflg} !~/!v/ ||$s->{-opflg} =~/[av]/) && $s->{-cmd} eq '-sel') {
+       $g->delete($s->pxsw('EDIT')) # !!! !v <-> [av] !!!
+    }
     if ($s->{-cmd} eq '-edt') {
        $s->{-cmd} =$s->{-cmdg} ='-sel';
      # $s->{-cmd} ='-frm';
@@ -493,6 +498,10 @@ sub htmlbar {  # Transaction batton bar html
                           : '{' .$s->pxnme(-pxcb=>'-cmdi') .'.value="-lst"; submit(); return(false);}')
                       ))
              if $s->{-lists} && scalar(keys %{$s->{-lists}}) >1;
+    $r .=$s->_htmlbare($p->htmltextfield(-name =>$s->pxsw('FTEXT')
+                      ,-title=>$s->lng(1,'F-TEXT')
+                      ,-asize=>4)) 
+             if $s->{-ftext};
     $r .=$s->_htmlbare('-lst');
     $r .=$s->_htmlbare('-qry') if $o =~/[aq]/;
  }
@@ -509,8 +518,11 @@ sub htmlbar {  # Transaction batton bar html
  }
  if (!$s->cmdg('-lst','-qry')) {
     $r .=$s->_htmlbare('-lsr') if !$s->{-formtgf};
-    $r .=$s->_htmlbare('-sel') if $o =~/[aev]/ && $s->cmdg eq '-sel';
-    $r .=$s->_htmlbare('-edt') if $o =~/[av]/  && $s->cmdg eq '-sel' && $o !~/!v/;
+
+    # !!! '-sel' may be useful; '-edt' does not saves changes; see 'cmd' -sel transition
+    $r .=$s->_htmlbare('-sel') if $o =~/[aev]/ && $s->cmdg eq '-sel' && $o !~/!s/;
+    $r .=$s->_htmlbare('-edt') if $o =~/[av]/  && $s->cmdg eq '-sel' && $o !~/!v/ && $vm;
+
     $r .=$s->_htmlbare('-frm') if $o =~/[aeu]/ && $s->cmdg ne '-del' && !$vm;
     $r .=$s->_htmlbare('-upd') if $o =~/[aeu]/ && $s->cmdg eq '-sel' && !$vm;
     $r .=$s->_htmlbare('-ins') if $o =~/[aci]/ && $s->cmdg ne '-del' && !$vm;
@@ -539,7 +551,7 @@ sub htmlbar {  # Transaction batton bar html
              .']&nbsp;';
     $r .="</td>\n"
  }
- $r  ="<table cellpadding=0><tr>\n" .$r ."</tr></table>\n"; #BGCOLOR="red"
+ $r  ="<table cellpadding=0><tr>\n" .$r ."</tr></table>\n";
 #$r .='<hr />';
  $r
 }
@@ -956,7 +968,16 @@ sub cmdfrm { # Record form for Query or Edit
                $wgp .=$p->htmlescape($`)
                     . $g->a({-href=>$r},$p->htmlescape($r));
             }
-            $wgp .=$p->htmlescape($v);
+            $v =$p->htmlescape($v);
+            $v =~s/\n/<br \/>/g;
+            $v =~s/\r//g;
+            $wgp .=$v;
+         }
+         elsif (exists$f->{-inp}->{-arows} ||exists($f->{-inp}->{-rows}) ||exists($f->{-inp}->{-cols})) {
+            $v =$p->htmlescape($v);
+            $v =~s/\n/<br \/>/g;
+            $v =~s/\r//g;
+            $wgp .=$v;
          }
          elsif ($f->{-inp}->{-labels}) {
             my $fi =$f->{-inp};

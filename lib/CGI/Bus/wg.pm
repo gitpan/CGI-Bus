@@ -157,6 +157,7 @@ sub fsdir {    # Filesystem dir field
                    ,'<strong>' .$s->htmlescape($s->lng(0,'Files')) .'&nbsp;&nbsp;&nbsp;</strong>');
     $r .='<font size=-1> ( ' .$s->htmlescape($fs) .' )</font><br />' if $fs;
     $r .='<iframe scrolling="auto" src="' .$s->htmlescape($fr) .'"';
+    $r .=' application=yes';
     $r .=' height="' .$sr .'"' if $sr;
     $r .=' width="'  .$sc .'"' if $sc;
     $r .='> </iframe>';
