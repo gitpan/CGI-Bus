@@ -137,7 +137,7 @@ sub scrbot {    # print bottom of the screen
  my $s =shift;
  my $p =$s->parent;
  my $r =join(';' .$p->cgi->br, map {$p->htmlescape($_)} @{$p->pushmsg});
- $r  ='<hr /><font size=-1>' .$r .'</font>' if $r;
+ $r  ='<span style="font-size: smaller;"><hr />' .$r .'</span>' if $r;
  $s->print->text($r);
 }
 
@@ -324,20 +324,20 @@ sub search {    # search screen
  my $p =$s->parent;
  my $g =$p->cgi;
  $p->print->htpgstart(undef, {-class=>'PaneList'});
- $p->print->startform(-action=>$s->qurl);
+ $p->print->startform(-action=>$s->qurl, -class=>'PaneList');
  $p->print->hidden('_run'   =>'SEARCH');
- $s->print('<table width="100%"><tr><td>');
+ $s->print('<table width="100%" class="PaneList"><tr><td>');
  $s->print->h1($s->lng(0, 'Search'));
  $s->print('</td><td align="left" valign="bottom">')
           ->text($s->lng(1, 'Search', $s->parent->surl));
  $s->print('</td>');
  $s->print('</tr></table>');
- $s->print->htmltextfield(-name=>'query', -asize=>70)
-          ->submit(-name =>'search'
+ $s->print->htmltextfield(-name=>'query', -asize=>70, -class=>'PaneList')
+          ->submit(-name =>'search', -class=>'PaneList'
                   ,-value=>$s->lng(0, 'Search')
                   ,-title=>$s->lng(1, 'Search'))
           ->br;
- $s->print->popup_menu(-name=>'querysort'
+ $s->print->popup_menu(-name=>'querysort', -class=>'PaneList'
                       ,-values=>['write','hitcount','vpath','docauthor']
                       ,-labels=>{'write'    =>'Chronologically'
                                 ,'hitcount' =>'Ranked'
@@ -345,7 +345,7 @@ sub search {    # search screen
                                 ,'docauthor'=>'by Author'
                                 }
                       ,-default=>'write');
- $s->print->popup_menu(-name=>'querymarg'
+ $s->print->popup_menu(-name=>'querymarg', -class=>'PaneList'
                       ,-values=>[128,256,512,1024,2048]
                       ,-labels=>{128 =>'128  max'
                                 ,256 =>'256  max'
@@ -692,7 +692,7 @@ sub scrusites { # Users Sites Display
  $p->print->text('</td>');
  $p->print->td({-valign=>'top',-align=>'right'}
        ,$p->uguest ? '' :
-       ($p->submit(-name=>'refresh'
+       ($p->submit(-name=>'refresh', -class=>'PaneList'
                   ,-value=>$s->lng(0, 'Refresh')
                   ,-title=>$s->lng(1, 'Refresh'))
        .($s->{-ushome}
@@ -796,17 +796,18 @@ sub scrsetup {  # setup screen
 
  $s->print->hidden('_run' =>'SETUP');
  $s->print->hidden('_run1'=>'SETUP');
- $s->print('<table width="100%"><tr><td>');
+ $s->print('<table width="100%" class="PaneForm"><tr><td>');
  $s->print->h1($s->lng(0, 'Setup') .' - ' .$s->parent->user);
  if (!$aa && !scalar(@$ua)) {
     $s->print($s->lng(1, 'Setup', $s->parent->user) .'</td>')
-          ->td({-valign=>'top',-align=>'right'}
-              ,$g->submit(-name =>'save'
+          ->td({-valign=>'top',-align=>'right',-class=>'PaneForm'}
+              ,$g->submit(-name =>'save', -class=>'PaneForm'
                          ,-value=>$s->lng(0, 'Save')
                          ,-title=>$s->lng(1, 'Save')))
  }
  else {
-    $s->print('</td><td align="left" valign="bottom">' .$s->lng(1, 'Setup', $s->parent->user) .'</td>');
+    $s->print('</td><td align="left" valign="bottom" class="PaneForm">' 
+	.$s->lng(1, 'Setup', $s->parent->user) .'</td>');
  }
  $s->print('</tr></table>');
 
@@ -839,57 +840,59 @@ sub scrsetup {  # setup screen
     $s->pushmsg('Data Loaded')
  }
 
- $s->print("<table>\n");
+ $s->print("<table class=\"PaneForm\">\n");
  $s->print('<tr>');
  if (scalar(@$ua)) {
  unshift @$ua, $u0;
  $s->print->th($ha, $s->lng(0, 'User'));
- $s->print->td($hd, $g->popup_menu(-name=>'user'
+ $s->print->td($hd, $g->popup_menu(-name=>'user', -class=>'PaneForm'
                               ,-values=>$ua
                               ,-labels=>$s->uglist({},37)
                               ,-default=>($un||$u0)) 
-                  . $g->submit(-name=>'read'
+                  . $g->submit(-name=>'read', -class=>'PaneForm'
                               ,-value=>$s->lng(0, 'Read')
                               ,-title=>$s->lng(1, 'Read'))
-                  . $g->submit(-name=>'save'
+                  . $g->submit(-name=>'save', -class=>'PaneForm'
                               ,-value=>$s->lng(0, 'Save')
                               ,-title=>$s->lng(1, 'Save')));
  $s->print("</tr>\n<tr>");
  }
  if ($aa) {
  $s->print->th($ha, $s->lng(0, 'Managed'));
- $s->print->td($hd, $s->htmltextfield(-name=>'uauth_managed', -asize=>70)
-                  . $s->htmlddlb('uauth_managed_',sub{$_[0]->uglist({})}, ["\tuauth_managed"=>' '])
+ $s->print->td($hd, $s->htmltextfield(-name=>'uauth_managed', -asize=>70, -class=>'PaneForm')
+                  . $s->htmlddlb({-name=>'uauth_managed_', -class=>'PaneForm'}
+				,sub{$_[0]->uglist({})}, ["\tuauth_managed"=>' '])
                   . $s->_ssfcmt('Managed')
               );
  $s->print("</tr>\n<tr>");
  if ($s->parent->uauth->set('-udata')) {
  $s->print->th($ha, $s->lng(0, 'Groups'));
- $s->print->td($hd, $s->htmltextfield(-name=>'uauth_groups', -asize=>70)
-                  . $s->htmlddlb('uauth_groups_',sub{$_[0]->uglist({})}, ["\tuauth_groups"=>' '])
+ $s->print->td($hd, $s->htmltextfield(-name=>'uauth_groups', -asize=>70, -class=>'PaneForm')
+                  . $s->htmlddlb({-name=>'uauth_groups_', -class=>'PaneForm'}
+			,sub{$_[0]->uglist({})}, ["\tuauth_groups"=>' '])
                   . $s->_ssfcmt('Groups')
               );
  $s->print("</tr>\n<tr>");
  }
  }
  $s->print->th($ha, $s->lng(0, 'FavoriteURLs'));
- $s->print->td($hd, $s->htmltextarea(-name=>'upws_urls', -cols=>58, -arows=>4, -wrap=>'off')
+ $s->print->td($hd, $s->htmltextarea(-name=>'upws_urls', -cols=>58, -arows=>4, -wrap=>'off', -class=>'PaneForm')
               .$s->_ssfcmt('FavoriteURLs'));
  $s->print("</tr>\n<tr>");
  $s->print->th($ha, $s->lng(0, 'HomeURL'));
- $s->print->td($hd, $s->htmltextfield(-name=>'upws_urlh', -asize=>70)
+ $s->print->td($hd, $s->htmltextfield(-name=>'upws_urlh', -asize=>70, -class=>'PaneForm')
               .$s->_ssfcmt('HomeURL'));
  $s->print("</tr>\n<tr>");
  $s->print->th($ha, $s->lng(0, 'FramesetURLs'));
- $s->print->td($hd, $s->htmltextarea(-name=>'upws_frmurls', -cols=>58, -arows=>4, -wrap=>'off')
+ $s->print->td($hd, $s->htmltextarea(-name=>'upws_frmurls', -cols=>58, -arows=>4, -wrap=>'off', -class=>'PaneForm')
               .$s->_ssfcmt('FramesetURLs'));
  $s->print("</tr>\n<tr>");
  $s->print->th($ha, '..' .$s->lng(0, 'FramesetRows'));
- $s->print->td($ha, $s->htmltextfield(-name=>'upws_frmrows')
+ $s->print->td($ha, $s->htmltextfield(-name=>'upws_frmrows', -class=>'PaneForm')
               .$s->_ssfcmt('FramesetRows'));
 #$s->print("</tr>\n<tr>"); # -asize=>70
  $s->print->th($ha, '..' .$s->lng(0, 'FramesetCols'));
- $s->print->td($ha, $s->htmltextfield(-name=>'upws_frmcols')
+ $s->print->td($ha, $s->htmltextfield(-name=>'upws_frmcols', -class=>'PaneForm')
               .$s->_ssfcmt('FramesetCols'));
  $s->print("</tr>\n<tr>");
 
@@ -897,19 +900,19 @@ sub scrsetup {  # setup screen
  $s->print("</tr>\n<tr>");
  $s->print->th($ha, $s->lng(0, 'USFHome'));
  $s->param('upws_usfhome',$s->usfhome(1)) if $s->param('upws_usfhome_');
- $s->print->td($hd, $s->htmltextfield(-name=>'upws_usfhome', -asize=>70)
-              .$s->submit(-name=>'upws_usfhome_', -value=>'<-', -title=>$s->lng(1, 'Refresh'))
+ $s->print->td($hd, $s->htmltextfield(-name=>'upws_usfhome', -asize=>70, -class=>'PaneForm')
+              .$s->submit(-name=>'upws_usfhome_', -value=>'<-', -title=>$s->lng(1, 'Refresh'), -class=>'PaneForm')
               .$s->_ssfcmt('USFHome'));
  }
 
  $s->print("</tr>\n<tr>");
  $s->print->th($ha, $s->lng(0, 'PrimaryRole'));
- $s->print->td($hd, $s->popup_menu(-name=>'urole', -values=>['',@{$s->ugroups}])
+ $s->print->td($hd, $s->popup_menu(-name=>'urole', -values=>['',@{$s->ugroups}], -class=>'PaneForm')
               .$s->_ssfcmt('PrimaryRole'));
 
  $s->print("</tr>\n<tr>");
  $s->print->th($ha, '');
- $s->print->td($hd, $g->submit(-name=>'save'
+ $s->print->td($hd, $g->submit(-name=>'save', -class=>'PaneForm'
                               ,-value=>$s->lng(0, 'Save')
                               ,-title=>$s->lng(1, 'Save')));
  $s->print("</tr>\n");
@@ -920,7 +923,7 @@ sub scrsetup {  # setup screen
 
 
 sub _ssfcmt {
- '<br /><font size=-1>' .$_[0]->lng(1, $_[1]) .'</font>'
+ '<span style="font-size: smaller;"><br />' .$_[0]->lng(1, $_[1]) .'</span>'
 }
 
 

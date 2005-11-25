@@ -17,11 +17,12 @@ $s->tmsql->set(
  ,{-flg=>'vqiskw"',-fld=>'id', -lbl=>'ID', -cmt=>'Unique identifier of the Note'
         ,-crt=>'New', -cdbi=>sub{$_[0]->user .'/' .$_[0]->strtime('yyyymmddhhmmss')}
         ,-lblhtml=>sub{
-          $_[0]->htmlself({-title=>'Open records list'},-lst=>,$_[0]->pxsw('LIST'),'AllActual','$_')
+          $_[0]->htmlself({},-sel=>'id',$_,'$_')
+		# $_[0]->htmlself({-title=>'Open records list'},-lst=>$_[0]->pxsw('LIST'),'AllActual','$_')
          .($_[0]->cmdg('-qry') ||$_[0]->param('idrm_b') ||$_[0]->param('idrm') ?''
-          :$_[0]->submit(-name=>'idrm_b',-value=>'...',-title=>'Show record relations fields'))
+          :$_[0]->submit(-name=>'idrm_b',-value=>'...',-title=>'Show record relations fields',-class=>'Form'))
          } 
-        ,-inphtml=>'<font size=-1>$_</font>'
+        ,-inphtml=>'<font style="font-size: smaller;">$_</font>'
         }
  ,''
  ,{-flg=>'vqis"',  -fld=>'cuser'
@@ -31,14 +32,14 @@ $s->tmsql->set(
  ,{-flg=>'vqis"',  -fld=>'ctime'
         ,-lbl=>'Created', -cmt=>'When was created the Note'
         ,-crt=>sub{$_[0]->strtime}, -ins=>sub{$_[0]->strtime}
-        ,-clst=>sub{"<font size=-1><nobr>$_</nobr></font>"}
+        ,-clst=>sub{"<font style=\"font-size: smaller;\"><nobr>$_</nobr></font>"}
         ,-lblhtml=>'',-inphtml=>'<nobr>$_</nobr>'
         }
  ,{-flg=>'vqis"',  -fld=>'idnv'
         ,-lbl=>'NewVer', -cmt=>'Pointer to new version of the Note'
         ,-null=>'', -hide=>sub{!$_}
         ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Open new version of this record'},-sel=>'id'=>$_,'$_')}
-        ,-inphtml=>'<font size=-1>$_</font>'
+        ,-inphtml=>'<font style="font-size: smaller;">$_</font>'
         }
  ,''
  ,{-flg=>'avqiuw"',-fld=>'uuser'
@@ -48,7 +49,7 @@ $s->tmsql->set(
  ,{-flg=>'avqiu"',-fld=>'utime'
         ,-lbl=>'Updated', -cmt=>'When was updated the Note'
         ,-crt=>'', -sav=>sub{$_[0]->strtime}
-        ,-clst=>sub{"<font size=-1><nobr>$_</nobr></font>"}
+        ,-clst=>sub{"<font style=\"font-size: smaller;\"><nobr>$_</nobr></font>"}
         ,-lblhtml=>'',-inphtml=>'<nobr>$_</nobr>'
         }
  ,{-flg=>'a"',     -fld=>'idrm'
@@ -56,7 +57,7 @@ $s->tmsql->set(
         ,-hidel=>sub{!$_ && !$_[0]->param('idrm_b')}
         ,-null=>'', -crt=>sub{$_[0]->qparampv('id')}, -inp=>{-maxlength=>60}
         ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Main note'},-sel=>'id'=>$_,'$_')}
-        ,-inphtml=>'<font size=-1>$_</font>'
+        ,-inphtml=>'<font style="font-size: smaller;">$_</font>'
         }
  ,{-flg=>'am"', -fld=>'status'
         ,-lbl=>'Status', -cmt=>'Status of the Note'

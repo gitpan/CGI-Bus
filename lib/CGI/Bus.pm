@@ -13,7 +13,7 @@ use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
 
 
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $AUTOLOAD);
-$VERSION = '0.59';
+$VERSION = '0.60';
 
 use vars qw($SELF);
 
@@ -534,6 +534,18 @@ sub dbi {      # DBI object
 }
 
 
+sub dbquote {
+   $_[0]->{-dbi} ||$_[0]->{-classes}->{-dbi}
+ ? $_[0]->dbi->quote(@_[1..$#_])	
+ : ('"' .join('', map {my $v=$_; $v=~s/([\\"])/\\$1/g; $v} @_[1..$#_]) .'"')
+}
+
+
+sub dblikesc {
+ join('', map {my $v =$_; $v =~s/([\\%_])/\\$1/g; $v} @_[1..$#_])
+}
+
+
 #######################
 
 
@@ -840,7 +852,7 @@ sub dumpin {  # Data dump in
 
 
 sub ishtml {  # Is html code?
- ($_[1] ||'') =~m/^<(?:(?:B|BIG|BLOCKQUOTE|CENTER|CITE|CODE|DFN|DIV|EM|I|KBD|P|SAMP|SMALL|SPAN|STRIKE|STRONG|STYLE|SUB|SUP|TT|U|VAR)\s*>|(?:BR|HR)\s*\/{0,1}>|(?:A|BASE|BASEFONT|DIR|DIV|DL|!DOCTYPE|FONT|H\d|HEAD|HTML|IMG|IFRAME|MAP|MENU|OL|PRE|TABLE|UL)\b)/i
+ ($_[1] ||'') =~m/^<(?:(?:B|BIG|BLOCKQUOTE|CENTER|CITE|CODE|DFN|DIV|EM|I|KBD|P|SAMP|SMALL|SPAN|STRIKE|STRONG|STYLE|SUB|SUP|TT|U|VAR)\s*>|(?:BR|HR)\s*\/{0,1}>|(?:A|BASE|BASEFONT|DIR|DIV|DL|!DOCTYPE|FONT|H\d|HEAD|HTML|IMG|IFRAME|MAP|MENU|OL|P|PRE|TABLE|UL)\b)/i
 }
 
 
@@ -1191,6 +1203,15 @@ sub htmlstart {
       if (!exists($p{$k})) {$p{$k} =$s->{-htmlstart}->{$k}}
     }
  }
+ $p{-style} =
+	".Form, .List, .Help, .MenuArea, .FooterArea {margin-top:0px; font-size: 8pt; font-family: Verdana, Helvetica, Arial, sans-serif; }\n"
+	#."a:link.ListTable {font-weight: bold}\n"
+	.".MenuButton {background-color: buttonface; color: black; text-decoration: none; font-size: 7pt;}\n"
+	#."td.MenuButton {background-color: activeborder;}\n"
+	#.".MenuArea {background-color: blue; color: white;}"
+	#.".MenuButton {background-color: blue; color: white; text-decoration: none; font-size: 7pt;}\n"
+	.".PaneLeft, .PaneForm, .PaneList {margin-top:0px; font-size: 8pt; font-family: Verdana, Helvetica, Arial, sans-serif; }"
+	if !exists($p{-style});
  $s->{-debug} && $s->{-debug} >2
  ? $s->{-cgi}->start_html(%p)
   .("\n<!-- " .$s->{-cgi}->escapeHTML($s->microenv) ." -->\n")

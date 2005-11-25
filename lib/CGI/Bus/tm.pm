@@ -599,7 +599,12 @@ sub htmlbar {  # Transaction batton bar html
 		,-override=>1) ."\n";
  }
  if ($s->{-tbarl}) {
-    $r .=$s->_htmlbare($s->{-tbarl});
+    $r .=$g->hidden(-name=>$s->pxnme(-pxsw=>'REFERER')) ."\n" 
+		if $g->param($s->pxnme(-pxsw=>'REFERER'))
+		&& (ref($s->{-tbarl}) eq 'CODE');
+    $r .=$s->_htmlbare(ref($s->{-tbarl}) eq 'CODE' 
+			? &{$s->{-tbarl}}($s, $g->param($s->pxnme(-pxsw=>'REFERER')))
+			: $s->{-tbarl});
  }
  if ($s->cmdg('-lst')) {
     $r .=$s->_htmlbare(-bck => $p->{-iurl} && $img{-bck} ? $p->qurl : 0
@@ -614,13 +619,13 @@ sub htmlbar {  # Transaction batton bar html
 			,-onChange=> (!$p->{-iurl}
                           ? $s->pxnme(-pxcb=>'-lst') .'.click()'
                           : '{' .$s->pxnme(-pxcb=>'-cmdi') .'.value="-lst"; submit(); return(false);}')
-			,-class=>'MenuArea MenuButton'
+			,-class=>'MenuArea MenuInput'
 			))
 		if $s->{-lists} && scalar(keys %{$s->{-lists}}) >1;
     $r .=$s->_htmlbare($p->htmltextfield(-name =>$s->pxsw('FTEXT')
 			,-title=>$s->lng(1,'F-TEXT')
 			,-asize=>4
-			,-class=>'MenuArea MenuButton'
+			,-class=>'MenuArea MenuInput'
 			)) 
 		if $s->{-ftext};
     $r .=$s->_htmlbare('-lst');
@@ -694,8 +699,8 @@ sub htmlbar {  # Transaction batton bar html
              .']&nbsp;';
     $r .="</td>\n"
  }
- $r  ="<table class=\"MenuArea\" cellpadding=0><tr>\n"
-	.$r ."</tr></table>\n"
+ $r  ="<div class=\"MenuArea\"><table class=\"MenuArea\" cellpadding=0><tr>\n"
+	.$r ."</tr></table></div>\n"
 	.($s->cmd('-lst') && ($s->{-refresh} || $s->{-lists} && $s->qlst && $s->{-lists}->{$s->qlst}->{-refresh})
 	 ? ''
 	 :('<script for="window" event="onload">{'
@@ -716,16 +721,15 @@ sub _htmlbare { # Transaction batton bar element
     delete $a{-onClick};
 	# $a{-onclick} ||$a{-onClick} || '{window.event.srcElement.children(0).click(); return(false)}';
  my $h = ref($b) 
-            ? join('</td><td valign="middle" class="MenuArea MenuButton">', @$b)
+       ? join('</td><td valign="middle" class="MenuArea MenuButton">', @$b)
        : $u ? $g->a({-href=>$u,-title=>$t
-			,-style=>'color: black; font-weight:normal;'
 			,-class=>'MenuArea MenuButton'
                     ,%a}
                    , $p->{-iurl} && $img{$b} 
-                   ? '<font size=-1><img src="' .$p->{-iurl} .'/' .$img{$b} 
+                   ? '<img src="' .$p->{-iurl} .'/' .$img{$b} 
 			.'" border=0 align="bottom" class="MenuArea MenuButton"'
 			.($b eq '-lgn' ? ' width=20 height=22 />' : ' />')
-			.$p->htmlescape($v) .'</font>'
+			.$p->htmlescape($v)
                    : $p->htmlescape($v)) .' '
        : $v ? ( $p->{-iurl} && $img{$b}
               ? $g->image_button(-name=>$s->pxnme(-pxcb=>$b)
@@ -735,25 +739,35 @@ sub _htmlbare { # Transaction batton bar element
 				,-accesskey=>substr($v,0,1)
 				,-title=>$v .'. ' .$t
 				,-class=>'MenuArea MenuButton'
+				,-style=>'cursor: default;'
 				,%a) 
-			.$g->a({href=>$s->qurl('',$s->pxnme(-pxcb=>'-cmd')=>$b, !$s->{-keyval} ? () : ($s->keyfld=>$s->{-keyval}))
-				,-title=>$t
-				,-style=>'color: black; font-weight:normal;'
+			.((($b =~/^-(?:ins|upd|del|frm)/) || 
+			  (!$s->{-keyval} && $b =~/^-q(?:sel|edt)/)) && 1
+			?$g->span({
+				 -title=>$t
 				,-class=>'MenuArea MenuButton'
-				,-onClick=>$j='{' .$s->pxnme(-pxcb=>'-cmdi') .'.value="'.$b .'"; submit(); return(false)}'}, '<font size=-1>' .$p->htmlescape($v) .'</font>')
+				,-style=>'cursor: default;'
+				,-onClick=>$j='{' .$s->pxnme(-pxcb=>'-cmdi') .'.value="'.$b .'"; submit(); return(false)}'}
+				,$p->htmlescape($v))
+			:$g->a({href=>$s->qurl('',$s->pxnme(-pxcb=>'-cmd')=>$b, !$s->{-keyval} ? () : ($s->keyfld=>$s->{-keyval}))
+				,-title=>$t
+				,-class=>'MenuArea MenuButton'
+				,-onClick=>$j='{' .$s->pxnme(-pxcb=>'-cmdi') .'.value="'.$b .'"; submit(); return(false)}'}
+				,$p->htmlescape($v) 
+				))
                      # !!! variants below does not works, -cmdi hidden variable added for above !!!
                      # .'<font size=-1>' .$g->a({href=>$s->qurl('',$s->pxnme(-pxcb=>'-cmd')=>$b), -onClick=>'{' .$s->pxnme(-pxcb=>$b).'.click(); return(false)}'}, $p->htmlescape($v)) .'</font>'
                      # .'<font size=-1>' .$g->a({href=>$s->qurl('',$s->pxnme(-pxcb=>'-cmd')=>$b), -onClick=>$s->pxnme(-pxcb=>$b).'.click()'}, $p->htmlescape($v)) .'</font>'
               : defined($u)
               ? $g->button(-name=>$s->pxnme(-pxcb=>$b)
-                     # ,-style=>"border-style: none;"
+		       ,-class=>'MenuArea MenuButton'
                        ,-value=>$b eq '-bck' ? '<-' : $v
                        ,-accesskey=>substr($v,0,1)
                        ,-title=>$t
                        ,%a
                        )
               : $g->submit(-name=>$s->pxnme(-pxcb=>$b)
-                     # ,-style=>"border-style: none;"
+		       ,-class=>'MenuArea MenuButton'
                        ,-value=>$v
                        ,-accesskey=>substr($v,0,1)
                        ,-title=>$t
@@ -764,7 +778,7 @@ sub _htmlbare { # Transaction batton bar element
 #$j ='';
  '<td class="MenuArea MenuButton" valign="middle"'
  .($p->{-iurl} 
-	? ' style="border-width: thin; border-style: outset; background-color: buttonface;"'
+	? ' style="border-width: thin; border-style: outset;"'
 		.($j
 		? ' onmousedown="if(window.event.button==1){this.style.borderStyle=&quot;inset&quot;}" onmouseout="this.style.borderStyle=&quot;outset&quot;" onclick="' .$p->htmlescape($j) .'" title="' .$p->htmlescape($v .'. ' .$t) .'"'
 			# onmouseup="this.style.borderStyle=&quot;outset&quot;" 
@@ -902,7 +916,7 @@ sub htmlres {   # Transaction command result msg html
     $r .=$s->htmlescape($s->parent->set('-problem')) ."\n" if $s->parent->set('-problem')
  }
  if ($r && (!$c || ($s->parent->{-debug}) >0)) {
-    my $r1 =join(";<br />\n"
+    my $r1 =join(";<br /><br />\n"
 		, map { $_ =~/^((?:WARN|WARNING|ERROR|DIE)[:.,\s]+)(.*)$/i
 			? "<strong>$1</strong>" .$s->htmlescape($2)
 			: $s->htmlescape($_)
@@ -1105,8 +1119,9 @@ sub cmdfrm { # Record form for Query or Edit
  my $rskip =1;
  my $tskip =0;
  if (($s->qparamsw('MIN')||'') !~/h/) {
-    $p->print->strong({-class=>'MenuArea MenuHeader'},$p->htmlescape($p->{-htmlstart}->{-title}||$p->{-htpgstart}->{-title}||''));
-    $p->print("<hr class=\"MenuArea MenuHeader\" />\n");
+	$p->print('<div class="MenuArea"><strong class="MenuArea MenuHeader">'
+	,$p->htmlescape($p->{-htmlstart}->{-title}||$p->{-htpgstart}->{-title}||'')
+	,'</strong><hr class="MenuArea MenuHeader"/></div>',"\n");
  }
  $p->print($s->{-htmlts} ? $s->{-htmlts} : '<table class="Form">', "\n<tr>\n");
  $p->print('<th colspan=20><nobr>' 
@@ -1220,7 +1235,7 @@ sub cmdfrm { # Record form for Query or Edit
             }
             $v =$p->htmlescape($v); $v =~s/( {2,})/'&nbsp;' x length($1)/ge; $v =~s/\n/<br \/>\n/g; $v =~s/\r//g;
             $wgp .=$v;
-            $wgp .='</code>' if $wgp =~/<code>/;
+            $wgp .='</code>' if $wgp =~/<code class="Form">/;
          }
          elsif (exists($f->{-inp}->{-arows}) ||exists($f->{-inp}->{-rows}) ||exists($f->{-inp}->{-cols})) {
             $v =$p->htmlescape($v); $v =~s/( {2,})/'&nbsp;' x length($1)/ge; $v =~s/\n/<br \/>\n/g; $v =~s/\r//g;
@@ -1312,11 +1327,11 @@ sub cmdhlp { # Help Command
  if ($o =~/t/) {
     $sh ='Help';
     my $t =$s->parent->{-htmlstart}->{-title}||$s->parent->{-htpgstart}->{-title}||'';
-    print '<table class="MenuArea"><tr>'
+    print '<div class="MenuArea"><table class="MenuArea" cellpadding=0><tr>'
     , $s->{-formtgf} ? '' :$s->_htmlbare(-bck=> $p->{-iurl} && $img{-bck} ? $p->qurl : 0, -onClick=>'{window.history.back(); return(false)}')
     , '</td><th valign="middle" class="MenuArea MenuHeader">'
     , $s->htmlescape(($t ? "$t - " : '') .$s->lng(0, $sh))
-    , "</th></tr></table><hr />\n";
+    , "</th></tr></table><hr /></div>\n";
  }
  if ($o =~/[fo]/ && $s->{-form}) {
     $sh ='Fields';

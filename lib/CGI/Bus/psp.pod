@@ -113,6 +113,6 @@ Perl code caching?
 
 =head1 AUTHOR
 
-Andrew V Makarow <makarow@mail.com>
+Andrew V Makarow <makarow at mail.com>
 
 =cut

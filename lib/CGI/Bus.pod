@@ -147,7 +147,7 @@ C<htmlstart>, C<-htmlstart>,
 C<htpgstart>, C<-htpnstart>, C<-htpgstart>, C<-htpfstart>, C<-htpgtop>, 
 C<htpgend>, C<-htpgbot>,
 C<htpfstart>, C<htpfend>,
-C<htmlescape>, C<urlescape>,
+C<htmlescape>, C<urlescape>, C<dbquote>, C<dblikesc>,
 C<htmlddlb>, C<htmltextarea>, C<htmltextfield>, C<htmlfsdir>
 
 
@@ -578,6 +578,18 @@ Codepages may be 'oem', '866','ansi', '1251','koi' prone of koi8,
 Create new or return current C<DBI> object stored in C<-dbi>
 
 
+=item dblikesc (text) -> escaped
+
+Escapes text to use inside SQL LIKE 'text' ESCAPE '\' expression.
+See also C<htmlescape>, C<urlescape>, C<dbquote>.
+
+
+=item dbquote (text) -> quoted
+
+Quotes text to use inside SQL.
+See also C<htmlescape>, C<urlescape>, C<dblikesc>.
+
+
 =item DESTROY
 
 Destructor, uses C<reset> for almost all application object.
@@ -675,7 +687,7 @@ Implemented in L<CGI::Bus::wg|CGI/Bus/wg>.
 =item htmlescape (text) -> escaped
 
 C<CGI::escapeHTML> call.
-See also C<urlescape>.
+See also C<urlescape>, C<dbquote>, C<dblikesc>.
 
 
 =item htmlescapetext (text) -> escaped 
@@ -1044,7 +1056,7 @@ This depends on browser type (see source code) and C<-urfcnd>.
 =item urlescape (text) -> escaped
 
 C<CGI::escape> call.
-See also C<htmlescape>.
+See also C<htmlescape>, C<dbquote>, C<dblikesc>.
 
 
 =item usdomain () -> User names Server's Domain name
@@ -1140,6 +1152,40 @@ See also C<Error and Message processing>, L<CGI::Carp|CGI/Carp>
 =head1 VERSION
 
 =over
+
+=head2 25/11/2005
+
+Version 0.60, improvement release.
+
+
+=head2 22/11/2005
+
+New C<dbquote> and C<dblikesc> methods.
+
+
+=head2 29/08/2005
+
+Improved styles/classes in L<CGI::Bus|CGI/Bus> and L<CGI::Bus::tm|CGI/Bus/tm>.
+
+L<CGI::Bus::tmsql|CGI/Bus/tmsql> QBF expressions extended with 'rlike', 'regexp', 'similar to' operators.
+
+
+=head2 12/08/2005
+
+L<CGI::Bus|CGI/Bus> supplied with default C<-style> for C<-htmlstart>;
+L<CGI::Bus::upws|CGI/Bus/upws> screens corrected using style names.
+
+
+=head2 03/08/2005
+
+L<CGI::Bus::tm|CGI/Bus/tm>,
+L<CGI::Bus::tmsql|CGI/Bus/tmsql>,
+L<CGI::Bus::upws|CGI/Bus/upws>,
+L<CGI::Bus::wg|CGI/Bus/wg>:
+'font size=-1' replaced with 'style="font-size: smaller;"',
+class names somewere added
+to improve CSS behaviour.
+
 
 =head2 15/03/2005
 
@@ -1646,7 +1692,7 @@ Implemented and Documented.
 
 =head1 AUTHOR
 
-Andrew V Makarow <makarow@mail.com>
+Andrew V Makarow <makarow at mail.com>
 
 =cut
 

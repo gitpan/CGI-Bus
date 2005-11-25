@@ -17,11 +17,12 @@ $s->tmsql->set(
  ,{-flg=>'vqiskw"',-fld=>'id', -lbl=>'ID', -cmt=>'Unique identifier of Record'
         ,-crt=>'New', -cdbi=>sub{$_[0]->user .'/' .$_[0]->strtime('yyyymmddhhmmss')}
         ,-lblhtml=>sub{
-          $_[0]->htmlself({-title=>'Open records list'},-lst=>,$_[0]->pxsw('LIST'),'AllActual','$_')
+          $_[0]->htmlself({},-sel=>'id',$_,'$_')
+		# $_[0]->htmlself({-title=>'Open records list'},-lst=>$_[0]->pxsw('LIST'),'AllActual','$_')
          .($_[0]->cmdg('-qry') ||$_[0]->param('idpr_b') ||($_[0]->param('idpr') && $_[0]->param('idrm')) ?''
-          :$_[0]->submit(-name=>'idpr_b',-value=>'...',-title=>'Show record relations fields'))
+          :$_[0]->submit(-name=>'idpr_b',-value=>'...',-title=>'Show record relations fields',-class=>'Form'))
          }
-        ,-inphtml=>'<font size=-1>$_</font>'
+        ,-inphtml=>'<font style="font-size: smaller;">$_</font>'
         }
  ,''
  ,{-flg=>'vqis"',  -fld=>'cuser'
@@ -38,7 +39,7 @@ $s->tmsql->set(
         ,-lbl=>'NewVer', -cmt=>'Pointer to new version of Record'
         ,-null=>'', -hide=>sub{!$_}
         ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Open new version of this record'},-sel=>'id'=>$_,'$_')}
-        ,-inphtml=>'<font size=-1>$_</font>'
+        ,-inphtml=>'<font style="font-size: smaller;">$_</font>'
         }
  ,''
  ,{-flg=>'avqiuw"',-fld=>'uuser'
@@ -55,7 +56,7 @@ $s->tmsql->set(
         ,-hidel=>sub{!$_ && !$_[0]->param('idpr_b')}
         ,-null=>'', -crt=>sub{$_[0]->qparampv('id')}, -inp=>{-maxlength=>60}
         ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Reply to record'},-sel=>'id'=>$_,'$_')}
-        ,-inphtml=>'<font size=-1>$_</font>'
+        ,-inphtml=>'<font style="font-size: smaller;">$_</font>'
         }
  ,''
  ,{-flg=>'vqius"', -fld=>'idrr'
@@ -69,7 +70,7 @@ $s->tmsql->set(
              $r || $_[0]->param('idrm')
           }
         ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Root of replies'},-sel=>'id'=>$_,'$_')}
-        ,-inphtml=>'<font size=-1>$_</font>'
+        ,-inphtml=>'<font style="font-size: smaller;">$_</font>'
         }
  ,''
  ,{-flg=>'a"',     -fld=>'idpr'
@@ -79,7 +80,7 @@ $s->tmsql->set(
         ,-hide=>sub{!$_ && !$_[0]->param('idpr_b')}
         ,-null=>'', -inp=>{-maxlength=>60}
         ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Open previous to this record'},-sel=>'id'=>$_,'$_')}
-        ,-inphtml=>'<font size=-1>$_</font>'
+        ,-inphtml=>'<font style="font-size: smaller;">$_</font>'
         }
  ,{-flg=>'am"',    -fld=>'puser'
         ,-lbl=>'Principal', -cmt=>'Principal User'

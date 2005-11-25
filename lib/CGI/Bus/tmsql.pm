@@ -135,11 +135,11 @@ sub htmlddlb {  # HTML Drop-Down List Box - Input Helper
         $s->pushmsg($rc <=$lr ? $s->lng(1,'rfetch',$rc) : $s->lng(1,'rfetchf',$lr));
         $c->finish;
     }
-    $s->parent->htmlddlb(!$w ? () : $w, $n, $ds
+    $s->parent->htmlddlb(!$w ? () : $w, {-name=>$n, -class=>'Form'}, $ds
         ,map {[$_=>$s->{-fields}->{$_=~/^\t/ ?substr($_,1) :$_}->{-lbl}||$_]} @_)
  }
  else {
-    $s->parent->htmlddlb(!$w ? () : $w, $n, $ds, @_)
+    $s->parent->htmlddlb(!$w ? () : $w, {-name=>$n, -class=>'Form'}, $ds, @_)
  }
 }
 
@@ -652,7 +652,8 @@ sub cmdfrm { # Record form for Query or Edit
                  || ($s->{-vsd}->{-cvd} ? (&{$s->{-vsd}->{-cvd}}($s))
                     :$s->{-vsd}->{-svd} ? $s->{-vsd}->{-svd} eq $s->qparampv($s->{-vsd}->{-sf})
                     :0));
-    $p->print->htmlfsdir($s->pxsw('files'), $ed, $ed && $s->cmd('-frm')
+    $p->print->htmlfsdir({-name=>$s->pxsw('files'), -class=>'Form'}
+	, $ed, $ed && $s->cmd('-frm')
         , $s->fspath, $s->fsurl, $s->fsurf, '20%','100%');
     $p->print("\n");
   # $p->print->text('<hr />')
@@ -684,7 +685,7 @@ sub cmdfrm { # Record form for Query or Edit
 			,-labels=>$s->qlstlbls
 			,-default=>$s->qlst
 			,-class=>'Form')
-                  . ($vwf ? "<font size=-1> ($vwf)</font>" :''));
+                  . ($vwf ? "<font style=\"font-size: smaller;\"> ($vwf)</font>" :''));
      $p->print('</tr>');
     }
      $p->print('<tr>');
@@ -695,9 +696,9 @@ sub cmdfrm { # Record form for Query or Edit
 				,-class=>'Form'
 				,-arows=>2,-cols=>68)
                   .($vw && $vw->{-wherepar} && !$s->qparamsw('WHERE')
-                    ? ('<font size=-1> [ AND (' .$p->htmlescape($vw->{-wherepar}) .') ]</font>') 
+                    ? ('<font style="font-size: smaller;"> [ AND (' .$p->htmlescape($vw->{-wherepar}) .') ]</font>') 
                     : '')
-                  .($vww ? "<font size=-1> AND ($vww)</font>" :''));
+                  .($vww ? "<font style=\"font-size: smaller;\"> AND ($vww)</font>" :''));
      $p->print('</tr><tr>');
     if ($s->{-ftext}) {
      $p->print->th({-align=>'left',-valign=>'top',-class=>'Form'},$s->lng(0,'F-TEXT'));
@@ -714,23 +715,23 @@ sub cmdfrm { # Record form for Query or Edit
 				,-title=>$s->lng(1,'ORDER BY')
 				,-class=>'Form'
 				,-size =>88) 
-                  .($vwo ? "<font size=-1> ($vwo)</font>" : ''));
+                  .($vwo ? "<font style=\"font-size: smaller;\"> ($vwo)</font>" : ''));
      $p->print('</tr><tr>');
      $p->print->th({-align=>'left',-valign=>'top',-class=>'Form'},$s->lng(0,'LIMIT ROWS'));
      $p->print->td({-valign=>'top',-class=>'Form'}
                   ,$p->textfield(-name=>$s->pxsw('LIMIT')
 			,-class=>'Form'
 			,-title=>$s->lng(1,'LIMIT ROWS')) 
-                  .'<font size=-1> (' .($s->{-listrnm}||'') .')</font>');
+                  .'<font style="font-size: smaller;"> (' .($s->{-listrnm}||'') .')</font>');
      $p->print('</tr>');
      $p->print('</table>');
-     $p->print->text('<font size=-1>'
+     $p->print->text('<font style="font-size: smaller;">'
      ."Use <code>expr LIKE 'pattern'</code> for simple match comparison, where "
      ."'%' matches any number of characters (even zero), "
      ."'_'  matches exactly one character, "
      ."'\\' is escape char."
      .'</font>');
-     $p->print->text('<br /><font size=-1>Self <code>URL</code> may be useful: ' 
+     $p->print->text('<br /><font style="font-size: smaller;">Self URL may be useful: ' 
 	# .$p->cgi->self_url 
 	.$p->qurl() .'?' .join(';', map {$p->urlescape($_) .'=' .$p->urlescape($p->cgi->param($_))} grep {defined($p->cgi->param($_)) && $p->cgi->param($_) ne '' && $_ =~/^(_tsw|_tcb|[^_])/ && $_ !~/^(_tsw_REFERER|_tsw_FRMCOUNT|_tcb_frm)/} $p->cgi->param)
 	.'</font>');
@@ -775,8 +776,8 @@ sub _cmdfrmv {# List Record's Versions
          .(!$lr ? '' : eval{$s->dbi->{Driver}->{Name} eq 'mysql'} ? (' LIMIT ' .($lr+1) .' ') : '')
          ;
  $s->htmllst($sql,[@vl],{$kl[0]=>$kf},undef
-            ,'<hr class="ListList" /><strong class="ListList">' .$s->lng(0,'Versions') .'</strong><font size=-1><span class="ListList">&nbsp;&nbsp; '
-            ,';&nbsp;&nbsp; ','&nbsp; ','</span></font>');
+            ,'<hr class="ListList" /><strong class="ListList">' .$s->lng(0,'Versions') .'</strong><span class="ListList" style="font-size: smaller;">&nbsp;&nbsp; '
+            ,';&nbsp;&nbsp; ','&nbsp; ','</span>');
 }
 
 
@@ -941,8 +942,8 @@ sub cmdlst { # List Data
              if ($p =~/^ *\(/) { # expr
                $swps .=$p
              }
-             elsif ($p =~/^ *([><=]|not\b|in\b|is\b|like\b)/i) { # translate expr
-               $p     =~s/(\&|\|\band\b|\bor\b|\() *([=><]|\bnot\b|\bin\b|\bis\b|\blike\b)/$1 $fm $2/ig;
+             elsif ($p =~/^ *([><=]|not\b|in\b|is\b|like|rlike|regexp|similar\s+to\b)/i) { # translate expr
+               $p     =~s/(\&|\|\band\b|\bor\b|\() *([=><]|\bnot\b|\bin\b|\bis\b|\blike\b|\brlike\b|\bregexp\b|\bsimilar\s+to\b)/$1 $fm $2/ig;
                $swps .="($fm $p)"
              }
              elsif (defined($f->{-null}) && $p eq $f->{-null}) {
@@ -1051,20 +1052,24 @@ sub cmdlst { # List Data
     my $g =$s->cgi;    
     if ($opt !~/m/) {
        my $t =$p->{-htmlstart}->{-title}||$p->{-htpgstart}->{-title}||'';
-       print '<strong class="MenuArea MenuHeader">'
-           , $p->htmlescape(($t ? "$t - " : '' ) .(ref($vw->{-cmt}) ? $vw->{-cmt}->[0] : $vw->{-cmt}))
-           , "</strong><br />\n" 
-           if $vw && $vw->{-cmt};
-       print '<span class="MenuArea MenuComment">'
-	   , join("<br />\n"
-           , map {$p->htmlescape($_)} @{$vw->{-cmt}}[1..$#{$vw->{-cmt}}])
-           , "<br /></span>\n"
-           if $vw && $vw->{-cmt} && ref($vw->{-cmt});
-       print '<span class="MenuArea MenuComment"><font size=-1>'
-	   , $p->htmlescape($s->{-genselt})
-	   , "</font></span>\n" 
-           if $s->{-genselt};
-       print "<hr class=\"MenuArea MenuHeader\"/>\n"; # if ($vw && $vw->{-cmt}) ||$s->{-genselt};
+       print	'<div class="MenuArea">'
+		,($vw && $vw->{-cmt}
+		?('<strong class="MenuArea MenuHeader">'
+		 ,$p->htmlescape(($t ? "$t - " : '' ), (ref($vw->{-cmt}) ? $vw->{-cmt}->[0] : $vw->{-cmt}))
+		 ,"</strong><br />\n")
+		:())
+		,($vw && $vw->{-cmt} && ref($vw->{-cmt})
+		 ?('<span class="MenuArea MenuComment">'
+		  ,join("<br />\n"
+			,map {$p->htmlescape($_)} @{$vw->{-cmt}}[1..$#{$vw->{-cmt}}])
+		  ,"<br /></span>\n")
+		 :())
+		,($s->{-genselt}
+		 ? ('<span class="MenuArea MenuComment" style="font-size: smaller;">'
+		   ,$p->htmlescape($s->{-genselt})
+		   ,"</span>\n")
+		 :())
+		,"<hr class=\"MenuArea MenuHeader\"/></div>\n";
     }
     my $c;
     my ($gt1, $gt2, $gm1, $gm2, $gi1, $gi2, $gv1, $gv2, $gs0);
@@ -1114,7 +1119,7 @@ sub cmdlst { # List Data
     local $_;
     print $vw && $vw->{-htmlts} ? $vw->{-htmlts}
         : $s->{-htmlts}         ? $s->{-htmlts}
-        : $gm2 ? "<font size=-1>\n<table class=\"ListTable\" rules=all border=1 cellspacing=0 frame=void style=\"font-size: x-small;\">\n"
+        : $gm2 ? "<font style=\"font-size: smaller;\">\n<table class=\"ListTable\" rules=all border=1 cellspacing=0 frame=void style=\"font-size: x-small;\">\n"
                                   # rules=rows|all frame=void
       # : "<table class=\"ListTable\">\n";
         : "<table class=\"ListTable\" cellpadding=\"3%\">\n";
@@ -1263,7 +1268,7 @@ sub cmdscan {# Scan data like cmdlst and eval code
 
  local $_ =undef;                       # Iterate Sub{} given
  my    $g =$s->cgi;
- print join(";<br />\n", map {$s->htmlescape($_)} @{$s->pushmsg});
+ print join(";<br />\n", map {$s->htmlescape($_)} @{$s->pushmsg}) && ($opt!~/m/);
  $s->parent->set('-cache')->{-pushmsg} =undef;
  while ($_ =$c->fetchrow_hashref) {
     foreach my $f (@{$s->{-form}}) {    # set pk, reset fields
@@ -1451,7 +1456,7 @@ sub aclsel {     # ACL Where Select Clause
       : ref($m)
       ? &{$m}($s,$e,$u)
       : $m =~/^\$_(r\w+)$/i
-      ? ($e ." $1 " .$s->dbi->quote('[[:<:]](' .join('|',@$u) .')[[:>:]]'))
+      ? ($e ." $1 " .$s->dbi->quote('[[:<:]](' .join('|', map {$s->dblikesc($_)} @$u) .')[[:>:]]'))
       : join($n ? ' AND ' : ' OR '
             ,map {my $q =$m; $q=~s/\$_f/$e/g; $q=~s/\$_u{0,1}/$s->dbi->quote($_)/ge; $q} @$u)
       );

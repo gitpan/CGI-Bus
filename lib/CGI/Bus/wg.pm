@@ -25,6 +25,7 @@ sub ddlb {     # Drop-Down List Box - Input helper
  my ($s,$w,$n,$ds) =(shift
 	,$_[0] =~/^(?:<|\$_|\s)/ || $_[0] =~/(?:>|\$_|\s)$/ ? shift : undef
 	,shift, shift);
+ my $x; if (ref($n)) {$x =$n; $n =$x->{-name}}
  my $g =$s->cgi;
  my $r ='';
  if ($g->param($n .'_B')) {
@@ -59,16 +60,20 @@ sub ddlb {     # Drop-Down List Box - Input helper
 	.'" event="onkeypress()" >' .&$fs(0) .'</script>';
     }
     $r .=$w if $w;
-    $r .=$g->submit(-name=>($n .'_C'), -value=>$s->lng(0,'ddlbclose'), -title=>$s->lng(1,'ddlbclose'));
+    $r .=$g->submit(($x ? (%$x) : ())
+		,-name=>($n .'_C')
+		,-value=>$s->lng(0,'ddlbclose')
+		,-title=>$s->lng(1,'ddlbclose'));
     $r .='<br />';
     $ds = &$ds($s) if ref($ds) eq 'CODE';
     my $dl;
     if (ref($ds) eq 'HASH') {
-       $dl =$ds;
-       $ds =do{use locale; [sort {lc($ds->{$a}) cmp lc($ds->{$b})} keys %$ds]};
-       foreach my $k (keys %$dl) {$dl->{$k} =substr($dl->{$k},0,60) .'...' if length($dl->{$k}) >60}
+	$dl =$ds;
+	$ds =do{use locale; [sort {lc($ds->{$a}) cmp lc($ds->{$b})} keys %$ds]};
+	foreach my $k (keys %$dl) {$dl->{$k} =substr($dl->{$k},0,60) .'...' if length($dl->{$k}) >60}
     }
-    $r .=$g->scrolling_list(-name=>($n .'_L')
+    $r .=$g->scrolling_list(($x ? (%$x) : ())
+		,-name=>($n .'_L')
 		,-values=>$ds
 		,-labels=>$dl
 		,-size=>(scalar(@$ds) <10 ? scalar(@$ds) : 10)
@@ -83,7 +88,8 @@ sub ddlb {     # Drop-Down List Box - Input helper
     chomp($r);
     $r .='<br />';
     if (scalar(@_) == 1 && $ff !~/^\t/) {
-       $r .=$g->submit(-name=>($n .'_S')
+       $r .=$g->submit(($x ? (%$x) : ())
+		,-name=>($n .'_S')
 		,-value=>'<' 
 		.(ref($_[0]) ?($_[0]->[1] || $_[0]->[0]) :($_[0] || ''))
 		,-title=>$s->lng(1,'ddlbsetvalue'));
@@ -99,10 +105,12 @@ sub ddlb {     # Drop-Down List Box - Input helper
           }
           my $wn =($fn =~/^\t(.*)/ ? $1 : $fn);
           $r .=
-          $g->button(-value=>(($fn eq $wn ? '<' :'<+') .$l)
-           ,-onClick=>"var fs =window.document.forms[0].${n}_L; "
-                     ."var ft =window.document.forms[0].$wn; "
-                     ."var i  =fs.selectedIndex; "
+          $g->button(($x ? (%$x) : ())
+	   ,-name=>''
+	   ,-value=>(($fn eq $wn ? '<' :'<+') .$l)
+           ,-onClick=>	 "var fs =window.document.forms[0].${n}_L; "
+			."var ft =window.document.forms[0].$wn; "
+			."var i  =fs.selectedIndex; "
            .($g->user_agent('MSIE') 
             ?($fn eq $wn ? "ft.value =(fs.options.item(i).value ==\"\" ? fs.options.item(i).text : fs.options.item(i).value); "
               : "ft.value =(ft.value ==\"\" ? \"\" : (ft.value +\",\")) +(fs.options.item(i).value ==\"\" ? fs.options.item(i).text : fs.options.item(i).value); ")
@@ -112,10 +120,15 @@ sub ddlb {     # Drop-Down List Box - Input helper
            ,-title=>$s->lng(1,'ddlbsetvalue'));
        }
     }
-    $r .=$g->button(-value=>$s->lng(0,'ddlbfind')
+    $r .=$g->button(($x ? (%$x) : ())
+		,-name=>''
+		,-value=>$s->lng(0,'ddlbfind')
 		,-title=>$s->lng(1,'ddlbfind')
 		,-onClick=>&$fs(3));
-    $r .=$g->submit(-name=>($n .'_C'), -value=>$s->lng(0,'ddlbclose'), -title=>$s->lng(1,'ddlbclose'));
+    $r .=$g->submit(($x ? (%$x) : ())
+		,-name=>($n .'_C')
+		,-value=>$s->lng(0,'ddlbclose')
+		,-title=>$s->lng(1,'ddlbclose'));
     $r .='<script for="window" event="onload">{'
 	# .'window.scrollTo(window.document.forms[0].' .$n .'_L, window.screenTop);'
 	.(0 && $ff !~/^\t/ && $w && defined($g->param($ff)) && ($g->param($ff) ne '')
@@ -127,7 +140,10 @@ sub ddlb {     # Drop-Down List Box - Input helper
     $g->param(ref($_[0]) ? $_[0]->[0] : $_[0], $g->param($n .'_L')) 
         if scalar(@_) == 1 && $g->param($n .'_S');
     $r .=$w if $w;
-    $r .=$g->submit(-name=>($n .'_B'), -value=>$s->lng(0,'ddlbopen'), -title=>$s->lng(1,'ddlbopen'));
+    $r .=$g->submit(($x ? (%$x) : ())
+		,-name=>($n .'_B')
+		,-value=>$s->lng(0,'ddlbopen')
+		,-title=>$s->lng(1,'ddlbopen'));
     $r .='<script for="window" event="onload">{'
 	.'window.document.forms[0].' .$n .'_B.focus();}</script>'
 	if ($g->param($n .'_S') ||$g->param($n .'_C'));
@@ -185,9 +201,9 @@ sub textarea { # Text Area with autorowing and hrefs
 #		#http://msdn.microsoft.com/archive/default.asp?url=/archive/en-us/dnaredcom/html/dhtmledit.asp
 #		if $n && ($ENV{HTTP_USER_AGENT}||'') =~/MSIE/;
 	$r1 .="<input type=\"submit\" name=\"${n}__b\" value=\"R\" "
+		.($a{-class} ? 'class="' .$a{-class} .'" ' : '')
 		."title=\"Rich/Text edit: ^Bold, ^Italic, ^Underline, ^hyperlinK, Enter/shift-Enter, ^(shift)T ident, ^Z undo, ^Y redo.\" "
 		."style=\"font-style: italic;\" "
-			# ; font-weight: bold; font-family: fantasy
 		."onclick=\"{if(${n}__b.value=='R') {${n}__b.value='T'; $n.style.display='none'; "
 		."\n var r; r =document.createElement('<span contenteditable=true id=&quot;${n}__r&quot; title=&quot;MSHTML Editing Component&quot; ondeactivate=&quot;{$n.value=${n}__r.innerHTML}&quot;></span>'); ${n}__b.parentNode.insertBefore(r,$n);\n"
 		# r.execCommand('Font', 1)
@@ -239,6 +255,7 @@ sub textarea { # Text Area with autorowing and hrefs
 sub fsdir {	# Filesystem dir field
 		# name,edit,path,URL,URF,rows,cols
  my ($s, $nm, $ed, $ea, $fp, $fu, $fr, $sr, $sc) =@_;
+ my $x; if (ref($nm)) {$x =$nm; $nm =$x->{-name}};
  my $p =$s->parent;
  my ($nml, $nma, $nmu, $nmc, $nmo) =("${nm}_l", "${nm}_d", "${nm}_u", "${nm}_c", "${nm}_o");
  my $r =$p->cgi->a({-href=>$fr||$fu,-target=>'_blank',-title=>$p->htmlescape($s->lng(1,'Files'))}
@@ -251,27 +268,33 @@ sub fsdir {	# Filesystem dir field
 		if $ed && $p->cgi->param($nmc);
 	$fo = $ed && ($p->cgi->param($nmc)||$p->cgi->param($nmo)) && $s->_fsopens($fp,{});
  if (1 && $p->urfcnd && $ed && $fr) {
-    $r .=$p->cgi->submit(-name=>$nmo, -value=>$s->lng(0,'fsopens'), -title=>$s->lng(1,'fsopens')) ."\n"
+    $r .=$p->cgi->submit(($x ? (%$x) : ())
+		,-name=>$nmo
+		,-value=>$s->lng(0,'fsopens')
+		,-title=>$s->lng(1,'fsopens')) ."\n"
 		if !$fo && $^O eq 'MSWin32';
     $r .="<br />"
-	.$p->cgi->scrolling_list(-name=>$nmc, -override=>1, -multiple=>'true'
+	.$p->cgi->scrolling_list(($x ? (%$x) : ())
+		, -name=>$nmc, -override=>1, -multiple=>'true'
 		, -values=>	['---' .$s->lng(0,'fsclose') .'---'
 				,ref($fo) eq 'HASH' ? sort keys %$fo : @$fo]
 		, ref($fo) eq 'HASH' ? (-labels=>$fo) : ()
 		)
-        .$p->cgi->submit(-name=>$nma, -value=>$s->lng(0,'fsclose'), -title=>$s->lng(1,'fsclose')) ."\n"
+        .$p->cgi->submit(($x ? (%$x) : ())
+			,-name=>$nma
+			,-value=>$s->lng(0,'fsclose')
+			,-title=>$s->lng(1,'fsclose')) ."\n"
 		if $fo;
     if ($ed && $fr && $fr =~/^file:(.*)/i) {
 	my $fs =$1; $fs =~s/\//\\/g;
-	$r .=' <font size=-1><sub>' 
-	.'<span '
+	$r .='<span style="font-size: smaller;" '
 	#.' onclick="window.event.srcElement.select" '
 	#.' ondblclick="{window.clipboardData.setData(\'Text\',' .$p->htmlescape($fs) .'\'); return(false)}" '
 	# window.event.srcElement
 	# document.selection.empty(); 
 	.' title="' .$p->htmlescape($s->lng(1,'Files') .' ') .'" '
-	.'>' 
-	.$p->htmlescape($fs) ."</span></sub></font>"
+	.'><sub>' 
+	.$p->htmlescape($fs) ."</sub></span>"
     }
     $r .="<br />\n";
   # !!! filefield may be useful to attach files, but file creation time will not be saved !!!
@@ -287,7 +310,8 @@ sub fsdir {	# Filesystem dir field
  my $fb =$p->urfcnd && $ed ? ($fr ||$fu) : ($fu ||$fr);
  if (!$ed) {
     my $fl =join(",\n"
-           , map {$p->cgi->a({-href=>"$fb/$_", -target=>'_blank'}, $p->htmlescape($_))} 
+           , map {$p->cgi->a({-href=>"$fb/$_", -target=>'_blank'
+			}, $p->htmlescape($_))} 
              eval{$p->fut->globn("$fp/*")}
            );
     $r .=$fl ."\n" if $fl;
@@ -310,11 +334,12 @@ sub fsdir {	# Filesystem dir field
          $p->fut->delete('-r',"$fp/$fn");
        }
     }
-    $r .=$p->cgi->filefield(-name=>$nmu, -title=>$s->lng(1,'fsbrowse')); # -size
-    $r .=$p->cgi->submit(-name=>$nma, -value=>$s->lng(0,'+|-'), -title=>$s->lng(1,'+|-'));
-    $r .=$p->cgi->submit(-name=>$nmo, -value=>$s->lng(0,'fsopens'), -title=>$s->lng(1,'fsopens'))
+    $r .=$p->cgi->filefield(($x ? (%$x) : ()), -name=>$nmu, -title=>$s->lng(1,'fsbrowse'));
+    $r .=$p->cgi->submit(($x ? (%$x) : ()), -name=>$nma, -value=>$s->lng(0,'+|-'), -title=>$s->lng(1,'+|-'));
+    $r .=$p->cgi->submit(($x ? (%$x) : ()), -name=>$nmo, -value=>$s->lng(0,'fsopens'), -title=>$s->lng(1,'fsopens'))
 		if !$fo && $^O eq 'MSWin32';
-    $r .=$p->cgi->scrolling_list(-name=>$nmc, -override=>1, -multiple=>'true'
+    $r .=$p->cgi->scrolling_list(($x ? (%$x) : ())
+		, -name=>$nmc, -override=>1, -multiple=>'true'
 		, -values=>	['---' .$s->lng(0,'fsclose') .'---'
 				,ref($fo) eq 'HASH' ? sort keys %$fo : @$fo]
 		, ref($fo) eq 'HASH' ? (-labels=>$fo) : ()
@@ -322,17 +347,16 @@ sub fsdir {	# Filesystem dir field
 		if $fo;
     if ($ed && $fr && $fr =~/^file:(.*)/i) {
 	my $fs =$1; $fs =~s/\//\\/g;
-	$r .=' <font size=-1><sub>' 
-	.'<span '
+	$r .='<span style="font-size: smaller;" '
 	.' title="' .$p->htmlescape($s->lng(1,'Files') .' ') .'" '
-	.'>' 
-	.$p->htmlescape($fs) ."</span></sub></font>"
+	.'><sub>' 
+	.$p->htmlescape($fs) ."</sub></span>"
     }
     $r .="<br />\n"; # $r .="\n&nbsp;&nbsp;&nbsp;\n";
     
     foreach my $fn (eval{$p->fut->globn("$fp/*")}) {
        $r .=$p->cgi->a({-href=>"$fb/$fn", -target=>'_blank'}
-           ,$p->cgi->checkbox(-name=>$nml, -value=>$fn, -label=>$fn, -title=>$s->lng(1,'fsdelmrk')))
+           ,$p->cgi->checkbox(($x ? (%$x) : ()), -name=>$nml, -value=>$fn, -label=>$fn, -title=>$s->lng(1,'fsdelmrk')))
           ."&nbsp;&nbsp;&nbsp;\n";
     }
  }
