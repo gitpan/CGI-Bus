@@ -86,7 +86,7 @@ sub urls {      # urls array
          ? $s->{-search} 
          : $s->qurl('', '_run'=>'SEARCH');
  my $lgn = $s->{-searchms} && $s->parent->uguest 
-        && $g->url !~/\/_*(search|guest)\//i;
+        && $s->url !~/\/_*(search|guest)\//i;
  push @$l, $g->a({-href  =>$lgn ?$s->qurl('','_login'=>1,'_run'=>$url) :$url
                  ,-target=>$lgn ? '_parent' : ($s->qparam('_target') ||'RIGHT')
                  ,-title =>$s->lng(0, 'Search')}
@@ -136,7 +136,7 @@ sub urltop {    # topmost url to open first
 sub scrbot {    # print bottom of the screen
  my $s =shift;
  my $p =$s->parent;
- my $r =join(';' .$p->cgi->br, map {$p->htmlescape($_)} @{$p->pushmsg});
+ my $r =join(';<br />', map {$p->htmlescape($_)} @{$p->pushmsg});
  $r  ='<span style="font-size: smaller;"><hr />' .$r .'</span>' if $r;
  $s->print->text($r);
 }
@@ -204,7 +204,7 @@ sub scrleft {   # left screen (urls)
    $s->print($li) if $li;
  }
 
- $s->print($p->strong($s->user), $p->br);
+ $s->print($p->strong($s->user), '<br />');
 #$s->print()->strong($s->a({-href=>$s->uauth->authurl($s->qurl), -target=>'_parent'}, $s->user))->br;
  $s->print('<NOBR>');
  if ($s->uguest) {
@@ -220,7 +220,7 @@ sub scrleft {   # left screen (urls)
  foreach my $e (@$l) {
    next if ($e||'') eq ($d||'');
    if ($e =~/^ *$/ || $e =~/^<\w/i) {
-      $s->print((!$e ||$e =~/<img\s|<hr|<br/i ? '' : $s->_img('-hgen')) .$e .$s->cgi->br ."\n");
+      $s->print((!$e ||$e =~/<img\s|<hr|<br/i ? '' : $s->_img('-hgen')) .$e ."<br />\n");
    }
    elsif ($e =~/^([^|]+)(\|.+){0,1}?\|(_blank|_top|_parent)\|(.+)$/i) {
       my ($c,$i,$t,$u) =($1,$2,$3,$4);
@@ -370,7 +370,7 @@ sub search {    # search screen
        # advapi32.dll: LogonUser, ImpersonateLoggedOnUser, ImpersonateSelf(int4(2)), RevertToSelf
        # 'Platform SDK: Security': 'Client/Server Access Control Functions'
        # "Replace a process level token" right
-       if ($p->cgi->url !~/\/_*(login|auth|a|ntlm|search|guest)\//i
+       if ($p->url !~/\/_*(login|auth|a|ntlm|search|guest)\//i
        && !$ENV{REMOTE_USER}) {
           $p->print->h1('Authentication required')
        } elsif ($p->{-cache}->{-RevertToSelf}) {
@@ -696,7 +696,7 @@ sub scrusites { # Users Sites Display
                   ,-value=>$s->lng(0, 'Refresh')
                   ,-title=>$s->lng(1, 'Refresh'))
        .($s->{-ushome}
-        ? ($p->cgi->br
+        ? ('<br />'
           .$p->cgi->a({-href=>($s->{-usurl} ||$s->{-uspurf} ||$s->{-uspurl}) 
                               .'/' .$s->usohome($s->{-ushome})
                       }, $s->_img('-usite','USFHomes'))
@@ -860,7 +860,7 @@ sub scrsetup {  # setup screen
  if ($aa) {
  $s->print->th($ha, $s->lng(0, 'Managed'));
  $s->print->td($hd, $s->htmltextfield(-name=>'uauth_managed', -asize=>70, -class=>'PaneForm')
-                  . $s->htmlddlb({-name=>'uauth_managed_', -class=>'PaneForm'}
+                  . $s->htmlddlb('',{-name=>'uauth_managed_', -class=>'PaneForm'}
 				,sub{$_[0]->uglist({})}, ["\tuauth_managed"=>' '])
                   . $s->_ssfcmt('Managed')
               );
@@ -868,7 +868,7 @@ sub scrsetup {  # setup screen
  if ($s->parent->uauth->set('-udata')) {
  $s->print->th($ha, $s->lng(0, 'Groups'));
  $s->print->td($hd, $s->htmltextfield(-name=>'uauth_groups', -asize=>70, -class=>'PaneForm')
-                  . $s->htmlddlb({-name=>'uauth_groups_', -class=>'PaneForm'}
+                  . $s->htmlddlb('',{-name=>'uauth_groups_', -class=>'PaneForm'}
 			,sub{$_[0]->uglist({})}, ["\tuauth_groups"=>' '])
                   . $s->_ssfcmt('Groups')
               );

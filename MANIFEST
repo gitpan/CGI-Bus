@@ -50,3 +50,4 @@ lib/CGI/Bus/lngbase/CGI_Bus_upws.pm
 lib/CGI/Bus/lngbase/CGI_Bus_upws_ru.pm
 lib/CGI/Bus/lngbase/CGI_Bus_wg.pm
 lib/CGI/Bus/lngbase/CGI_Bus_wg_ru.pm
+META.yml                                 Module meta-data (added by MakeMaker)

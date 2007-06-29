@@ -23,7 +23,8 @@ use vars qw(@ISA $AUTOLOAD);
 
 sub ddlb {     # Drop-Down List Box - Input helper
  my ($s,$w,$n,$ds) =(shift
-	,$_[0] =~/^(?:<|\$_|\s)/ || $_[0] =~/(?:>|\$_|\s)$/ ? shift : undef
+	#,!$_[0] || $_[0] =~/^(?:<|\$_|\s)/ || $_[0] =~/(?:>|\$_|\s)$/ ? shift : undef
+	,shift
 	,shift, shift);
  my $x; if (ref($n)) {$x =$n; $n =$x->{-name}}
  my $g =$s->cgi;
@@ -95,27 +96,24 @@ sub ddlb {     # Drop-Down List Box - Input helper
 		,-title=>$s->lng(1,'ddlbsetvalue'));
     }
     else {
-       foreach my $fn (@_) {
-          next if !$fn;
-          my $l =$fn;
-          if (ref($fn)) {
-             $l =$fn->[1] || $fn->[0];
-             $fn=$fn->[0];
-             next if !$fn;
-          }
-          my $wn =($fn =~/^\t(.*)/ ? $1 : $fn);
+       foreach my $ff (@_) {
+          next if !$ff;
+	  my ($fn, $l) =ref($ff) ? (@$ff) : ($ff, '');
+	  next if !$fn;
+	  my $wn =($fn =~/([^\t]+)$/ ? $1 : $fn);	# /^\t(.*)/
+	  $l =scalar(@_) ==1 ? '' : $wn if !$l ||($l eq $fn);
           $r .=
           $g->button(($x ? (%$x) : ())
 	   ,-name=>''
-	   ,-value=>(($fn eq $wn ? '<' :'<+') .$l)
+	   ,-value=>(($fn !~/^\t/ ? '<' : '<+') .$l)
            ,-onClick=>	 "var fs =window.document.forms[0].${n}_L; "
 			."var ft =window.document.forms[0].$wn; "
 			."var i  =fs.selectedIndex; "
            .($g->user_agent('MSIE') 
-            ?($fn eq $wn ? "ft.value =(fs.options.item(i).value ==\"\" ? fs.options.item(i).text : fs.options.item(i).value); "
-              : "ft.value =(ft.value ==\"\" ? \"\" : (ft.value +\",\")) +(fs.options.item(i).value ==\"\" ? fs.options.item(i).text : fs.options.item(i).value); ")
-            :($fn eq $wn ? "ft.value =fs[i].value; "
-              : "ft.value =(ft.value ==\"\" ? \"\" : (ft.value +\",\")) +fs[i].value; ")
+            ?($fn !~/^\t/ ? "ft.value =(fs.options.item(i).value ==\"\" ? fs.options.item(i).text : fs.options.item(i).value); "
+              : "ft.value =(ft.value ==\"\" ? \"\" : (ft.value +\", \")) +(fs.options.item(i).value ==\"\" ? fs.options.item(i).text : fs.options.item(i).value); ")
+            :($fn !~/^\t/ ? "ft.value =fs[i].value; "
+              : "ft.value =(ft.value ==\"\" ? \"\" : (ft.value +\", \")) +fs[i].value; ")
              )
            ,-title=>$s->lng(1,'ddlbsetvalue'));
        }
@@ -140,10 +138,51 @@ sub ddlb {     # Drop-Down List Box - Input helper
     $g->param(ref($_[0]) ? $_[0]->[0] : $_[0], $g->param($n .'_L')) 
         if scalar(@_) == 1 && $g->param($n .'_S');
     $r .=$w if $w;
+    my $fn =(ref($_[0]) ?($_[0]->[0] || $_[0]->[1]) :($_[0] || ''));
+    my $wn =($fn =~/([^\t]+)$/ ? $1 : $fn);
+    $r .="<script language=\"jscript\"></script><script language=\"VBScript\">
+	function ${n}_O_O(fldnme)
+	Dim Users1
+	Dim t
+	Dim item
+	Dim field
+	${n}_O_O =\"\"
+	On Error Resume Next
+	rem EnsureImport()
+	Set field =Document.getElementsByName(fldnme)(0)
+	Set t = CreateObject(\"MsSvAbw.AddrBookWrapper\")
+	if Err <> 0 then
+		Err.Clear
+		set t = CreateObject(\"MsoSvAbw.AddrBookWrapper\")
+	end if
+	if IsObject(t) then
+		t.AddressBook \"Microsoft Address Book\", 1, \"\", \"\", \"\", Users1
+		if Err = 0 or Err <> 0 then
+			For each item in Users1
+				if len(field.value) <> 0 then
+					field.value =field.value & \", \" & item.SMTPAddress
+				else
+					field.value =item.SMTPAddress
+				end if
+			Next
+			rem MsgBox(field.value)
+			${n}_O_O =\"fldnme\"
+		else
+			MsgBox(\"Error=\" & Err.Description)
+			Err.Clear
+		end if
+	end if
+	End function"
+	."</script><script language=\"jscript\"></script>"
+    if ($fn =~/msab\t/) && $g->user_agent('MSIE');
     $r .=$g->submit(($x ? (%$x) : ())
 		,-name=>($n .'_B')
 		,-value=>$s->lng(0,'ddlbopen')
-		,-title=>$s->lng(1,'ddlbopen'));
+		,-title=>$s->lng(1,'ddlbopen')
+		,($fn =~/msab\t/) && $g->user_agent('MSIE')
+			? (-OnClick=>"if(${n}_O_O('$wn')) {return(false)};")
+			: ()
+		);
     $r .='<script for="window" event="onload">{'
 	.'window.document.forms[0].' .$n .'_B.focus();}</script>'
 	if ($g->param($n .'_S') ||$g->param($n .'_C'));

@@ -105,7 +105,8 @@ sub eval {     # Transaction DBI run
 
 sub htmlddlb {  # HTML Drop-Down List Box - Input Helper
  my ($s,$w,$n,$ds) =(shift
-	,$_[0] =~/^(?:<|\$_|\s)/ || $_[0] =~/(?:>|\$_|\s)$/ ? shift : undef
+	#,!$_[0] || $_[0] =~/^(?:<|\$_|\s)/ || $_[0] =~/(?:>|\$_|\s)$/ ? shift : undef
+	,shift
 	,shift, shift);
  my $dc =ref($_[0]) ? shift : [];              # data container
  my $df =ref($_[0]) eq 'CODE' ? shift : undef; # data feed sub
@@ -135,11 +136,11 @@ sub htmlddlb {  # HTML Drop-Down List Box - Input Helper
         $s->pushmsg($rc <=$lr ? $s->lng(1,'rfetch',$rc) : $s->lng(1,'rfetchf',$lr));
         $c->finish;
     }
-    $s->parent->htmlddlb(!$w ? () : $w, {-name=>$n, -class=>'Form'}, $ds
+    $s->parent->htmlddlb($w, {-name=>$n, -class=>'Form'}, $ds
         ,map {[$_=>$s->{-fields}->{$_=~/^\t/ ?substr($_,1) :$_}->{-lbl}||$_]} @_)
  }
  else {
-    $s->parent->htmlddlb(!$w ? () : $w, {-name=>$n, -class=>'Form'}, $ds, @_)
+    $s->parent->htmlddlb($w, {-name=>$n, -class=>'Form'}, $ds, @_)
  }
 }
 
@@ -1532,6 +1533,7 @@ sub fsurf {     # File Store Filesystem URL
 sub fspathmk {  # File Store Path Make
  my $s =shift;
  my $p =$s->fspath(@_);
+ $s->parent->w32IISdpsn(1) if ($ENV{SERVER_SOFTWARE}||'') =~/IIS/;
  $s->fut->mkdir($p) if !-d $p;
  $p
 }
@@ -1539,12 +1541,14 @@ sub fspathmk {  # File Store Path Make
 
 sub fspathcp {  # File Store Path Copy
  my ($s, $p1, $p2)  =@_;
+ $s->parent->w32IISdpsn(1) if ($ENV{SERVER_SOFTWARE}||'') =~/IIS/;
  $s->fut->copy('-rd', $s->fspath($p1), $s->fspathmk($p2))
 }
 
 
 sub fspathrm {  # File Store Path Remove
  my ($s, $p)  =(shift, shift);
+ $s->parent->w32IISdpsn(1) if ($ENV{SERVER_SOFTWARE}||'') =~/IIS/;
  $s->fut->delete('-r', $s->fspath($p));
 }
 
@@ -1565,6 +1569,7 @@ sub fsacl {     # File Store ACL
      ||$s->{-fsd}->{-url}) =~/^file:/i)
     ||(($ENV{SERVER_SOFTWARE}||'') =~/IIS/)) { 
     if ($^O eq 'MSWin32') {              # Windows ACL (cacls or xcacls or WSH)
+       $s->parent->w32IISdpsn(1);
        my @o =('/T','/C','/G');
        my $a =$s->acl('-oswrite', undef, $px);
        if (!scalar(@$a)) {
@@ -1577,7 +1582,16 @@ sub fsacl {     # File Store ACL
        foreach my $l (($op ne 'w' ? () : '-swrite'), qw(-write -sread -read)) {
          my $a =$s->unamesun($s->acl($l, undef, $px));
          my $r =($l =~/write/ && $op eq 'w' ? 'F' : 'R');
-         $s->oscmd('cacls', $p, @o, map {"\"$_\":$r"} @$a) if scalar(@$a);
+	 next if !scalar(@$a);
+	 if ($l =~/^-s/) {
+		$s->oscmd('cacls', $p, @o, map {"\"$_\":$r"} @$a)
+	 }
+	 else {
+		foreach my $n (@$a) {
+			$s->oscmd('-i','cacls', $p, @o, "\"$n\":$r")
+			|| $s->warn($s->parent->lng(0,'Warning') .": cacls($n:$r) -> " .(($?>>8)||0))
+		}
+	 }
        }
     }
     else {                               # UNIX ACL
@@ -1611,6 +1625,7 @@ sub fsscan {    # File Store Scan
  my ($s,$opt) =@_;
  $opt ='ft' if !$opt;
  return if !$s->{-fsd};
+ $s->parent->w32IISdpsn(1) if ($ENV{SERVER_SOFTWARE}||'') =~/IIS/;
 
  if ($opt =~/f/) {
  foreach my $path ($s->{-fsd}->{-path}, $s->{-fsd}->{-vspath}){

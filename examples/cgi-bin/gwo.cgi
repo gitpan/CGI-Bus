@@ -116,11 +116,12 @@ $s->tmsql->set(
         ,-crt=>sub{$_}, -null=>'', -inp=>{-maxlength=>60}
         ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Open Users'},-lst=>,$_[0]->pxsw('LIST')
                       ,$_ ? ('AllActual','rrole'=>$_) : ('Users'), '$_')}
-        ,-inphtml=>sub{'$_' .$_[0]->htmlddlb('auser_',sub{$_[0]->uglist({})}, qw(puser prole auser arole rrole), "\tmailto")}}
+        ,-inphtml=>sub{$_[0]->htmlddlb('$_','auser_',sub{$_[0]->uglist({})}, qw(puser prole auser arole rrole), "\tmailto")}}
  ,''
  ,{-flg=>'a"',  -fld=>'mailto'
         ,-lbl=>'eMailTo', -cmt=>'Receipients of e-mail about this record'
-        ,-null=>'', -inp=>{-maxlength=>255}}
+        ,-null=>'', -inp=>{-maxlength=>255}
+        ,-inphtml=>sub{$_[0]->htmlddlb('$_','mailto_',sub{$_[0]->uglist({})}, "\tmsab\tmailto")}}
  ,''
  ,{-flg=>'a"',  -fld=>'period'
         ,-lbl=>'Period',-cmt=>'Period (y,m,d,h) of Record described by'
@@ -172,14 +173,14 @@ $s->tmsql->set(
                       ,$_ 
                       ? ('AllActual','object'=>$_, $s->tmsql->pxsw('ORDER_BY'),'record_s asc, otime desc, ctime desc') 
                       : ('Objects'), '$_')}
-        ,-inphtml=>sub{'$_' .$_[0]->htmlddlb('object_','Objects','object')}}
+        ,-inphtml=>sub{$_[0]->htmlddlb('$_','object_','Objects','object')}}
  ,''
  ,{-flg=>'a"',  -fld=>'doctype'
         ,-lbl=>'DocType', -cmt=>'For buroucracy'
         ,-crt=>sub{$_}, -null=>'', -inp=>{-maxlength=>60}
         ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Open DocTypes'},-lst=>,$_[0]->pxsw('LIST')
                       ,$_ ? ('AllActual','doctype'=>$_) : ('DocTypes'), '$_')}
-        ,-inphtml=>sub{'$_' .$_[0]->htmlddlb('doctype_','DocTypes','doctype')}}
+        ,-inphtml=>sub{$_[0]->htmlddlb('$_','doctype_','DocTypes','doctype')}}
  ,"\t","\t"
  ,{-flg=>'a"',  -fld=>'project'
         ,-lbl=>'Project', -cmt=>'Direction, project, process, item of expenses, related to Record'
@@ -188,7 +189,7 @@ $s->tmsql->set(
                       ,$_ 
                       ? ('AllActual','project'=>$_, $s->tmsql->pxsw('ORDER_BY'),'record_s asc, otime desc, ctime desc') 
                       : ('Project'), '$_')}
-        ,-inphtml=>sub{'$_' .$_[0]->htmlddlb('project_','Projects','project')}}
+        ,-inphtml=>sub{$_[0]->htmlddlb('$_','project_','Projects','project')}}
  ,''
  ,{-flg=>'a"',  -fld=>'cost'
         ,-lbl=>'Cost', -cmt=>'Cost of the Record described by'

@@ -76,7 +76,7 @@ $s->tmsql->set(
         ,-null=>'', -inp=>{-maxlength=>60}
         ,-lblhtml=>sub{$_[0]->htmlself({-title=>'Open Users'},-lst=>,$_[0]->pxsw('LIST')
                       ,$_ ? ('AllActual','prole'=>$_) : ('Users'), '$_')}
-        ,-inphtml=>sub{'$_' .$_[0]->htmlddlb('auser_',sub{$_[0]->uglist({})}, qw(prole rrole),"\tmailto")}
+        ,-inphtml=>sub{$_[0]->htmlddlb('$_','auser_',sub{$_[0]->uglist({})}, qw(prole rrole),"\tmailto")}
         }
  ,''
  ,{-flg=>'a"',  -fld=>'rrole'

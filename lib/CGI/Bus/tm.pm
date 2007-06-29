@@ -965,9 +965,8 @@ sub evaluate { # Execution of tm
  my $s =shift;
  my $p =$s->parent;
  $s->userauthopt;
- $s->pushmsg($p->{-cache}->{-RevertToSelf}) 
-	if $p->{-cache}->{-RevertToSelf}
-	&& $p->{-debug} && $p->{-debug} >2;
+ $p->{-debug} && $p->{-cache}->{-RevertToSelf}
+ && $s->pushmsg('w32IISdpsn(' .(defined($p->{-w32IISdpsn}) ? $p->{-w32IISdpsn} : 'undef') .')'.($p->{-debug} >2 ? ' '. $p->{-cache}->{-RevertToSelf} : ''));
  if (($p->qrun||'') =~/^(SEARCH|SETUP)$/) {
 	my $a =$p->{-upws};
 	my $w =$p->upws;
@@ -1162,7 +1161,7 @@ sub cmdfrm { # Record form for Query or Edit
              &&( $f->{-flg} =~/[a$c]v/ 
                ||($f->{-flg} !~/[a$c]/ && $f->{-flg} =~/v/)));
 
-   $p->print('</tr><tr>') if !$rskip;
+   $p->print('</tr><tr>') if !$rskip && !$tskip;
    my $lbl =$p->htmlescape($f->{-lbl}||$f->{-fld});
    my $cmt =($f->{-cmt}||$f->{-lbl}||$f->{-fld}) .' [' .$f->{-fld} .': ' .$f->{-flg} .']';
 
@@ -1192,7 +1191,7 @@ sub cmdfrm { # Record form for Query or Edit
       $l =~s/\$_/$lbl/;
       $lbl =$l;
    }
-   $p->print($tskip || $lbl =~/<t[dh]\b/i 
+   $p->print($tskip || $lbl =~/^\s*<t[dh]\b/i 
 			? $lbl 
 			: $p->th({-align=>'left',-valign=>'top',-title=>$cmt||'',-class=>'Form'}
 				,$lbl))
@@ -1305,7 +1304,7 @@ sub cmdfrm { # Record form for Query or Edit
 	.($f->{-width} && $f->{-width} =~/\D/ ? ' width='   .$f->{-width}   :'')
 	.(!$vm ? ' title="' .$p->htmlescape($cmt||'') .'"' : '')
 	.'>' .$wgp .'</td>' 
-	if !$tskip && $wgp !~/<t[dh]\b/i && !($hide && $f->{-hidel});
+	if !$tskip && $wgp !~/^\s*<t[dh]\b/i && !($hide && $f->{-hidel});
    $p->print($wgp, "\n");
    $rskip =undef;
  }

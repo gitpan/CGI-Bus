@@ -41,6 +41,7 @@ $a ='';                  # root application directory
 
  $s->set  (-usercnv=>sub{lc($_[0]->usercn($_))} # user names conversion
         # ,-ugrpcnv=>sub{$_[0]->usercn($_)}     # group names conversion
+	# ,-ugrpadd=>sub{['Everyone','Guests']}	# additional groups
           ,-uadmins=>[]                         # admin users
           );
 

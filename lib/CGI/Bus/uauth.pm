@@ -356,7 +356,6 @@ sub uglist {	# User & Group List
  }
  else {
  }
- $r =do{use locale; [sort {lc($a) cmp lc($b)} @$r]} if ref($r) eq 'ARRAY';
  $r
 }
 
@@ -372,7 +371,9 @@ sub w32adaf {	# Win32 AD Auth Files write/refresh
  my $fg =$fs .'/' .'uagroup';				# file 'group'
  my $fl =$fs .'/' .'ualist';				# file list
  return(1) 						# update frequency
-	if (-f $fg) && (time() -[stat($fg)]->[9] <60*60); # 60*60);
+	if (defined($s->{-w32adaf}) && $s->{-w32adaf}==0)
+	|| ((-f $fg) && (time() -[stat($fg)]->[9] <
+		($s->{-w32adaf}||(60*60*4)))); # 60*60);
  if (!$mo) {						# check mode
 	if (!-f $fg) {			# immediate interactive
 		$s->pushmsg($s->pushlog('w32adaf new ' .$fg));
@@ -384,7 +385,12 @@ sub w32adaf {	# Win32 AD Auth Files write/refresh
 	}
  }
  elsif ($mo eq 'q') {					# queued mode
-	if (1) {			# inline
+	if (ref($s)			# reverted reject
+	&&  $s->{-w32IISdpsn} && ($s->{-w32IISdpsn} <2)
+	&&  $s->{-cache} && $s->{-cache}->{-RevertToSelf}) {
+		return(0)
+	}
+	elsif (1) {			# inline
 	}
 	elsif (eval("use Thread; 1")	# threads
 	&& ($mo =eval{Thread->new(sub{w32adaf(undef,$fs,'t',$df)})})
@@ -655,21 +661,19 @@ sub auth {	# Authenticate User
  }
  if (($ENV{SERVER_SOFTWARE}||'') =~/IIS/) {
     if    ($s->signchk)        {}
-    elsif (1	# IIS Deimpersonation
-		# Set 'IIS / Home Directory / Application Protection' = 'Low (IIS Process)'
-		# or see 'Administrative Tools / Component Services'.
-		# Do not use quering to 'Index Server'.
-	&& $ENV{REMOTE_USER}
+    elsif (1	# IIS Deimpersonation: 'Low (IIS Process)', !'Index Server'
+	# && $ENV{REMOTE_USER}
 	&& ($s->{-login}||$s->parent->set('-login')||'') =~/\/$/i) {
 		if (($s->qparam('_run')||'') eq 'SEARCH') {
-			$s->parent->user($ENV{REMOTE_USER});
+			$s->parent->user($ENV{REMOTE_USER}||$guest);
 		}
-		elsif (eval('use Win32::API; (new Win32::API("advapi32.dll","RevertToSelf",[],"N"))->Call()')) {
-			$s->parent->{-cache}->{-RevertToSelf} =(Win32::LoginName()||'?');
-			$s->parent->user($ENV{REMOTE_USER});
+		elsif (!defined($s->parent->{-w32IISdpsn})
+			|| ($s->parent->{-w32IISdpsn} >1)) {
+			$s->parent->user($ENV{REMOTE_USER}||$guest);
+			$s->parent->w32IISdpsn();
 		}
 		else {
-			$s->die("Win32::API('RevertToSelf') -> $@\n")
+			$s->parent->user($ENV{REMOTE_USER}||$guest);
 		}
 	}
     elsif (!$s->parent->uguest()) {
@@ -773,7 +777,7 @@ sub signset {	# Set authentication
  $c =$s->_signmk($d->{-ses}->{$c->[2]}->{-key}, @$c);
  return '' if !$c;
  $s->udata->store();
- my $r =shift ||$s->cgi->param($cooknme) ||$s->cgi->url; #||$ENV{HTTP_REFERER}
+ my $r =shift ||$s->cgi->param($cooknme) ||$s->url; #||$ENV{HTTP_REFERER}
  my @p =(-uri=>$r
         ,-cookie=>[$s->cgi->cookie(-name=>$cooknme,-value=>$c,-path=>'/')]
         );

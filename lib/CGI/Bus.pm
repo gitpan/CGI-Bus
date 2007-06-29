@@ -13,7 +13,7 @@ use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
 
 
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $AUTOLOAD);
-$VERSION = '0.60';
+$VERSION = '0.61';
 
 use vars qw($SELF);
 
@@ -118,6 +118,7 @@ sub initialize {
   #,-ugrpcnv    =>undef           # User/Group names convertor optional sub
   #,-userauth   =>undef           # User authentication optional sub
   #,-uadmins    =>undef           # Administrators list
+  #,-w32IISdpsn	=>($ENV{SERVER_SOFTWARE}||'') =~/IIS/ ? 2 : 0 # MsIIS deimpersonation
 
   #,-httpheader =>undef           # HTTP header hash ref, for httpheader()
   #,-htmlstart  =>undef           # HTML start hash ref, for htmlstart()
@@ -135,15 +136,22 @@ sub initialize {
  }
  if (!$s->{-cgi}) {
     eval('use CGI::Fast') if $s->{-fcgimax};
-    eval('use CGI');
+    eval('use CGI qw(-no_xhtml);');
   # $CGI::POST_MAX =-1;                                 # default in CGI.pm 
   # $MultipartBuffer::INITIAL_FILLUNIT =1024*4;         # default in CGI.pm 
     local $ENV{CONTENT_TYPE} ='multipart/form-data'     # !!! fix CGI.pm: $boundary = "--$boundary" unless CGI::user_agent('MSIE\s+3\.0[12];\s*Mac')
       if ($ENV{CONTENT_TYPE}||'') =~m|^multipart/form-data|
       && !$ENV{MOD_PERL}; # !!! beter to read boundary from input, but CGI.pm BUG: This won't work correctly under mod_perl
   # $s->pushmsg($ENV{CONTENT_TYPE});
+    no warnings;
     $s->{-cgi} =(!$s->{-fcgimax} ? eval('CGI->new') : eval('CGI::Fast->new'))
                ||CGI::Carp::croak("'CGI->new' failure: $@\n");
+    $CGI::Q =$s->{-cgi};
+    $CGI::XHTML =0;
+    if ((($ENV{SERVER_SOFTWARE}||'') =~/IIS/)
+	||  ($ENV{MOD_PERL} && !$ENV{PERL_SEND_HEADER})) {
+	$CGI::NPH =1;
+    }
 #CGI quote:
 #die "Malformed multipart POST: "
 #.'boundary: ' .$self->{BOUNDARY} ."***\n"
@@ -549,6 +557,44 @@ sub dblikesc {
 #######################
 
 
+
+sub url {	# CGI script URL
+ if ($#_ >0) {
+	local $^W =0;
+	my $v =($_[0]->{-cgi}||$_[0]->cgi)->url(@_[1..$#_]);
+	if ($v) {}
+	elsif (!($ENV{PERLXS} ||(($ENV{GATEWAY_INTERFACE}||'') =~/PerlEx/))) {}
+	elsif (($#_ >2) ||(($#_ ==2) && !$_[2])) {}
+	elsif ($_[1] eq '-relative') {
+		$v =$ENV{SCRIPT_NAME};
+		$v =$1 if $v =~/[\\\/]([^\\\/]+)$/;
+	}
+	elsif ($_[1] eq '-absolute') {
+		$v =$ENV{SCRIPT_NAME}
+	}
+	return($v)
+ }
+ return($_[0]->{-cache}->{-url})
+	if $_[0]->{-cache}->{-url};
+ local $^W =0;
+ $_[0]->{-cache}->{-url} =$_[0]->cgi->url();
+ if ($ENV{PERLXS} ||(($ENV{GATEWAY_INTERFACE}||'') =~/PerlEx/)) {
+	$_[0]->{-cache}->{-url} .=
+		(($_[0]->{-cache}->{-url} =~/\/$/) ||($ENV{SCRIPT_NAME} =~/^\//) ? '' : '/')
+		.$ENV{SCRIPT_NAME}
+		if ($_[0]->{-cache}->{-url} !~/\w\/\w/) && $ENV{SCRIPT_NAME};
+ }
+ $_[0]->{-cache}->{-url}
+}
+
+
+sub url_form {	# form url	for start_form
+	$_[0]->url
+	# $_[0]->url(-absolute=>1,-path=>1)
+	# $_[0]->cgi->self_url()
+}
+
+
 sub qpath {   # Query (script) path
  defined($_[0]->{-qpath}) ||($_[0]->{-qpath} =$ENV{SCRIPT_FILENAME} ||$ENV{PATH_TRANSLATED}); 
  (!defined($_[1]) ? $_[0]->{-qpath} : $_[0]->{-qpath} .'/' .$_[1])
@@ -556,7 +602,7 @@ sub qpath {   # Query (script) path
 
 
 sub qurl  {   # Query (script) URL
- defined($_[0]->{-qurl}) ||($_[0]->{-qurl} =$_[0]->{-cgi}->url);
+ defined($_[0]->{-qurl}) ||($_[0]->{-qurl} =$_[0]->url);
  (!defined($_[1]) || $_[1] eq '' ? $_[0]->{-qurl} : ($_[0]->{-qurl} .'/')) 
 .(scalar(@_) >1 ? $_[0]->htmlurl(@_[1..$#_]) :'')
 }
@@ -629,7 +675,7 @@ sub spath {   # Site Path
 sub surl {    # Site URL
  ($_[0]->{-surl} 
   || ($_[0]->{-surl} = 
-      $_[0]->{-cgi}->url() =~/^([^\/]+:\/\/[^\/]+)/ ? $1 : $_[0]->{-cgi}->url()))
+      $_[0]->url() =~/^([^\/]+:\/\/[^\/]+)/ ? $1 : $_[0]->url()))
  . ((!defined($_[1]) || $_[1] eq '' ? '' : '/') 
  . (scalar(@_) >1 ? $_[0]->htmlurl(@_[1..$#_]) :''));
 }
@@ -1016,9 +1062,20 @@ sub ugroups { # User groups [user name]
 		}
 		$r =$ga;
 	}
-	use locale;
-	$r =[sort {lc($a) cmp lc($b)} @$r];
-	no locale;
+	if ($_[0]->{-ugrpadd}) {
+		local $_ =$r;
+		my $ugadd=ref($s->{-ugrpadd}) eq 'CODE' ? &{$s->{-ugrpadd}}(@_) : $s->{-ugrpadd};
+		foreach my $e (	  ref($ugadd) eq 'ARRAY'
+				? @{$ugadd}
+				: ref($ugadd) eq 'HASH'
+				? keys(%$ugadd)
+				: $ugadd){
+			push @$r, $e if !grep /^\Q$e\E$/i, @$r
+		}
+	}
+	{ use locale;
+	  $r =[sort {lc($a) cmp lc($b)} @$r];
+	}
 	$s->{-cache}->{-ugroups} =$r 
 		if !$_[1]
 		|| (lc($_[0]->useron)	eq lc($_[1]))
@@ -1047,6 +1104,32 @@ sub uglist {  # User & Group List
  my $r =
      ref($s->{-uglist}) eq 'CODE' ? &{$s->{-uglist}}($s,$o,@_)
                                   : $s->uauth->uglist($o,@_);
+ if ($s->{-ugrpadd}) {
+	local $_ =$r;
+	my $ugadd=ref($s->{-ugrpadd}) eq 'CODE' ? &{$s->{-ugrpadd}}(@_) : $s->{-ugrpadd};
+	if ((ref($r) eq 'HASH')
+	&&  (ref($ugadd) eq 'HASH')) {
+		foreach my $e (keys(%$ugadd)) {
+			$r->{$e} =$ugadd->{$e} if !$r->{$e}
+		}
+	}
+	else {
+		foreach my $e (	  ref($ugadd) eq 'ARRAY'
+				? @{$ugadd}
+				: ref($ugadd) eq 'HASH'
+				? keys(%$ugadd)
+				: $ugadd){
+			if (ref($r) eq 'HASH') {
+				$r->{$e} =$e if !$r->{$e}
+			}
+			else {
+				push @$r, $e if !grep /^\Q$e\E$/i, @$r
+			}
+		}
+	}
+ }
+ $r =do{use locale; [sort {lc($a) cmp lc($b)} @$r]} if ref($r) eq 'ARRAY';
+
  if ($s->{-ugrpcnv}) {
     local $_;
     if (ref($r) eq 'ARRAY') {
@@ -1090,30 +1173,41 @@ sub unamesun {# User Names Unique list
 
 sub userauth {# User Authenticate
  my $s =shift;
+ $s->{-w32IISdpsn} =($ENV{SERVER_SOFTWARE}||'') !~/IIS/ 
+	? 0
+	: ($s->{-login}||'') =~/\/$/i
+	? 2
+	: 0
+	if !defined($s->{-w32IISdpsn});
  ref($s->{-userauth}) eq 'CODE'    ? &{$s->{-userauth}}($s,@_)
  : ref($s->{-userauth}) eq 'ARRAY' ? $s->uauth->auth($s->{-userauth},@_)
  : $s->{-userauth}                 ? $s->uauth->auth([$s->{-userauth}],@_)
  : $s->uauth->auth(@_);
- $s->user
+ $s->{-cache}->{-userauth} =$s->user
 }
 
 
 
 sub userauthopt { # User Authenticate optional
  my $s =shift;
- if ($s->uguest()
+ if ($s->{-cache}->{-userauth}) {
+ }
+ elsif ($s->uguest()
   &&(defined($s->{-cgi}->param('_auth'))
   || defined($s->{-cgi}->param('_login')))) {
     $s->userauth(@_)
  }
  elsif ((($ENV{SERVER_SOFTWARE}||'') =~/IIS/)
-      &&($s->cgi->url() =~/\/_*(login|auth|a|ntlm|search|guest)\//i)) { # !!! IIS impersonation avoid
-    my $url  =$s->cgi->url();
-    $s->userauth(@_) if $url !~/\/_*(search|guest)\//i 
-		 && !$s->{-cache}->{-RevertToSelf}
-                 && !$s->uauth()->signget(); # $s->uguest
-    if (($s->qparam('_run')||'') ne 'SEARCH'
-	&& !$s->{-cache}->{-RevertToSelf}) { # see 'search' in 'upws'
+      &&($s->url() =~/\/_*(login|auth|a|ntlm|search|guest)\//i)) { # !!! IIS impersonation avoid
+    my $url  =$s->url();
+    $s->userauth(@_)	if $url !~/\/_*(search|guest)\//i
+		##	&& !$s->{-cache}->{-RevertToSelf}	# -w32IISdpsn
+			&& (!$s->{-cache}->{-RevertToSelf} && (!defined($s->{-w32IISdpsn}) ? ($s->{-login}||'') =~/\/$/i : $s->{-w32IISdpsn} >1))
+			&& !$s->uauth()->signget(); # $s->uguest
+     if ((($s->qparam('_run')||'') ne 'SEARCH')
+	&& !$s->{-cache}->{-RevertToSelf}
+	&& (!defined($s->{-w32IISdpsn}) || ($s->{-w32IISdpsn} >1))
+	) { # see 'search' in 'upws'
        $url  =~s/\/_*(login|auth|a|ntlm|search|guest)\//\//i;
        $url .=($ENV{QUERY_STRING} ? ('?' .$ENV{QUERY_STRING}) :'');
        $s->print()->redirect(-uri=>$url, -nph=>1);
@@ -1124,6 +1218,31 @@ sub userauthopt { # User Authenticate optional
  $s->user
 }
 
+
+
+sub w32IISdpsn {# deimpersonate Microsoft IIS impersonated process
+		# 'Win32::API' used.
+		# Set 'IIS / Home Directory / Application Protection' = 'Low (IIS Process)'
+		# or see 'Administrative Tools / Component Services'.
+		# Do not use quering to 'Index Server'.
+ return(undef)	if (defined($_[0]->{-w32IISdpsn}) && !$_[0]->{-w32IISdpsn})
+		|| $_[0]->{-cache}->{-RevertToSelf}
+		|| ($^O ne 'MSWin32')
+		|| !(($ENV{SERVER_SOFTWARE}||'') =~/IIS/)
+		|| $ENV{'FCGI_SERVER_VERSION'};
+ $_[0]->user();
+ my $o =eval('use Win32::API; new Win32::API("advapi32.dll","RevertToSelf",[],"N")');
+ my $l =eval{Win32::LoginName()}||'';
+ if ($o && $o->Call() && ($l ne (eval{Win32::LoginName()} ||''))) {
+	$_[0]->{-cache}->{-RevertToSelf} =(Win32::LoginName()||'?');
+	$_[1] && $_[0]->{-debug}
+	&& $_[0]->pushmsg('w32IISdpsn(' .(defined($_[0]->{-w32IISdpsn}) ? $_[0]->{-w32IISdpsn} : 'undef') .')' .($_[0]->{-debug} >2 ? ' '. $_[0]->{-cache}->{-RevertToSelf} : ''))
+ }
+ else {
+	return $_[0]->die($_[0]->lng(0, 'w32IISdpsn') .": Win32::API('RevertToSelf') -> " .join('; ', map {$_ ? $_ : ()} $@,$!,$^E))
+ }
+ 1
+}
 
 
 #######################
@@ -1203,15 +1322,17 @@ sub htmlstart {
       if (!exists($p{$k})) {$p{$k} =$s->{-htmlstart}->{$k}}
     }
  }
- $p{-style} =
+ $p{-style} ={code=>
 	".Form, .List, .Help, .MenuArea, .FooterArea {margin-top:0px; font-size: 8pt; font-family: Verdana, Helvetica, Arial, sans-serif; }\n"
 	#."a:link.ListTable {font-weight: bold}\n"
 	.".MenuButton {background-color: buttonface; color: black; text-decoration: none; font-size: 7pt;}\n"
 	#."td.MenuButton {background-color: activeborder;}\n"
 	#.".MenuArea {background-color: blue; color: white;}"
 	#.".MenuButton {background-color: blue; color: white; text-decoration: none; font-size: 7pt;}\n"
-	.".PaneLeft, .PaneForm, .PaneList {margin-top:0px; font-size: 8pt; font-family: Verdana, Helvetica, Arial, sans-serif; }"
-	if !exists($p{-style});
+	.".PaneLeft, .PaneForm, .PaneList {margin-top:0px; font-size: 8pt; font-family: Verdana, Helvetica, Arial, sans-serif; }\n"
+	."td.ListTable {border-style: inset; border-bottom-width: 1px; border-top-width: 0px; border-left-width: 0px; border-right-width: 0px; padding-top: 0;}\n"
+	."th.ListTable {border-style: inset; border-bottom-width: 1px; border-top-width: 0px; border-left-width: 0px; border-right-width: 0px;}\n"
+	} if !exists($p{-style});
  $s->{-debug} && $s->{-debug} >2
  ? $s->{-cgi}->start_html(%p)
   .("\n<!-- " .$s->{-cgi}->escapeHTML($s->microenv) ." -->\n")
@@ -1242,8 +1363,14 @@ sub htpfstart {
  my $s =shift;
  $s->htpgstart($_[0],$_[1]) ."\n" 
  .((($ENV{HTTP_USER_AGENT} ||'') =~m{^[^/]+/(\d)} ? $1 >=3 : 0)
-  ? $s->{-cgi}->start_multipart_form($_[2]||{-action=>$s->{-cgi}->url(-absolute=>1,-path=>1), -acceptcharset=>$s->{-httpheader} ?$s->{-httpheader}->{-charset} :undef})
-  : $s->{-cgi}->start_form($_[2]||{-action=>$s->{-cgi}->url(-absolute=>1,-path=>1), -acceptcharset=>$s->{-httpheader} ?$s->{-httpheader}->{-charset} :undef})
+  ? $s->{-cgi}->start_multipart_form({-action=>$s->url_form()
+		, -acceptcharset=>$s->{-httpheader} ?$s->{-httpheader}->{-charset} :undef
+		, $_[2] ? %{$_[2]} : ()
+		})
+  : $s->{-cgi}->start_form({-action=>$s->url_form()
+		, -acceptcharset=>$s->{-httpheader} ?$s->{-httpheader}->{-charset} :undef}
+		, $_[2] ? %{$_[2]} : ()
+		)
   ) ."\n"
 }
 
@@ -1284,7 +1411,7 @@ sub urlescape {
 
 
 sub htmlurl { # Create URL from call string and parameters
- return($_[0]->{-cgi}->url .($ENV{QUERY_STRING} ? '?' .$ENV{QUERY_STRING} : '')) if scalar(@_) <2;
+ return($_[0]->url .($ENV{QUERY_STRING} ? '?' .$ENV{QUERY_STRING} : '')) if scalar(@_) <2;
  my $rsp = $_[1]; # do not escape at all?!!!
     $rsp ='' if !defined($rsp);
  chop $rsp if $rsp ne '' && substr($rsp, length($rsp) -1, 0) eq '/';
@@ -1404,9 +1531,18 @@ sub htpfstart {
  $_[0]->htpgstart($_[1],$_[2]);
  $_[0]->[0]->print("\n" 
  .((($ENV{HTTP_USER_AGENT} ||'') =~m{^[^/]+/(\d)} ? $1 >=3 : 0)
-  ? $_[0]->[0]->{-cgi}->start_multipart_form($_[3]||{-action=>$_[0]->[0]->{-cgi}->url(-absolute=>1,-path=>1), -acceptcharset=>$_[0]->[0]->{-httpheader} ?$_[0]->[0]->{-httpheader}->{-charset} :undef})
-  : $_[0]->[0]->{-cgi}->start_form($_[3]||{-action=>$_[0]->[0]->{-cgi}->url(-absolute=>1,-path=>1), -acceptcharset=>$_[0]->[0]->{-httpheader} ?$_[0]->[0]->{-httpheader}->{-charset} :undef})
+  ? $_[0]->[0]->{-cgi}->start_multipart_form({-action=>$_[0]->[0]->url_form()
+		, -acceptcharset=>$_[0]->[0]->{-httpheader} ?$_[0]->[0]->{-httpheader}->{-charset} :undef
+		, $_[3] ? %{$_[3]} : ()})
+  : $_[0]->[0]->{-cgi}->start_form({-action=>$_[0]->[0]->url_form()
+		,-acceptcharset=>$_[0]->[0]->{-httpheader} ?$_[0]->[0]->{-httpheader}->{-charset} :undef
+		, $_[3] ? %{$_[3]} : ()})
  ) ."\n")
+}
+
+
+sub br {
+ $_[0]->[0]->print('<br />')
 }
 
 
