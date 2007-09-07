@@ -13,7 +13,7 @@ use CGI::Carp qw(fatalsToBrowser warningsToBrowser);
 
 
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $AUTOLOAD);
-$VERSION = '0.61';
+$VERSION = '0.62';
 
 use vars qw($SELF);
 
@@ -1256,7 +1256,7 @@ sub oscmd {     # OS Command with logging
  my $o;
  $s->pushmsg(join(' ',@_)) if $opt !~/h/;
  local(*RDRFH, *WTRFH);
- if ($^X =~/perlis\.dll$/i) { # !!! ISAPI IIS problem
+ if ($^X =~/(?:perlis|perlex)\d*\.dll$/i) { # !!! ISAPI IIS problem
     if ($sub) {
        open(WTRFH, '|' .join(' ',@_)) && defined(*WTRFH) || $s->die(join(' ',@_) .' -> ' .$!);
      # open(WTRFH, '|' ,@_) && defined(*WTRFH) || $s->die(join(' ',@_) .' -> ' .$!);

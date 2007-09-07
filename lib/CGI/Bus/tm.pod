@@ -173,6 +173,13 @@ implemented inside C<eval> call along with C<htmlres> and rollback.
 Access control description hash ref. RESERVED
 
 
+=item -banner
+
+Banner to place above the toolbar. 
+May be sub{}(self) or HTML.
+See also <-logo>
+
+
 =item -cmd
 
 Current transaction command cached by C<cmd>
@@ -306,7 +313,7 @@ Margin of the number of the rows returned by C<-lst> operation
 
 Logotype to place at the left of the toolbar. 
 May be image URL or HTML.
-See also C<-tbarl>
+See also C<-banner>, C<-tbarl>
 
 
 =item -opflg
@@ -617,6 +624,11 @@ C<qparam> call with C<-pxsw> prefixed param names.
 =head1 VERSION
 
 =over
+
+
+=head2 23/08/2007
+
+New C<-banner>.
 
 
 =head2 16-17/11/2004

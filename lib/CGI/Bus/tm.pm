@@ -706,6 +706,10 @@ sub htmlbar {  # Transaction batton bar html
 	 :('<script for="window" event="onload">{'
 	  ."var w=window.document.getElementsByTagName('table')[0]||window.document.getElementsByTagName('table')[0];"
 	  ."if(w){w.focus()}}</script>\n"));
+ if ($s->{-banner}) {
+	my $v =ref($s->{-banner}) ? &{$s->{-banner}}($s) : $s->{-banner};
+	$r =($v ? "<div class=\"MenuArea MenuBanner\">$v</div>\n" : '') .$r;
+ }
 #$r .='<hr />';
  $r
 }

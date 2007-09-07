@@ -1177,6 +1177,18 @@ See also C<Error and Message processing>, L<CGI::Carp|CGI/Carp>
 =over
 
 
+=head2 07/09/2007
+
+Version 0.62, improvement release.
+
+
+=head2 23/08/2007
+
+New L<CGI::Bus::tm -banner|CGI/Bus/tm>.
+
+Corrected 'xcopy' command call under PerlEx.
+
+
 =head2 29/06/2007
 
 Version 0.61, improvement release.
